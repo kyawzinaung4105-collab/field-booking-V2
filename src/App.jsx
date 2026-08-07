@@ -548,8 +548,7 @@ export default function FieldBookingApp() {
         <div className="bg-white rounded-2xl shadow-xl max-w-md w-full p-8">
           <div className="text-center mb-6">
             <span className="text-3xl">⚽</span>
-            {/* "App" စာသားကို ဖြုတ်ထားပါသည်[cite: 3] */}
-            <h1 className="text-2xl font-bold text-gray-800 mt-1">Field Booking</h1>
+            <h1 className="text-2xl font-bold text-gray-800 mt-1">Field Booking App</h1>
           </div>
 
           <div className="flex bg-gray-100 p-1 rounded-xl mb-6">
@@ -645,8 +644,7 @@ export default function FieldBookingApp() {
         <div className="max-w-7xl mx-auto px-4 py-3 flex justify-between items-center">
           <div className="flex items-center space-x-2 cursor-pointer" onClick={() => { setActiveTab('fields'); setUserSelectedField(null); setSelectedSubField(null); }}>
             <span className="text-2xl">⚽</span>
-            {/* "App" စာသားကို ဖြုတ်ထားပါသည်[cite: 3] */}
-            <h1 className="text-xl font-bold">Field Booking</h1>
+            <h1 className="text-xl font-bold">Field Booking App</h1>
           </div>
           <div className="flex items-center space-x-3">
             {currentUser.role === 'user' && (
