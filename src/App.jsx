@@ -45,7 +45,6 @@ const generateSingleTimeSlots = (openHour, closeHour) => {
 };
 
 export default function FieldBookingApp() {
-  // Session Storage မှ currentUser နှင့် activeTab ကို ပြန်ဖတ်ရန်
   const [currentUser, setCurrentUser] = useState(() => {
     const savedUser = sessionStorage.getItem('currentUser');
     return savedUser ? JSON.parse(savedUser) : null;
@@ -67,7 +66,6 @@ export default function FieldBookingApp() {
   const [smsNotifications, setSmsNotifications] = useState([]);
   const [showNotiDropdown, setShowNotiDropdown] = useState(false);
 
-  // Active Tab ကိုလည်း sessionStorage ဖြင့် ထိန်းသိမ်းရန်
   const [activeTab, setActiveTab] = useState(() => {
     return sessionStorage.getItem('activeTab') || 'fields';
   }); 
@@ -75,7 +73,6 @@ export default function FieldBookingApp() {
   const [userSelectedField, setUserSelectedField] = useState(null);
   const [selectedSubField, setSelectedSubField] = useState(null);
   
-  // 🛠️ [ပြင်ဆင်ချက် 1] Current Date (ယနေ့ရက်စွဲ) ကို အလိုအလျောက် ယူသုံးရန်
   const [userCheckDate, setUserCheckDate] = useState(() => {
     const today = new Date();
     const yyyy = today.getFullYear();
@@ -123,7 +120,6 @@ export default function FieldBookingApp() {
   const [adminTab, setAdminTab] = useState('pending');
   const [ownerActiveTab, setOwnerActiveTab] = useState('pending');
 
-  // currentUser သို့မဟုတ် activeTab ပြောင်းလဲတိုင်း sessionStorage ထဲ သိမ်းရန်
   useEffect(() => {
     if (currentUser) {
       sessionStorage.setItem('currentUser', JSON.stringify(currentUser));
@@ -339,11 +335,9 @@ export default function FieldBookingApp() {
     return !!bookingFound;
   };
 
-  // 🛠️ [ပြင်ဆင်ချက် 2] အတည်မပြုရသေးသော Pending Booking Slot ဟုတ်မဟုတ် စစ်ဆေးရန် Helper Function
   const getSlotStatusType = (hour) => {
     if (checkIsExpired(hour)) return 'expired';
     
-    // Approved booking ရှိမရှိ စစ်ဆေးရန်
     const approvedBooking = bookings.find(
       b => b.subFieldId === selectedSubField?.id && 
            b.date === userCheckDate && 
@@ -352,7 +346,6 @@ export default function FieldBookingApp() {
     );
     if (approvedBooking) return 'booked';
 
-    // Pending (approve မဖြစ်သေးသော) booking ရှိမရှိ စစ်ဆေးရန်
     const pendingBooking = bookings.find(
       b => b.subFieldId === selectedSubField?.id && 
            b.date === userCheckDate && 
@@ -1398,7 +1391,7 @@ export default function FieldBookingApp() {
               </div>
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
                 {generateSingleTimeSlots(userSelectedField.openHour, userSelectedField.closeHour).map(slot => {
-                  const statusType = getSlotStatusType(slot.hour); // 'expired', 'booked', 'pending', 'available'
+                  const statusType = getSlotStatusType(slot.hour);
                   const isSelected = selectedStartSlot !== '' && selectedEndSlot !== '' && slot.hour >= parseInt(selectedStartSlot) && slot.hour < parseInt(selectedEndSlot);
 
                   let badgeBg = "bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100";
@@ -1411,7 +1404,6 @@ export default function FieldBookingApp() {
                     badgeBg = "bg-red-50 text-red-600 border-red-200 cursor-not-allowed";
                     statusText = "Already Booked";
                   } else if (statusType === 'pending') {
-                    // 🛠️ [ပြင်ဆင်ချက် 2] Pending Status အတွက် အဝါရောင် UI Styling
                     badgeBg = "bg-amber-50 text-amber-700 border-amber-300 cursor-not-allowed";
                     statusText = "Pending";
                   } else if (isSelected) {
