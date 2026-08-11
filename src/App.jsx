@@ -196,6 +196,19 @@ export default function FieldBookingApp() {
     };
   }, []);
 
+  // Admin မှ disable လုပ်လိုက်ပါက လက်ရှိဖွင့်ထားသော field သည် active မဟုတ်တော့လျှင် မျက်နှာပြင်မှ ချက်ချင်း ဖယ်ရှားရန်
+  useEffect(() => {
+    if (userSelectedField) {
+      const currentFieldInState = fields.find(f => f.id === userSelectedField.id);
+      if (!currentFieldInState || (currentFieldInState.ownerStatus && currentFieldInState.ownerStatus.trim().toLowerCase() === 'disabled')) {
+        setUserSelectedField(null);
+        setSelectedSubField(null);
+        sessionStorage.removeItem('userSelectedField');
+        sessionStorage.removeItem('selectedSubField');
+      }
+    }
+  }, [fields, userSelectedField]);
+
   const triggerSmsNotification = async (message) => {
     const newNoti = {
       message: message,
@@ -1317,7 +1330,7 @@ export default function FieldBookingApp() {
               <div>
                 <p className="text-xs text-gray-600 mb-4">ဖုန်းဖြင့်ဖြစ်စေ၊ လူကိုယ်တိုင်ဖြစ်စေ လာရောက်ဘိုကင်တင်သူများအတွက် Owner ကိုယ်တိုင် ဤနေရာမှ တိုက်ရိုက် Booking တင်နိုင်ပါသည်။</p>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  {fields.filter(f => f.ownerEmail === currentUser.email).map(f => (
+                  {fields.filter(f => f.ownerEmail === currentUser.email && (!f.ownerStatus || f.ownerStatus.toLowerCase() !== 'disabled')).map(f => (
                     <div key={f.id} className="border rounded-xl p-4 bg-gray-50 flex flex-col justify-between">
                       <div>
                         <h4 className="font-bold text-base text-gray-800">{f.name}</h4>
