@@ -45,7 +45,12 @@ const generateSingleTimeSlots = (openHour, closeHour) => {
 };
 
 export default function FieldBookingApp() {
-  const [currentUser, setCurrentUser] = useState(null); 
+  // Session Storage မှ currentUser နှင့် activeTab ကို ပြန်ဖတ်ရန်
+  const [currentUser, setCurrentUser] = useState(() => {
+    const savedUser = sessionStorage.getItem('currentUser');
+    return savedUser ? JSON.parse(savedUser) : null;
+  }); 
+
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   
@@ -61,6 +66,67 @@ export default function FieldBookingApp() {
   const [bookings, setBookings] = useState([]);
   const [smsNotifications, setSmsNotifications] = useState([]);
   const [showNotiDropdown, setShowNotiDropdown] = useState(false);
+
+  // Active Tab ကိုလည်း sessionStorage ဖြင့် ထိန်းသိမ်းရန်
+  const [activeTab, setActiveTab] = useState(() => {
+    return sessionStorage.getItem('activeTab') || 'fields';
+  }); 
+
+  const [userSelectedField, setUserSelectedField] = useState(null);
+  const [selectedSubField, setSelectedSubField] = useState(null);
+  const [userCheckDate, setUserCheckDate] = useState('2026-08-10');
+  
+  const [selectedStartSlot, setSelectedStartSlot] = useState('');
+  const [selectedEndSlot, setSelectedEndSlot] = useState('');
+  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState('');
+  const [paymentScreenshot, setPaymentScreenshot] = useState(null);
+  const [transactionLast5, setTransactionLast5] = useState('');
+
+  const [ownerCustomerName, setOwnerCustomerName] = useState('');
+  const [ownerCustomerPhone, setOwnerCustomerPhone] = useState('');
+
+  const [newFieldName, setNewFieldName] = useState('');
+  const [newFieldLocation, setNewFieldLocation] = useState('');
+  const [newFieldAddress, setNewFieldAddress] = useState('');
+  const [newFieldPhone, setNewFieldPhone] = useState('');
+  const [newFieldOpenHour, setNewFieldOpenHour] = useState(6);
+  const [newFieldCloseHour, setNewFieldCloseHour] = useState(23);
+  
+  const [newOwnerEmail, setNewOwnerEmail] = useState('');
+  const [newOwnerPassword, setNewOwnerPassword] = useState('');
+
+  const [newSubFieldName, setNewSubFieldName] = useState('');
+  const [newSubFieldPrice, setNewSubFieldPrice] = useState('');
+  const [newSubFieldOpenHour, setNewSubFieldOpenHour] = useState(6);
+  const [newSubFieldCloseHour, setNewSubFieldCloseHour] = useState(23);
+  const [newSubFieldStatus, setNewSubFieldStatus] = useState('Active');
+
+  const [ownerSubFields, setOwnerSubFields] = useState([]);
+
+  const [editingFieldId, setEditingFieldId] = useState(null);
+  const [editFieldName, setEditFieldName] = useState('');
+  const [editFieldLocation, setEditFieldLocation] = useState('');
+  const [editFieldAddress, setEditFieldAddress] = useState('');
+  const [editFieldPhone, setEditFieldPhone] = useState('');
+  const [editFieldOpenHour, setEditFieldOpenHour] = useState(6);
+  const [editFieldCloseHour, setEditFieldCloseHour] = useState(23);
+  const [editSubFields, setEditSubFields] = useState([]);
+
+  const [adminTab, setAdminTab] = useState('pending');
+  const [ownerActiveTab, setOwnerActiveTab] = useState('pending');
+
+  // currentUser သို့မဟုတ် activeTab ပြောင်းလဲတိုင်း sessionStorage ထဲ သိမ်းရန်
+  useEffect(() => {
+    if (currentUser) {
+      sessionStorage.setItem('currentUser', JSON.stringify(currentUser));
+    } else {
+      sessionStorage.removeItem('currentUser');
+    }
+  }, [currentUser]);
+
+  useEffect(() => {
+    sessionStorage.setItem('activeTab', activeTab);
+  }, [activeTab]);
 
   useEffect(() => {
     const fetchDataFromFirebase = async () => {
@@ -107,50 +173,6 @@ export default function FieldBookingApp() {
       console.error("Error adding notification: ", e);
     }
   };
-  
-  const [activeTab, setActiveTab] = useState('fields'); 
-  const [userSelectedField, setUserSelectedField] = useState(null);
-  const [selectedSubField, setSelectedSubField] = useState(null);
-  const [userCheckDate, setUserCheckDate] = useState('2026-08-10');
-  
-  const [selectedStartSlot, setSelectedStartSlot] = useState('');
-  const [selectedEndSlot, setSelectedEndSlot] = useState('');
-  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState('');
-  const [paymentScreenshot, setPaymentScreenshot] = useState(null);
-  const [transactionLast5, setTransactionLast5] = useState('');
-
-  const [ownerCustomerName, setOwnerCustomerName] = useState('');
-  const [ownerCustomerPhone, setOwnerCustomerPhone] = useState('');
-
-  const [newFieldName, setNewFieldName] = useState('');
-  const [newFieldLocation, setNewFieldLocation] = useState('');
-  const [newFieldAddress, setNewFieldAddress] = useState('');
-  const [newFieldPhone, setNewFieldPhone] = useState('');
-  const [newFieldOpenHour, setNewFieldOpenHour] = useState(6);
-  const [newFieldCloseHour, setNewFieldCloseHour] = useState(23);
-  
-  const [newOwnerEmail, setNewOwnerEmail] = useState('');
-  const [newOwnerPassword, setNewOwnerPassword] = useState('');
-
-  const [newSubFieldName, setNewSubFieldName] = useState('');
-  const [newSubFieldPrice, setNewSubFieldPrice] = useState('');
-  const [newSubFieldOpenHour, setNewSubFieldOpenHour] = useState(6);
-  const [newSubFieldCloseHour, setNewSubFieldCloseHour] = useState(23);
-  const [newSubFieldStatus, setNewSubFieldStatus] = useState('Active');
-
-  const [ownerSubFields, setOwnerSubFields] = useState([]);
-
-  const [editingFieldId, setEditingFieldId] = useState(null);
-  const [editFieldName, setEditFieldName] = useState('');
-  const [editFieldLocation, setEditFieldLocation] = useState('');
-  const [editFieldAddress, setEditFieldAddress] = useState('');
-  const [editFieldPhone, setEditFieldPhone] = useState('');
-  const [editFieldOpenHour, setEditFieldOpenHour] = useState(6);
-  const [editFieldCloseHour, setEditFieldCloseHour] = useState(23);
-  const [editSubFields, setEditSubFields] = useState([]);
-
-  const [adminTab, setAdminTab] = useState('pending');
-  const [ownerActiveTab, setOwnerActiveTab] = useState('pending');
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -281,6 +303,8 @@ export default function FieldBookingApp() {
     setUserSelectedField(null);
     setSelectedSubField(null);
     setActiveTab('fields');
+    sessionStorage.removeItem('currentUser');
+    sessionStorage.removeItem('activeTab');
   };
 
   const format12Hour = (h24) => {
@@ -1106,7 +1130,7 @@ export default function FieldBookingApp() {
 
             {ownerActiveTab === 'pending' && (
               <div>
-                <p className="text-xs text-gray-600 mb-4">ဖုန်းဖြင့်ဖြစ်စေ၊ လူကိုယ်တိုင်ဖြစ်စေ လာရောက်ဘိုကင်တင်သူများအတွက် Owner ကိုယ်တိုင် ဤနေရာမှ တိုက်ရိုက် Booking တင်နိုင်ပါသည်။</p>
+                <p className="text-xs text-gray-600 mb-4">ဖုန်းဖြင့်ဖြစ်စေ၊ လူကိုယ်တိုင်ဖြစ်စေ လာရောက်ဘိုកင်တင်သူများအတွက် Owner ကိုယ်တိုင် ဤနေရာမှ တိုက်ရိုက် Booking တင်နိုင်ပါသည်။</p>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   {fields.filter(f => f.ownerEmail === currentUser.email).map(f => (
                     <div key={f.id} className="border rounded-xl p-4 bg-gray-50 flex flex-col justify-between">
