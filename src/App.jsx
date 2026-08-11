@@ -68,6 +68,9 @@ export default function FieldBookingApp() {
 
   // Notification Filter state for Admin Page
   const [notiFilterType, setNotiFilterType] = useState('all');
+  
+  // Notification Filter state for Owner Page (Booking Pending, New Booking, Booking Reject သာပြရန်)
+  const [ownerNotiFilterType, setOwnerNotiFilterType] = useState('all');
 
   const [activeTab, setActiveTab] = useState(() => {
     return sessionStorage.getItem('activeTab') || 'fields';
@@ -132,7 +135,6 @@ export default function FieldBookingApp() {
   const [editFieldWave, setEditFieldWave] = useState('');
   const [editSubFields, setEditSubFields] = useState([]);
 
-  // Owner ဘက်မှ မိမိကွင်းများကို ပြင်ဆင်ရန် state များ
   const [editingOwnerFieldId, setEditingOwnerFieldId] = useState(null);
   const [ownerEditFieldName, setOwnerEditFieldName] = useState('');
   const [ownerEditFieldLocation, setOwnerEditFieldLocation] = useState('');
@@ -230,10 +232,11 @@ export default function FieldBookingApp() {
     }
   }, [fields]);
 
-  const triggerSmsNotification = async (message, type = 'general') => {
+  const triggerSmsNotification = async (message, type = 'general', subType = '') => {
     const newNoti = {
       message: message,
-      type: type, // 'booking', 'owner_update', 'miu', etc.
+      type: type, // 'booking', 'owner_update', etc.
+      subType: subType, // 'new_booking', 'booking_pending', 'booking_reject'
       time: new Date().toLocaleTimeString(),
       date: new Date().toLocaleDateString(),
       read: false
@@ -588,7 +591,8 @@ export default function FieldBookingApp() {
       if (currentUser.role === 'owner') {
         await triggerSmsNotification(
           `🔔 [Direct Booking] Owner မှ ${targetFieldObj?.name} (${selectedSubField.name}) အတွက် Direct Booking တင်ပြီးပါပြီ။`,
-          'booking'
+          'booking',
+          'new_booking'
         );
         alert('Owner ၏ Manual Booking တင်ခြင်း အောင်မြင်ပြီး အတည်ပြုပြီးသား ဖြစ်သွားပါပြီ။');
         setOwnerCustomerName('');
@@ -597,7 +601,8 @@ export default function FieldBookingApp() {
       } else {
         await triggerSmsNotification(
           `🔔 [New Booking] ${currentUser.name} ထံမှ ${targetFieldObj?.name} (${selectedSubField.name}) အတွက် Booking အသစ် ဝင်ရောက်လာပါသည်။`,
-          'booking'
+          'booking',
+          'new_booking'
         );
         alert('Booking တင်ခြင်း အောင်မြင်ပါသည်။ Admin အတည်ပြုရန် စောင့်ဆိုင်းပါ။');
         setActiveTab('history');
@@ -720,7 +725,6 @@ export default function FieldBookingApp() {
     }
   };
 
-  // Owner ဘက်မှ ကွင်းများကို ပြင်ဆင်ခြင်း (KPay/Wave No ပါ ပြင်နိုင်ပြီး Admin သို့ Noti ဝင်မည်)
   const handleStartEditOwnerField = (field) => {
     setEditingOwnerFieldId(field.id);
     setOwnerEditFieldName(field.name);
@@ -758,10 +762,10 @@ export default function FieldBookingApp() {
     try {
       await updateDoc(doc(db, "fields", editingOwnerFieldId), updatedData);
       
-      // Admin ဘက်မှာ Noti ကျန်ခဲ့စေရန် Trigger လုပ်ခြင်း
       await triggerSmsNotification(
         `🔔 [Owner Update] ${currentUser.name} (${ownerEditFieldName}) မှ KPay/Wave နံပါတ် သို့မဟုတ် ကွင်းအချက်အလက်များကို ပြင်ဆင်သွားပါသည်။`,
-        'owner_update'
+        'owner_update',
+        'owner_update_info'
       );
 
       alert('ကွင်းအချက်အလက် ပြင်ဆင်မှု အောင်မြင်ပါသည်။ Admin ထံသို့ အကြောင်းကြားပြီးပါပြီ။');
@@ -794,22 +798,36 @@ export default function FieldBookingApp() {
 
   const handleStatusChangeWithConfirm = async (bookingId, currentStatus, desiredStatus) => {
     let confirmMsg = "";
+    let subType = '';
     if (currentStatus === 'Approved' && desiredStatus === 'Rejected') {
       confirmMsg = "ဒီ Booking ကို Reject လုပ်မှာ သေချာပါသလား?";
+      subType = 'booking_reject';
     } else if (currentStatus === 'Rejected' && desiredStatus === 'Approved') {
       confirmMsg = "ဒီ Booking ကို Approve ပြန်လုပ်မှာ သေချာပါသလား?";
+      subType = 'new_booking';
     } else if (currentStatus === 'Pending' && desiredStatus === 'Rejected') {
       confirmMsg = "ဒီ Booking ကို Reject လုပ်မှာ သေချာပါသလား?";
+      subType = 'booking_reject';
     } else if (currentStatus === 'Pending' && desiredStatus === 'Approved') {
       confirmMsg = "ဒီ Booking ကို Approve လုပ်မှာ သေချာပါသလား?";
+      subType = 'new_booking';
     } else {
       confirmMsg = `Status ကို ${desiredStatus} သို့ ပြောင်းရန် သေချာပါသလား?`;
+      subType = desiredStatus === 'Rejected' ? 'booking_reject' : 'new_booking';
     }
 
     if (window.confirm(confirmMsg)) {
       const targetBooking = bookings.find(b => b.id === bookingId);
       if (targetBooking) {
-        await triggerSmsNotification(`🔔 Booking Status Update: ${targetBooking.subFieldName} (${targetBooking.date}) - ${desiredStatus}`, 'booking');
+        let notiMsg = '';
+        if (desiredStatus === 'Rejected') {
+          notiMsg = `❌ [Booking Reject] ${targetBooking.subFieldName} (${targetBooking.date}) ၏ Booking ကို Reject လုပ်လိုက်ပါသည်။`;
+        } else if (desiredStatus === 'Pending') {
+          notiMsg = `⏳ [Booking Pending] ${targetBooking.subFieldName} (${targetBooking.date}) ၏ Booking ကို Pending သို့ ပြောင်းလိုက်ပါသည်။`;
+        } else {
+          notiMsg = `✅ [Booking Approved] ${targetBooking.subFieldName} (${targetBooking.date}) ၏ Booking ကို Approve လုပ်လိုက်ပါသည်။`;
+        }
+        await triggerSmsNotification(notiMsg, 'booking', subType);
       }
       await updateDoc(doc(db, "bookings", bookingId), { status: desiredStatus });
     }
@@ -1015,7 +1033,6 @@ export default function FieldBookingApp() {
               <button onClick={() => setAdminTab('manage_owners')} className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${adminTab === 'manage_owners' ? 'bg-emerald-600 text-white shadow' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}>
                 🔑 Manage Owners & Passwords
               </button>
-              {/* Noti Filter Page (MIU / Notifications Filter) */}
               <button onClick={() => setAdminTab('notifications_page')} className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${adminTab === 'notifications_page' ? 'bg-emerald-600 text-white shadow' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}>
                 🔔 Notifications & Filter Page
               </button>
@@ -1044,7 +1061,6 @@ export default function FieldBookingApp() {
               </div>
             )}
 
-            {/* Notifications Filter Page */}
             {adminTab === 'notifications_page' && (
               <div className="space-y-4">
                 <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-gray-50 p-4 rounded-xl border">
@@ -1442,12 +1458,16 @@ export default function FieldBookingApp() {
               <button onClick={() => setActiveTab('fields')} className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-bold">← ကွင်းများသို့ ပြန်ရန်</button>
             </div>
 
-            <div className="flex gap-2 mb-6">
+            <div className="flex flex-wrap gap-2 mb-6">
               <button onClick={() => setOwnerActiveTab('pending')} className={`px-4 py-2 rounded-lg text-xs font-bold ${ownerActiveTab === 'pending' ? 'bg-emerald-600 text-white' : 'bg-gray-100 text-gray-700'}`}>
                 Booking တင်ရန် (Direct Booking)
               </button>
               <button onClick={() => setOwnerActiveTab('history')} className={`px-4 py-2 rounded-lg text-xs font-bold ${ownerActiveTab === 'history' ? 'bg-emerald-600 text-white' : 'bg-gray-100 text-gray-700'}`}>
                 Booking မှတ်တမ်းများ
+              </button>
+              {/* Owner ဘက်အတွက် Booking Pending, New Booking နှင့် Booking Reject သာပြမည့် Notification Page */}
+              <button onClick={() => setOwnerActiveTab('notifications_page')} className={`px-4 py-2 rounded-lg text-xs font-bold ${ownerActiveTab === 'notifications_page' ? 'bg-emerald-600 text-white' : 'bg-gray-100 text-gray-700'}`}>
+                🔔 Notifications Page (Pending/New/Reject)
               </button>
               <button onClick={() => setOwnerActiveTab('password')} className={`px-4 py-2 rounded-lg text-xs font-bold ${ownerActiveTab === 'password' ? 'bg-emerald-600 text-white' : 'bg-gray-100 text-gray-700'}`}>
                 🔒 Password ချိန်းရန်
@@ -1456,6 +1476,76 @@ export default function FieldBookingApp() {
                 🏟️ ကွင်းနှင့် KPay/Wave နံပါတ်များ ပြင်ဆင်ရန်
               </button>
             </div>
+
+            {/* Owner Notifications Page: Booking Pending, New Booking နှင့် Booking Reject သာပြရန် */}
+            {ownerActiveTab === 'notifications_page' && (
+              <div className="space-y-4">
+                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-gray-50 p-4 rounded-xl border">
+                  <div>
+                    <h3 className="text-base font-bold text-gray-800">🔔 Owner Notifications Page</h3>
+                    <p className="text-xs text-gray-500">Booking Pending၊ New Booking နှင့် Booking Reject အချက်အလက်များကိုသာ စစ်ဆေးနိုင်ပါသည်။</p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <label className="text-xs font-bold text-gray-700">Filter:</label>
+                    <select 
+                      value={ownerNotiFilterType} 
+                      onChange={(e) => setOwnerNotiFilterType(e.target.value)}
+                      className="border rounded-lg p-2 text-xs bg-white font-bold"
+                    >
+                      <option value="all">အားလုံးပြရန် (All - New, Pending, Reject)</option>
+                      <option value="new_booking">New Booking များ</option>
+                      <option value="booking_pending">Booking Pending များ</option>
+                      <option value="booking_reject">Booking Reject များ</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="space-y-3">
+                  {smsNotifications
+                    .filter(n => {
+                      // Booking နှင့်သက်ဆိုင်သော Noti များသာ (owner_update ကို ဖယ်ထုတ်သည်)
+                      const isBookingRelated = n.type === 'booking' || n.subType === 'new_booking' || n.subType === 'booking_pending' || n.subType === 'booking_reject';
+                      if (!isBookingRelated) return false;
+
+                      if (ownerNotiFilterType === 'all') {
+                        // Booking Pending, New Booking, Booking Reject သာပြရန်
+                        return n.subType === 'new_booking' || n.subType === 'booking_pending' || n.subType === 'booking_reject' || !n.subType;
+                      }
+                      return n.subType === ownerNotiFilterType;
+                    })
+                    .length > 0 ? (
+                      smsNotifications
+                        .filter(n => {
+                          const isBookingRelated = n.type === 'booking' || n.subType === 'new_booking' || n.subType === 'booking_pending' || n.subType === 'booking_reject';
+                          if (!isBookingRelated) return false;
+
+                          if (ownerNotiFilterType === 'all') {
+                            return n.subType === 'new_booking' || n.subType === 'booking_pending' || n.subType === 'booking_reject' || !n.subType;
+                          }
+                          return n.subType === ownerNotiFilterType;
+                        })
+                        .map(n => (
+                          <div key={n.id} className="bg-white border rounded-xl p-4 shadow-sm flex justify-between items-start">
+                            <div>
+                              <p className="text-sm font-medium text-gray-800">{n.message}</p>
+                              <div className="flex items-center gap-3 mt-2">
+                                <span className="text-xs text-gray-400 font-mono">{n.date} {n.time}</span>
+                                <span className="text-[10px] px-2 py-0.5 rounded font-bold uppercase bg-emerald-100 text-emerald-800">
+                                  {n.subType || 'booking'}
+                                </span>
+                              </div>
+                            </div>
+                            <span className={`text-xs font-bold px-2 py-1 rounded ${n.read ? 'text-gray-500 bg-gray-100' : 'text-red-600 bg-red-50'}`}>
+                              {n.read ? 'Read' : 'Unread'}
+                            </span>
+                          </div>
+                        ))
+                    ) : (
+                      <p className="text-center py-12 text-gray-500 text-sm">ရွေးချယ်ထားသော Filter နှင့် ကိုက်ညီသော Notifications များ မရှိသေးပါ။</p>
+                    )}
+                </div>
+              </div>
+            )}
 
             {ownerActiveTab === 'password' && (
               <div className="bg-gray-50 border rounded-2xl p-6 max-w-md">
@@ -2012,8 +2102,7 @@ export default function FieldBookingApp() {
                     </div>
                   </div>
                   <div className="mt-4 pt-3 border-t flex justify-between items-center">
-                    <span className="text-xs font-bold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded">ကွင်းခွဲ ({field.subFields.length}) ခု ရှိပါသည်။</span>
-                    <span className="text-xs font-bold text-blue-600">ကြည့်မည် →</span>
+                    <span className="text-xs font-bold text-emerald-600">ကွင်းအသေးစိတ်ကြည့်ရန် →</span>
                   </div>
                 </div>
               ))}
