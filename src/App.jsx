@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { db } from './firebase'; // firebase.js မှ db ကို ယူမည်
-import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, setDoc, runTransaction } from 'firebase/firestore';
+import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, setDoc, runTransaction, onSnapshot } from 'firebase/firestore';
 
 const defaultUsers = [
   { email: 'admin@gmail.com', password: 'admin123', name: 'System Admin', role: 'admin' }
@@ -70,7 +70,6 @@ export default function FieldBookingApp() {
     return sessionStorage.getItem('activeTab') || 'fields';
   }); 
 
-  // Refresh လုပ်ချိန်တွင် ရောက်နေသောနေရာ (ကွင်းနှင့် ကွင်းခွဲ) မပျောက်စေရန် sessionStorage မှ ပြန်ဖတ်မည်
   const [userSelectedField, setUserSelectedField] = useState(() => {
     const saved = sessionStorage.getItem('userSelectedField');
     return saved ? JSON.parse(saved) : null;
@@ -143,7 +142,6 @@ export default function FieldBookingApp() {
     sessionStorage.setItem('activeTab', activeTab);
   }, [activeTab]);
 
-  // userSelectedField ပြောင်းလဲတိုင်း sessionStorage တွင် သိမ်းမည်
   useEffect(() => {
     if (userSelectedField) {
       sessionStorage.setItem('userSelectedField', JSON.stringify(userSelectedField));
@@ -152,7 +150,6 @@ export default function FieldBookingApp() {
     }
   }, [userSelectedField]);
 
-  // selectedSubField ပြောင်းလဲတိုင်း sessionStorage တွင် သိမ်းမည်
   useEffect(() => {
     if (selectedSubField) {
       sessionStorage.setItem('selectedSubField', JSON.stringify(selectedSubField));
@@ -161,40 +158,42 @@ export default function FieldBookingApp() {
     }
   }, [selectedSubField]);
 
-  // userCheckDate ပြောင်းလဲတိုင်း sessionStorage တွင် သိမ်းမည်
   useEffect(() => {
     sessionStorage.setItem('userCheckDate', userCheckDate);
   }, [userCheckDate]);
 
+  // Real-time listener များဖြင့် ပြောင်းလဲမှုများကို ချက်ချင်း သိရှိစေရန် onSnapshot ကို အသုံးပြုမည်
   useEffect(() => {
-    const fetchDataFromFirebase = async () => {
-      try {
-        const usersSnap = await getDocs(collection(db, "users"));
-        if (!usersSnap.empty) {
-          setUsersList(usersSnap.docs.map(d => ({ id: d.id, ...d.data() })));
-        }
-
-        const fieldsSnap = await getDocs(collection(db, "fields"));
-        if (!fieldsSnap.empty) {
-          setFields(fieldsSnap.docs.map(d => ({ id: d.id, ...d.data() })));
-        } else {
-          for (let f of defaultFields) {
-            await setDoc(doc(db, "fields", f.id), f);
-          }
-        }
-
-        const bookingsSnap = await getDocs(collection(db, "bookings"));
-        setBookings(bookingsSnap.docs.map(d => ({ id: d.id, ...d.data() })));
-
-        const notiSnap = await getDocs(collection(db, "notifications"));
-        setSmsNotifications(notiSnap.docs.map(d => ({ id: d.id, ...d.data() })));
-
-      } catch (error) {
-        console.error("Error fetching from Firebase: ", error);
+    const unsubUsers = onSnapshot(collection(db, "users"), (snapshot) => {
+      if (!snapshot.empty) {
+        setUsersList(snapshot.docs.map(d => ({ id: d.id, ...d.data() })));
       }
-    };
+    });
 
-    fetchDataFromFirebase();
+    const unsubFields = onSnapshot(collection(db, "fields"), (snapshot) => {
+      if (!snapshot.empty) {
+        setFields(snapshot.docs.map(d => ({ id: d.id, ...d.data() })));
+      } else {
+        defaultFields.forEach(async (f) => {
+          await setDoc(doc(db, "fields", f.id), f);
+        });
+      }
+    });
+
+    const unsubBookings = onSnapshot(collection(db, "bookings"), (snapshot) => {
+      setBookings(snapshot.docs.map(d => ({ id: d.id, ...d.data() })));
+    });
+
+    const unsubNoti = onSnapshot(collection(db, "notifications"), (snapshot) => {
+      setSmsNotifications(snapshot.docs.map(d => ({ id: d.id, ...d.data() })));
+    });
+
+    return () => {
+      unsubUsers();
+      unsubFields();
+      unsubBookings();
+      unsubNoti();
+    };
   }, []);
 
   const triggerSmsNotification = async (message) => {
@@ -576,12 +575,6 @@ export default function FieldBookingApp() {
     } catch (error) {
       if (error.message === 'SLOT_ALREADY_BOOKED') {
         alert('⚠️ ဒီအချိန်ကို အခြား User တစ်ယောက်က Booking တင်ပြီးပါပြီ။\n\nအခြားအချိန်ကို ရွေးချယ်ပေးပါ။');
-        try {
-          const bookingsSnap = await getDocs(collection(db, "bookings"));
-          setBookings(bookingsSnap.docs.map(d => ({ id: d.id, ...d.data() })));
-        } catch (refreshError) {
-          console.error("Booking refresh error:", refreshError);
-        }
         return;
       }
 
@@ -681,8 +674,6 @@ export default function FieldBookingApp() {
 
     try {
       await updateDoc(doc(db, "fields", editingFieldId), updatedData);
-
-      setFields(prev => prev.map(f => f.id === editingFieldId ? { ...f, ...updatedData } : f));
       alert('ကွင်းအချက်အလက် ပြင်ဆင်မှု အောင်မြင်ပါသည်။');
       setEditingFieldId(null);
     } catch (error) {
@@ -698,14 +689,6 @@ export default function FieldBookingApp() {
         ownerPassword: newPass,
         ownerStatus: newStatus
       });
-
-      setFields(prevFields => prevFields.map(f => {
-        if (f.id === fieldId) {
-          return { ...f, ownerEmail: newEmail, ownerPassword: newPass, ownerStatus: newStatus };
-        }
-        return f;
-      }));
-
       alert('Owner အချက်အလက်များကို သိမ်းဆည်းပြီးပါပြီ။');
     } catch (error) {
       console.error("Error updating owner info: ", error);
@@ -715,20 +698,15 @@ export default function FieldBookingApp() {
 
   const handleAdminDeleteOwnerField = async (fieldId) => {
     if (window.confirm('ဤ Owner နှင့် ၎င်း၏ကွင်းကို ဖျက်ရန် သေချာပါသလား?')) {
-      setFields(prev => prev.filter(f => f.id !== fieldId));
       await deleteDoc(doc(db, "fields", fieldId));
     }
   };
 
   const handleUpdateBookingStatus = async (bookingId, newStatus) => {
-    const updated = bookings.map(b => {
-      if (b.id === bookingId) {
-        triggerSmsNotification(`🔔 Booking Status Update: ${b.subFieldName} (${b.date}) - ${newStatus}`);
-        return { ...b, status: newStatus };
-      }
-      return b;
-    });
-    setBookings(updated);
+    const targetBooking = bookings.find(b => b.id === bookingId);
+    if (targetBooking) {
+      await triggerSmsNotification(`🔔 Booking Status Update: ${targetBooking.subFieldName} (${targetBooking.date}) - ${newStatus}`);
+    }
     await updateDoc(doc(db, "bookings", bookingId), { status: newStatus });
   };
 
