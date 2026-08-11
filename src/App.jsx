@@ -703,7 +703,7 @@ export default function FieldBookingApp() {
     }
   };
 
-  // Owner ဘက်မှ ကွင်းများကို ပြင်ဆင်ခြင်း (ကွင်းခွဲများဖျက်ရန်၊ open hour, close hour, price edit လုပ်ရန်၊ Active/Disable ပြောင်းရန်)
+  // Owner ဘက်မှ ကွင်းများကို ပြင်ဆင်ခြင်း
   const handleStartEditOwnerField = (field) => {
     setEditingOwnerFieldId(field.id);
     setOwnerEditFieldName(field.name);
@@ -1318,145 +1318,148 @@ export default function FieldBookingApp() {
               <button onClick={() => setOwnerActiveTab('history')} className={`px-4 py-2 rounded-lg text-xs font-bold ${ownerActiveTab === 'history' ? 'bg-emerald-600 text-white' : 'bg-gray-100 text-gray-700'}`}>
                 Booking မှတ်တမ်းများ
               </button>
-              <button onClick={() => setOwnerActiveTab('settings')} className={`px-4 py-2 rounded-lg text-xs font-bold ${ownerActiveTab === 'settings' ? 'bg-emerald-600 text-white' : 'bg-gray-100 text-gray-700'}`}>
-                Password ချိန်းရန် နှင့် ကွင်းများကို ပြင်ဆင်ရန်
+              <button onClick={() => setOwnerActiveTab('password')} className={`px-4 py-2 rounded-lg text-xs font-bold ${ownerActiveTab === 'password' ? 'bg-emerald-600 text-white' : 'bg-gray-100 text-gray-700'}`}>
+                🔒 Password ချိန်းရန်
+              </button>
+              <button onClick={() => setOwnerActiveTab('fields_edit')} className={`px-4 py-2 rounded-lg text-xs font-bold ${ownerActiveTab === 'fields_edit' ? 'bg-emerald-600 text-white' : 'bg-gray-100 text-gray-700'}`}>
+                🏟️ ကွင်းပြင်ဆင်ရန်
               </button>
             </div>
 
-            {ownerActiveTab === 'settings' && (
-              <div className="space-y-8 max-w-2xl">
-                <div className="bg-gray-50 border rounded-2xl p-6">
-                  <h3 className="text-lg font-bold mb-4 text-gray-800">Owner Password ချိန်းရန်</h3>
-                  <form onSubmit={handleChangeMyPassword} className="space-y-4">
-                    <div>
-                      <label className="block text-xs font-bold text-gray-700 mb-1">Password အသစ်</label>
-                      <input type="text" value={myNewPassword} onChange={(e) => setMyNewPassword(e.target.value)} className="w-full border rounded-lg p-2.5 text-sm bg-white font-mono" required />
+            {ownerActiveTab === 'password' && (
+              <div className="bg-gray-50 border rounded-2xl p-6 max-w-md">
+                <h3 className="text-lg font-bold mb-4 text-gray-800">Owner Password ချိန်းရန်</h3>
+                <form onSubmit={handleChangeMyPassword} className="space-y-4">
+                  <div>
+                    <label className="block text-xs font-bold text-gray-700 mb-1">Password အသစ်</label>
+                    <input type="text" value={myNewPassword} onChange={(e) => setMyNewPassword(e.target.value)} className="w-full border rounded-lg p-2.5 text-sm bg-white font-mono" required />
+                  </div>
+                  <button type="submit" className="bg-emerald-600 text-white px-4 py-2.5 rounded-lg text-xs font-bold">Password ပြောင်းမည်</button>
+                </form>
+              </div>
+            )}
+
+            {ownerActiveTab === 'fields_edit' && (
+              <div className="space-y-6 max-w-2xl">
+                <h3 className="text-lg font-bold mb-4 text-gray-800">ကွင်းများကို ပြင်ဆင်ရန် (Edit Fields & Sub-Fields)</h3>
+                
+                {editingOwnerFieldId ? (
+                  <div className="bg-amber-50 border-2 border-amber-300 rounded-xl p-4 shadow-sm mb-4">
+                    <div className="flex justify-between items-center mb-3">
+                      <h4 className="font-bold text-sm text-amber-900">✏️ ကွင်းပြင်ဆင်နေသည်</h4>
+                      <button onClick={() => setEditingOwnerFieldId(null)} className="text-xs text-red-600 font-bold hover:underline">Cancel</button>
                     </div>
-                    <button type="submit" className="bg-emerald-600 text-white px-4 py-2.5 rounded-lg text-xs font-bold">Password ပြောင်းမည်</button>
-                  </form>
-                </div>
-
-                <div className="bg-gray-50 border rounded-2xl p-6">
-                  <h3 className="text-lg font-bold mb-4 text-gray-800">ကွင်းများကို ပြင်ဆင်ရန် (Edit Fields & Sub-Fields)</h3>
-                  
-                  {editingOwnerFieldId ? (
-                    <div className="bg-amber-50 border-2 border-amber-300 rounded-xl p-4 shadow-sm mb-4">
-                      <div className="flex justify-between items-center mb-3">
-                        <h4 className="font-bold text-sm text-amber-900">✏️ ကွင်းပြင်ဆင်နေသည်</h4>
-                        <button onClick={() => setEditingOwnerFieldId(null)} className="text-xs text-red-600 font-bold hover:underline">Cancel</button>
+                    <div className="space-y-3">
+                      <div>
+                        <label className="block text-xs font-bold text-gray-700 mb-1">ကွင်းအမည်</label>
+                        <input type="text" value={ownerEditFieldName} onChange={(e) => setOwnerEditFieldName(e.target.value)} className="w-full border rounded p-2 text-xs bg-white" />
                       </div>
-                      <div className="space-y-3">
+                      <div>
+                        <label className="block text-xs font-bold text-gray-700 mb-1">မြို့နယ်</label>
+                        <input type="text" value={ownerEditFieldLocation} onChange={(e) => setOwnerEditFieldLocation(e.target.value)} className="w-full border rounded p-2 text-xs bg-white" />
+                      </div>
+                      <div className="grid grid-cols-2 gap-2">
                         <div>
-                          <label className="block text-xs font-bold text-gray-700 mb-1">ကွင်းအမည်</label>
-                          <input type="text" value={ownerEditFieldName} onChange={(e) => setOwnerEditFieldName(e.target.value)} className="w-full border rounded p-2 text-xs bg-white" />
+                          <label className="block text-xs font-bold text-gray-700 mb-1">ဖွင့်ချိန် (Open Hour)</label>
+                          <input type="number" min="0" max="23" value={ownerEditFieldOpenHour} onChange={(e) => setOwnerEditFieldOpenHour(e.target.value)} className="w-full border rounded p-2 text-xs bg-white" />
                         </div>
                         <div>
-                          <label className="block text-xs font-bold text-gray-700 mb-1">မြို့နယ်</label>
-                          <input type="text" value={ownerEditFieldLocation} onChange={(e) => setOwnerEditFieldLocation(e.target.value)} className="w-full border rounded p-2 text-xs bg-white" />
+                          <label className="block text-xs font-bold text-gray-700 mb-1">ပိတ်ချိန် (Close Hour)</label>
+                          <input type="number" min="1" max="24" value={ownerEditFieldCloseHour} onChange={(e) => setOwnerEditFieldCloseHour(e.target.value)} className="w-full border rounded p-2 text-xs bg-white" />
                         </div>
-                        <div className="grid grid-cols-2 gap-2">
-                          <div>
-                            <label className="block text-xs font-bold text-gray-700 mb-1">ဖွင့်ချိန် (Open Hour)</label>
-                            <input type="number" min="0" max="23" value={ownerEditFieldOpenHour} onChange={(e) => setOwnerEditFieldOpenHour(e.target.value)} className="w-full border rounded p-2 text-xs bg-white" />
-                          </div>
-                          <div>
-                            <label className="block text-xs font-bold text-gray-700 mb-1">ပိတ်ချိန် (Close Hour)</label>
-                            <input type="number" min="1" max="24" value={ownerEditFieldCloseHour} onChange={(e) => setOwnerEditFieldCloseHour(e.target.value)} className="w-full border rounded p-2 text-xs bg-white" />
-                          </div>
-                        </div>
+                      </div>
 
-                        <div className="border-t pt-3">
-                          <h5 className="font-bold text-xs text-gray-800 mb-2">ကွင်းခွဲများ (Sub-Fields) စီမံရန်</h5>
-                          <div className="space-y-2 mb-3">
-                            {ownerEditSubFields.map((sf, index) => (
-                              <div key={sf.id || index} className="bg-white p-2.5 rounded border space-y-2">
-                                <div className="grid grid-cols-2 gap-2">
-                                  <input 
-                                    type="text" 
-                                    value={sf.name} 
-                                    onChange={(e) => {
-                                      const val = e.target.value;
-                                      setOwnerEditSubFields(prev => prev.map((item, idx) => idx === index ? { ...item, name: val } : item));
-                                    }} 
-                                    placeholder="ကွင်းခွဲအမည်" 
-                                    className="border rounded p-1.5 text-xs" 
-                                  />
-                                  <input 
-                                    type="number" 
-                                    value={sf.price} 
-                                    onChange={(e) => {
-                                      const val = e.target.value;
-                                      setOwnerEditSubFields(prev => prev.map((item, idx) => idx === index ? { ...item, price: parseFloat(val) || 0 } : item));
-                                    }} 
-                                    placeholder="ဈေးနှုန်း" 
-                                    className="border rounded p-1.5 text-xs" 
-                                  />
-                                </div>
-                                <div className="flex justify-between items-center">
-                                  <select 
-                                    value={sf.status} 
-                                    onChange={(e) => {
-                                      const val = e.target.value;
-                                      setOwnerEditSubFields(prev => prev.map((item, idx) => idx === index ? { ...item, status: val } : item));
-                                    }} 
-                                    className="border rounded p-1 text-xs"
-                                  >
-                                    <option value="Active">Active</option>
-                                    <option value="Inactive">Disable</option>
-                                  </select>
-                                  <button 
-                                    type="button" 
-                                    onClick={() => setOwnerEditSubFields(prev => prev.filter((_, idx) => idx !== index))} 
-                                    className="bg-red-500 text-white px-2 py-1 rounded text-[10px]"
-                                  >
-                                    ဖျက်ရန်
-                                  </button>
-                                </div>
+                      <div className="border-t pt-3">
+                        <h5 className="font-bold text-xs text-gray-800 mb-2">ကွင်းခွဲများ (Sub-Fields) စီမံရန်</h5>
+                        <div className="space-y-2 mb-3">
+                          {ownerEditSubFields.map((sf, index) => (
+                            <div key={sf.id || index} className="bg-white p-2.5 rounded border space-y-2">
+                              <div className="grid grid-cols-2 gap-2">
+                                <input 
+                                  type="text" 
+                                  value={sf.name} 
+                                  onChange={(e) => {
+                                    const val = e.target.value;
+                                    setOwnerEditSubFields(prev => prev.map((item, idx) => idx === index ? { ...item, name: val } : item));
+                                  }} 
+                                  placeholder="ကွင်းခွဲအမည်" 
+                                  className="border rounded p-1.5 text-xs" 
+                                />
+                                <input 
+                                  type="number" 
+                                  value={sf.price} 
+                                  onChange={(e) => {
+                                    const val = e.target.value;
+                                    setOwnerEditSubFields(prev => prev.map((item, idx) => idx === index ? { ...item, price: parseFloat(val) || 0 } : item));
+                                  }} 
+                                  placeholder="ဈေးနှုန်း" 
+                                  className="border rounded p-1.5 text-xs" 
+                                />
+                              </div>
+                              <div className="flex justify-between items-center">
+                                <select 
+                                  value={sf.status} 
+                                  onChange={(e) => {
+                                    const val = e.target.value;
+                                    setOwnerEditSubFields(prev => prev.map((item, idx) => idx === index ? { ...item, status: val } : item));
+                                  }} 
+                                  className="border rounded p-1 text-xs"
+                                >
+                                  <option value="Active">Active</option>
+                                  <option value="Inactive">Disable</option>
+                                </select>
+                                <button 
+                                  type="button" 
+                                  onClick={() => setOwnerEditSubFields(prev => prev.filter((_, idx) => idx !== index))} 
+                                  className="bg-red-500 text-white px-2 py-1 rounded text-[10px]"
+                                >
+                                  ဖျက်ရန်
+                                </button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                        <button 
+                          type="button" 
+                          onClick={() => setOwnerEditSubFields(prev => [...prev, { id: 'sf_' + Date.now(), name: 'New SubField', price: 35000, status: 'Active' }])}
+                          className="bg-blue-600 text-white px-3 py-1.5 rounded text-xs font-bold mb-3"
+                        >
+                          + ကွင်းခွဲ အသစ်ထည့်ရန်
+                        </button>
+                      </div>
+
+                      <button onClick={handleSaveOwnerEditedField} className="w-full bg-amber-600 text-white py-2.5 rounded text-xs font-bold shadow hover:bg-amber-700">ပြင်ဆင်မှုများကို သိမ်းဆည်းမည်</button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {fields.filter(f => f.ownerEmail === currentUser.email).map(f => (
+                      <div key={f.id} className="bg-white border rounded-xl p-4 shadow-sm flex flex-col justify-between">
+                        <div>
+                          <h4 className="font-bold text-base text-gray-800">{f.name}</h4>
+                          <p className="text-xs text-gray-500 mt-0.5">{f.location} | ဖွင့်/ပိတ်: {format12Hour(f.openHour ?? 8)} - {format12Hour(f.closeHour ?? 22)}</p>
+                          <div className="mt-3 space-y-1">
+                            {f.subFields.map(sf => (
+                              <div key={sf.id} className="text-xs bg-gray-50 p-2 rounded flex justify-between">
+                                <span>{sf.name} ({sf.price} ကျပ်)</span>
+                                <span className={sf.status === 'Active' ? 'text-emerald-600 font-bold' : 'text-red-500 font-bold'}>{sf.status}</span>
                               </div>
                             ))}
                           </div>
-                          <button 
-                            type="button" 
-                            onClick={() => setOwnerEditSubFields(prev => [...prev, { id: 'sf_' + Date.now(), name: 'New SubField', price: 35000, status: 'Active' }])}
-                            className="bg-blue-600 text-white px-3 py-1.5 rounded text-xs font-bold mb-3"
-                          >
-                            + ကွင်းခွဲ အသစ်ထည့်ရန်
-                          </button>
                         </div>
-
-                        <button onClick={handleSaveOwnerEditedField} className="w-full bg-amber-600 text-white py-2.5 rounded text-xs font-bold shadow hover:bg-amber-700">ပြင်ဆင်မှုများကို သိမ်းဆည်းမည်</button>
+                        <div className="mt-4 pt-3 border-t flex justify-end">
+                          <button onClick={() => handleStartEditOwnerField(f)} className="bg-amber-500 text-white px-3 py-1.5 rounded text-xs font-bold hover:bg-amber-600">✏️ ကွင်းပြင်ဆင်ရန်</button>
+                        </div>
                       </div>
-                    </div>
-                  ) : (
-                    <div className="space-y-4">
-                      {fields.filter(f => f.ownerEmail === currentUser.email).map(f => (
-                        <div key={f.id} className="bg-white border rounded-xl p-4 shadow-sm flex flex-col justify-between">
-                          <div>
-                            <h4 className="font-bold text-base text-gray-800">{f.name}</h4>
-                            <p className="text-xs text-gray-500 mt-0.5">{f.location} | ဖွင့်/ပိတ်: {format12Hour(f.openHour ?? 8)} - {format12Hour(f.closeHour ?? 22)}</p>
-                            <div className="mt-3 space-y-1">
-                              {f.subFields.map(sf => (
-                                <div key={sf.id} className="text-xs bg-gray-50 p-2 rounded flex justify-between">
-                                  <span>{sf.name} ({sf.price} ကျပ်)</span>
-                                  <span className={sf.status === 'Active' ? 'text-emerald-600 font-bold' : 'text-red-500 font-bold'}>{sf.status}</span>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                          <div className="mt-4 pt-3 border-t flex justify-end">
-                            <button onClick={() => handleStartEditOwnerField(f)} className="bg-amber-500 text-white px-3 py-1.5 rounded text-xs font-bold hover:bg-amber-600">✏️ ကွင်းပြင်ဆင်ရန်</button>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
 
             {ownerActiveTab === 'history' && (
               <div>
-                <h3 className="text-base font-bold mb-4 text-gray-800">သင့်ကွင်းများ၏ Booking မှတ်တမ်းများ (မိမိနှင့်သက်ဆိုင်သော Booking များသာ)</h3>
+                <h3 className="text-base font-bold mb-4 text-gray-800">သင့်ကွင်းများ၏ Booking မှတ်တမ်းများ</h3>
                 <div className="overflow-x-auto">
                   <table className="w-full text-left border-collapse">
                     <thead>
@@ -1468,6 +1471,7 @@ export default function FieldBookingApp() {
                         <th className="p-3">Total Price (သင့်ငွေ)</th>
                         <th className="p-3">Customer အမည် / ဖုန်း</th>
                         <th className="p-3">Status</th>
+                        <th className="p-3 text-center">လုပ်ဆောင်ချက် (Approve/Reject)</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y text-sm">
@@ -1497,12 +1501,16 @@ export default function FieldBookingApp() {
                               <td className="p-3 font-bold text-xs">
                                 <span className={item.status === 'Approved' ? 'text-emerald-600' : item.status === 'Rejected' ? 'text-red-500' : 'text-amber-500'}>{item.status}</span>
                               </td>
+                              <td className="p-3 text-center space-x-1">
+                                <button onClick={() => handleUpdateBookingStatus(item.id, 'Approved')} className="bg-emerald-600 text-white px-2.5 py-1 rounded text-[11px] font-bold hover:bg-emerald-700">Approve</button>
+                                <button onClick={() => handleUpdateBookingStatus(item.id, 'Rejected')} className="bg-red-500 text-white px-2.5 py-1 rounded text-[11px] font-bold hover:bg-red-600">Reject</button>
+                              </td>
                             </tr>
                           );
                         })
                       ) : (
                         <tr>
-                          <td colSpan="7" className="text-center py-8 text-gray-500">Booking မှတ်တမ်း မရှိသေးပါ။</td>
+                          <td colSpan="8" className="text-center py-8 text-gray-500">Booking မှတ်တမ်း မရှိသေးပါ။</td>
                         </tr>
                       )}
                     </tbody>
