@@ -1613,7 +1613,7 @@ export default function FieldBookingApp() {
                 <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-gray-50 p-4 rounded-xl border">
                   <div>
                     <h3 className="text-base font-bold text-gray-800">🔔 Owner Notifications Page</h3>
-                    <p className="text-xs text-gray-500">ကိုယ့်မှာရှိတဲ့ ကွင်းများကို ရွေးချယ်နိုင်ပြီး၊ ရက်စွဲ (Calendar) ရွေးချယ်ကာ Booking Pending, New Booking နှင့် Booking Reject အချက်အလက်များကို ကြည့်ရှုနိုင်ပါသည်။ (နောက်ဆုံးတွင် current date and time ကို ထည့်သွင်းထားသည်)</p>
+                    <p className="text-xs text-gray-500"></p>
                   </div>
                   <div className="flex flex-wrap items-center gap-3">
                     {/* Field Filter for Owner */}
@@ -1881,7 +1881,7 @@ export default function FieldBookingApp() {
             {ownerActiveTab === 'pending' && (
               <div>
                 <h3 className="text-base font-bold mb-4 text-gray-800">🏟️ Direct Booking တင်ရန် (Owner Manual Booking)</h3>
-                <p className="text-xs text-gray-500 mb-4">ကိုယ့်ကွင်းများအတွက် ဖုန်းဖြင့်ဖြစ်စေ၊ လူကိုယ်တိုင်ဖြစ်စေ လာရောက် booking တင်သည်များကို ဤနေရာမှ တိုက်ရိုက်ထည့်သွင်းနိုင်ပါသည်။ </p>
+                <p className="text-xs text-gray-500 mb-4"> ဖုန်းဖြင့်ဖြစ်စေ၊ လူကိုယ်တိုင်ဖြစ်စေ လာရောက် booking တင်သည်များကို ဤနေရာမှ တိုက်ရိုက်ထည့်သွင်းနိုင်ပါသည်။ </p>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="space-y-4 bg-gray-50 p-4 rounded-xl border">
@@ -2059,7 +2059,7 @@ export default function FieldBookingApp() {
 
             {ownerActiveTab === 'history' && (
               <div>
-                <h3 className="text-base font-bold mb-4 text-gray-800">ကိုယ့်ကွင်းများ၏ Booking မှတ်တမ်းများ</h3>
+                <h3 className="text-base font-bold mb-4 text-gray-800">Booking မှတ်တမ်းများ</h3>
                 <div className="overflow-x-auto">
                   <table className="w-full text-left border-collapse">
                     <thead>
