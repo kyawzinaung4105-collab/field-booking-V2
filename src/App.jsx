@@ -853,7 +853,8 @@ export default function FieldBookingApp() {
                       <tr className="bg-gray-100 text-xs border-b">
                         <th className="p-3">အသုံးပြုသူ</th>
                         <th className="p-3">ကွင်း / ကွင်းခွဲ</th>
-                        <th className="p-3">ဘိုကင်တင်ချိန် / ကစားမည့်အချိန်</th>
+                        <th className="p-3">တင်ချိန် (Booking Time)</th>
+                        <th className="p-3">ကစားမည့်အချိန် (Play Time)</th>
                         <th className="p-3">Duration (ကြာချိန်)</th>
                         <th className="p-3">Price (သင့်ငွေ)</th>
                         <th className="p-3">ငွေပေးချေမှု / Txn</th>
@@ -871,8 +872,12 @@ export default function FieldBookingApp() {
                                 <div className="font-bold">{targetField?.name || 'Unknown'}</div>
                                 <div className="text-xs text-gray-500">{item.subFieldName}</div>
                               </td>
+                              {/* တင်ချိန် (Booking Time) Column သီးသန့် */}
+                              <td className="p-3 text-xs font-mono text-gray-500">
+                                {item.bookedAt || '-'}
+                              </td>
+                              {/* ကစားမည့်အချိန် (Play Time) Column သီးသန့် */}
                               <td className="p-3 text-xs">
-                                <div className="text-gray-500 font-mono">တင်ချိန်: {item.bookedAt || '-'}</div>
                                 <div className="text-gray-700 font-bold">{item.date}</div>
                                 <div className="font-bold text-emerald-600">{item.fullTimeSlot || item.timeSlot}</div>
                               </td>
@@ -895,7 +900,7 @@ export default function FieldBookingApp() {
                         })
                       ) : (
                         <tr>
-                          <td colSpan="7" className="text-center py-8 text-gray-500 text-sm">စောင့်ဆိုင်းဆဲ Booking များ မရှိပါ။</td>
+                          <td colSpan="8" className="text-center py-8 text-gray-500 text-sm">စောင့်ဆိုင်းဆဲ Booking များ မရှိပါ။</td>
                         </tr>
                       )}
                     </tbody>
@@ -1082,7 +1087,8 @@ export default function FieldBookingApp() {
                     <thead>
                       <tr className="bg-gray-100 text-xs border-b">
                         <th className="p-3">ကွင်း / ကွင်းခွဲ</th>
-                        <th className="p-3">ဘိုကင်တင်ချိန် / ကစားမည့်အချိန်</th>
+                        <th className="p-3">တင်ချိန် (Booking Time)</th>
+                        <th className="p-3">ကစားမည့်အချိန် (Play Time)</th>
                         <th className="p-3">Duration (ကြာချိန်)</th>
                         <th className="p-3">Total Price (သင့်ငွေ)</th>
                         <th className="p-3">Customer အမည် / ဖုန်း</th>
@@ -1099,8 +1105,12 @@ export default function FieldBookingApp() {
                                 <div className="font-bold">{targetField?.name || 'Unknown'}</div>
                                 <div className="text-xs text-gray-500">{item.subFieldName}</div>
                               </td>
+                              {/* တင်ချိန် (Booking Time) Column သီးသန့် */}
+                              <td className="p-3 text-xs font-mono text-gray-500">
+                                {item.bookedAt || '-'}
+                              </td>
+                              {/* ကစားမည့်အချိန် (Play Time) Column သီးသန့် */}
                               <td className="p-3 text-xs">
-                                <div className="text-gray-500 font-mono">တင်ချိန်: {item.bookedAt || '-'}</div>
                                 <div className="text-gray-700 font-bold">{item.date}</div>
                                 <div className="font-bold text-emerald-600">{item.fullTimeSlot || item.timeSlot}</div>
                               </td>
@@ -1119,7 +1129,7 @@ export default function FieldBookingApp() {
                         })
                       ) : (
                         <tr>
-                          <td colSpan="6" className="text-center py-8 text-gray-500">Booking မှတ်တမ်း မရှိသေးပါ။</td>
+                          <td colSpan="7" className="text-center py-8 text-gray-500">Booking မှတ်တမ်း မရှိသေးပါ။</td>
                         </tr>
                       )}
                     </tbody>
@@ -1167,7 +1177,8 @@ export default function FieldBookingApp() {
                 <thead>
                   <tr className="bg-gray-100 text-xs border-b">
                     <th className="p-3">ကွင်း / ကွင်းခွဲ</th>
-                    <th className="p-3">ဘိုကင်တင်ချိန် / ကစားမည့်အချိန်</th>
+                    <th className="p-3">တင်ချိန် (Booking Time)</th>
+                    <th className="p-3">ကစားမည့်အချိန် (Play Time)</th>
                     <th className="p-3">Duration (ကြာချိန်)</th>
                     <th className="p-3">Total Price (သင့်ငွေ)</th>
                     <th className="p-3">ငွေပေးချေမှု</th>
@@ -1184,8 +1195,12 @@ export default function FieldBookingApp() {
                             <div className="font-bold">{targetField?.name}</div>
                             <div className="text-xs text-gray-500">{item.subFieldName}</div>
                           </td>
+                          {/* တင်ချိန် (Booking Time) Column သီးသန့် */}
+                          <td className="p-3 text-xs font-mono text-gray-500">
+                            {item.bookedAt || '-'}
+                          </td>
+                          {/* ကစားမည့်အချိန် (Play Time) Column သီးသန့် */}
                           <td className="p-3 text-xs">
-                            <div className="text-gray-500 font-mono">တင်ချိန်: {item.bookedAt || '-'}</div>
                             <div className="text-gray-700 font-bold">{item.date}</div>
                             <div className="font-bold text-emerald-600">{item.fullTimeSlot || item.timeSlot}</div>
                           </td>
@@ -1204,7 +1219,7 @@ export default function FieldBookingApp() {
                     })
                   ) : (
                     <tr>
-                      <td colSpan="6" className="text-center py-8 text-gray-500 text-sm">သင်၏ Booking မှတ်တမ်းများ မရှိသေးပါ။</td>
+                      <td colSpan="7" className="text-center py-8 text-gray-500 text-sm">သင်၏ Booking မှတ်တမ်းများ မရှိသေးပါ။</td>
                     </tr>
                   )}
                 </tbody>
