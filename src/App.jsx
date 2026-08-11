@@ -33,13 +33,13 @@ const generateSingleTimeSlots = (openHour, closeHour) => {
   const start = openHour !== undefined && !isNaN(openHour) ? parseInt(openHour) : 8;
   const end = closeHour !== undefined && !isNaN(closeHour) ? parseInt(closeHour) : 22;
   
-  for (let i = start; i <= end; i++) {
+  for (let i = start; i < end; i++) {
     const format12Hour = (h24) => {
       const period = h24 >= 12 ? 'PM' : 'AM';
       const h12 = h24 % 12 === 0 ? 12 : h24 % 12;
       return `${h12 < 10 ? `0${h12}` : h12}:00 ${period}`;
     };
-    slots.push({ hour: i, label: format12Hour(i) });
+    slots.push({ hour: i, label: `${format12Hour(i)} - ${format12Hour(i + 1)}` });
   }
   return slots;
 };
@@ -104,16 +104,14 @@ export default function FieldBookingApp() {
   const [newFieldLocation, setNewFieldLocation] = useState('');
   const [newFieldAddress, setNewFieldAddress] = useState('');
   const [newFieldPhone, setNewFieldPhone] = useState('');
-  const [newFieldOpenHour, setNewFieldOpenHour] = useState(6);
-  const [newFieldCloseHour, setNewFieldCloseHour] = useState(23);
+  const [newFieldOpenHour, setNewFieldOpenHour] = useState(8);
+  const [newFieldCloseHour, setNewFieldCloseHour] = useState(22);
   
   const [newOwnerEmail, setNewOwnerEmail] = useState('');
   const [newOwnerPassword, setNewOwnerPassword] = useState('');
 
   const [newSubFieldName, setNewSubFieldName] = useState('');
   const [newSubFieldPrice, setNewSubFieldPrice] = useState('');
-  const [newSubFieldOpenHour, setNewSubFieldOpenHour] = useState(6);
-  const [newSubFieldCloseHour, setNewSubFieldCloseHour] = useState(23);
   const [newSubFieldStatus, setNewSubFieldStatus] = useState('Active');
 
   const [ownerSubFields, setOwnerSubFields] = useState([]);
@@ -123,8 +121,8 @@ export default function FieldBookingApp() {
   const [editFieldLocation, setEditFieldLocation] = useState('');
   const [editFieldAddress, setEditFieldAddress] = useState('');
   const [editFieldPhone, setEditFieldPhone] = useState('');
-  const [editFieldOpenHour, setEditFieldOpenHour] = useState(6);
-  const [editFieldCloseHour, setEditFieldCloseHour] = useState(23);
+  const [editFieldOpenHour, setEditFieldOpenHour] = useState(8);
+  const [editFieldCloseHour, setEditFieldCloseHour] = useState(22);
   const [editSubFields, setEditSubFields] = useState([]);
 
   const [adminTab, setAdminTab] = useState('pending');
@@ -162,7 +160,6 @@ export default function FieldBookingApp() {
     sessionStorage.setItem('userCheckDate', userCheckDate);
   }, [userCheckDate]);
 
-  // Real-time listener များဖြင့် ပြောင်းလဲမှုများကို ချက်ချင်း သိရှိစေရန် onSnapshot ကို အသုံးပြုမည်
   useEffect(() => {
     const unsubUsers = onSnapshot(collection(db, "users"), (snapshot) => {
       if (!snapshot.empty) {
@@ -196,7 +193,6 @@ export default function FieldBookingApp() {
     };
   }, []);
 
-  // Admin မှ disable လုပ်လိုက်ပါက လက်ရှိဖွင့်ထားသော field သည် active မဟုတ်တော့လျှင် မျက်နှာပြင်မှ ချက်ချင်း ဖယ်ရှားရန်
   useEffect(() => {
     if (userSelectedField) {
       const currentFieldInState = fields.find(f => f.id === userSelectedField.id);
@@ -205,9 +201,15 @@ export default function FieldBookingApp() {
         setSelectedSubField(null);
         sessionStorage.removeItem('userSelectedField');
         sessionStorage.removeItem('selectedSubField');
+      } else {
+        setUserSelectedField(currentFieldInState);
+        if (selectedSubField) {
+          const updatedSub = currentFieldInState.subFields.find(sf => sf.id === selectedSubField.id);
+          if (updatedSub) setSelectedSubField(updatedSub);
+        }
       }
     }
-  }, [fields, userSelectedField]);
+  }, [fields]);
 
   const triggerSmsNotification = async (message) => {
     const newNoti = {
@@ -605,8 +607,6 @@ export default function FieldBookingApp() {
       id: 'sf_' + Date.now() + Math.random(),
       name: newSubFieldName,
       price: parseFloat(newSubFieldPrice),
-      openHour: parseInt(newSubFieldOpenHour),
-      closeHour: parseInt(newSubFieldCloseHour),
       status: newSubFieldStatus
     };
     setOwnerSubFields(prev => [...prev, subFieldObj]);
@@ -658,12 +658,10 @@ export default function FieldBookingApp() {
     setEditFieldLocation(field.location);
     setEditFieldAddress(field.address || '');
     setEditFieldPhone(field.phone || '');
-    setEditFieldOpenHour(field.openHour ?? 6);
-    setEditFieldCloseHour(field.closeHour ?? 23);
+    setEditFieldOpenHour(field.openHour ?? 8);
+    setEditFieldCloseHour(field.closeHour ?? 22);
     setEditSubFields(field.subFields.map(sf => ({
       ...sf,
-      openHour: sf.openHour ?? field.openHour ?? 6,
-      closeHour: sf.closeHour ?? field.closeHour ?? 23,
       status: sf.status ?? 'Active'
     })));
   };
@@ -1037,6 +1035,14 @@ export default function FieldBookingApp() {
                           <label className="block text-xs font-bold text-gray-700 mb-1">ဖုန်းနံပါတ်</label>
                           <input type="text" value={editFieldPhone} onChange={(e) => setEditFieldPhone(e.target.value)} className="w-full border rounded-lg p-2.5 text-sm bg-white" />
                         </div>
+                        <div>
+                          <label className="block text-xs font-bold text-gray-700 mb-1">ကွင်းဖွင့်ချိန် (Open Hour - 24 Hours format)</label>
+                          <input type="number" min="0" max="23" value={editFieldOpenHour} onChange={(e) => setEditFieldOpenHour(e.target.value)} className="w-full border rounded-lg p-2.5 text-sm bg-white" />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-bold text-gray-700 mb-1">ကွင်းပိတ်ချိန် (Close Hour - 24 Hours format)</label>
+                          <input type="number" min="1" max="24" value={editFieldCloseHour} onChange={(e) => setEditFieldCloseHour(e.target.value)} className="w-full border rounded-lg p-2.5 text-sm bg-white" />
+                        </div>
                       </div>
 
                       <div className="border-t pt-4">
@@ -1121,6 +1127,14 @@ export default function FieldBookingApp() {
                           <input type="text" placeholder="09xxxxxxxxx" value={newFieldPhone} onChange={(e) => setNewFieldPhone(e.target.value)} className="w-full border rounded-lg p-2.5 text-sm bg-white" />
                         </div>
                         <div>
+                          <label className="block text-xs font-bold text-gray-700 mb-1">ကွင်းဖွင့်ချိန် (Open Hour - 24 Hours format)</label>
+                          <input type="number" min="0" max="23" value={newFieldOpenHour} onChange={(e) => setNewFieldOpenHour(e.target.value)} className="w-full border rounded-lg p-2.5 text-sm bg-white" required />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-bold text-gray-700 mb-1">ကွင်းပိတ်ချိန် (Close Hour - 24 Hours format)</label>
+                          <input type="number" min="1" max="24" value={newFieldCloseHour} onChange={(e) => setNewFieldCloseHour(e.target.value)} className="w-full border rounded-lg p-2.5 text-sm bg-white" required />
+                        </div>
+                        <div>
                           <label className="block text-xs font-bold text-gray-700 mb-1">Owner Email (Login ဝင်ရန်)</label>
                           <input type="email" placeholder="owner@gmail.com" value={newOwnerEmail} onChange={(e) => setNewOwnerEmail(e.target.value)} className="w-full border rounded-lg p-2.5 text-sm bg-white" />
                         </div>
@@ -1170,6 +1184,7 @@ export default function FieldBookingApp() {
                             <span className="text-xs bg-gray-100 px-2 py-1 rounded font-medium">{f.location}</span>
                           </div>
                           <p className="text-xs text-gray-500 mt-1">{f.address} | Tel: {f.phone}</p>
+                          <p className="text-xs text-emerald-700 font-bold mt-1">🕒 ဖွင့်ချိန်/ပိတ်ချိန်: {format12Hour(f.openHour ?? 8)} မှ {format12Hour(f.closeHour ?? 22)} ထိ</p>
                           <div className="mt-3 space-y-1">
                             {f.subFields.map(sf => (
                               <div key={sf.id} className="text-xs bg-gray-50 p-2 rounded flex justify-between">
@@ -1252,20 +1267,77 @@ export default function FieldBookingApp() {
                 Booking မှတ်တမ်းများ
               </button>
               <button onClick={() => setOwnerActiveTab('settings')} className={`px-4 py-2 rounded-lg text-xs font-bold ${ownerActiveTab === 'settings' ? 'bg-emerald-600 text-white' : 'bg-gray-100 text-gray-700'}`}>
-                Password ပြောင်းရန်
+                Password & ကွင်းချိန် ပြင်ရန်
               </button>
             </div>
 
             {ownerActiveTab === 'settings' && (
-              <div className="bg-gray-50 border rounded-2xl p-6 max-w-md">
-                <h3 className="text-lg font-bold mb-4 text-gray-800">Owner Password ပြောင်းလဲရန်</h3>
-                <form onSubmit={handleChangeMyPassword} className="space-y-4">
-                  <div>
-                    <label className="block text-xs font-bold text-gray-700 mb-1">Password အသစ်</label>
-                    <input type="text" value={myNewPassword} onChange={(e) => setMyNewPassword(e.target.value)} className="w-full border rounded-lg p-2.5 text-sm bg-white font-mono" required />
-                  </div>
-                  <button type="submit" className="bg-emerald-600 text-white px-4 py-2.5 rounded-lg text-xs font-bold">Password ပြောင်းမည်</button>
-                </form>
+              <div className="space-y-6 max-w-xl">
+                <div className="bg-gray-50 border rounded-2xl p-6">
+                  <h3 className="text-lg font-bold mb-4 text-gray-800">Owner Password ပြောင်းလဲရန်</h3>
+                  <form onSubmit={handleChangeMyPassword} className="space-y-4">
+                    <div>
+                      <label className="block text-xs font-bold text-gray-700 mb-1">Password အသစ်</label>
+                      <input type="text" value={myNewPassword} onChange={(e) => setMyNewPassword(e.target.value)} className="w-full border rounded-lg p-2.5 text-sm bg-white font-mono" required />
+                    </div>
+                    <button type="submit" className="bg-emerald-600 text-white px-4 py-2.5 rounded-lg text-xs font-bold">Password ပြောင်းမည်</button>
+                  </form>
+                </div>
+
+                <div className="bg-gray-50 border rounded-2xl p-6">
+                  <h3 className="text-lg font-bold mb-4 text-gray-800">ကွင်းဖွင့်ချိန် / ပိတ်ချိန် ပြင်ဆင်ရန်</h3>
+                  {fields.filter(f => f.ownerEmail === currentUser.email).map(f => {
+                    const [currOpen, setCurrOpen] = useState(f.openHour ?? 8);
+                    const [currClose, setCurrClose] = useState(f.closeHour ?? 22);
+
+                    return (
+                      <div key={f.id} className="space-y-4 border-t pt-4 first:border-t-0 first:pt-0">
+                        <h4 className="font-bold text-sm text-emerald-700">{f.name} ({f.location})</h4>
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <label className="block text-xs font-bold text-gray-700 mb-1">ဖွင့်ချိန် (Open Hour)</label>
+                            <input 
+                              type="number" 
+                              min="0" 
+                              max="23" 
+                              value={currOpen} 
+                              onChange={(e) => setCurrOpen(e.target.value)} 
+                              className="w-full border rounded-lg p-2.5 text-sm bg-white" 
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs font-bold text-gray-700 mb-1">ပိတ်ချိန် (Close Hour)</label>
+                            <input 
+                              type="number" 
+                              min="1" 
+                              max="24" 
+                              value={currClose} 
+                              onChange={(e) => setCurrClose(e.target.value)} 
+                              className="w-full border rounded-lg p-2.5 text-sm bg-white" 
+                            />
+                          </div>
+                        </div>
+                        <button 
+                          onClick={async () => {
+                            try {
+                              await updateDoc(doc(db, "fields", f.id), {
+                                openHour: parseInt(currOpen),
+                                closeHour: parseInt(currClose)
+                              });
+                              alert('ကွင်းဖွင့်ချိန်နှင့် ပိတ်ချိန် အောင်မြင်စွာ Update လုပ်ပြီးပါပြီ။');
+                            } catch (err) {
+                              console.error(err);
+                              alert('အမှားအယွင်းရှိပါသည်။');
+                            }
+                          }}
+                          className="bg-emerald-600 text-white px-4 py-2 rounded-lg text-xs font-bold"
+                        >
+                          အချိန်ချိန်ညှိမှု သိမ်းဆည်းမည်
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
             )}
 
@@ -1419,7 +1491,7 @@ export default function FieldBookingApp() {
             <p className="text-xs text-emerald-600 font-bold mb-2">ဈေးနှုန်း: {selectedSubField.price} ကျပ် / တစ်နာရီ</p>
             
             <div className="bg-gray-50 border rounded-xl p-3 mb-6 text-xs text-gray-700 space-y-1.5">
-              <p>🕒 <b>ဖွင့်ချိန်/ပိတ်ချိန်:</b> {format12Hour(userSelectedField.openHour ?? 8)} မှ {format12Hour(userSelectedField.closeHour ?? 20)} ထိ</p>
+              <p>🕒 <b>ဖွင့်ချိန်/ပိတ်ချိန်:</b> {format12Hour(userSelectedField.openHour ?? 8)} မှ {format12Hour(userSelectedField.closeHour ?? 22)} ထိ</p>
               <p>📍 <b>လိပ်စာ:</b> {userSelectedField.address || userSelectedField.location}</p>
               <p>📞 <b>ဖုန်းနံပါတ်:</b> {userSelectedField.phone || 'မရှိပါ'}</p>
             </div>
@@ -1487,7 +1559,7 @@ export default function FieldBookingApp() {
                   >
                     <option value="">ရွေးပါ</option>
                     {generateSingleTimeSlots(userSelectedField.openHour, userSelectedField.closeHour).map(slot => (
-                      <option key={slot.hour} value={slot.hour} disabled={isSlotUnavailable(slot.hour)}>{slot.label}</option>
+                      <option key={slot.hour} value={slot.hour} disabled={isSlotUnavailable(slot.hour)}>{format12Hour(slot.hour)}</option>
                     ))}
                   </select>
                 </div>
@@ -1500,10 +1572,10 @@ export default function FieldBookingApp() {
                   >
                     <option value="">ရွေးပါ</option>
                     {generateSingleTimeSlots(
-                      selectedStartSlot !== '' ? parseInt(selectedStartSlot) + 1 : userSelectedField.openHour + 1, 
-                      userSelectedField.closeHour + 1
+                      selectedStartSlot !== '' ? parseInt(selectedStartSlot) + 1 : (userSelectedField.openHour ?? 8) + 1, 
+                      (userSelectedField.closeHour ?? 22) + 1
                     ).map(slot => (
-                      <option key={slot.hour} value={slot.hour}>{slot.label}</option>
+                      <option key={slot.hour + 1} value={slot.hour + 1}>{format12Hour(slot.hour + 1)}</option>
                     ))}
                   </select>
                 </div>
@@ -1597,6 +1669,7 @@ export default function FieldBookingApp() {
               <div>
                 <h2 className="text-2xl font-bold text-gray-800">{userSelectedField.name}</h2>
                 <p className="text-xs text-gray-500 mt-1">{userSelectedField.address} | Tel: {userSelectedField.phone}</p>
+                <p className="text-xs text-emerald-700 font-bold mt-1">🕒 ဖွင့်ချိန်/ပိတ်ချိန်: {format12Hour(userSelectedField.openHour ?? 8)} မှ {format12Hour(userSelectedField.closeHour ?? 22)} ထိ</p>
               </div>
               <span className="text-xs bg-emerald-100 text-emerald-800 px-3 py-1 rounded font-bold">{userSelectedField.location}</span>
             </div>
@@ -1652,7 +1725,7 @@ export default function FieldBookingApp() {
                     </div>
                     <p className="text-xs text-gray-500 mb-3">{field.address}</p>
                     <p className="text-xs text-gray-600 mb-1">📞 {field.phone}</p>
-                    <p className="text-xs text-gray-600">အချိန်: 08:00 AM - 08:00 PM</p>
+                    <p className="text-xs text-emerald-700 font-bold">🕒 ဖွင့်ချိန်: {format12Hour(field.openHour ?? 8)} - {format12Hour(field.closeHour ?? 22)}</p>
                   </div>
                   <div className="mt-4 pt-3 border-t flex justify-between items-center">
                     <span className="text-xs font-bold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded">ကွင်းခွဲ ({field.subFields.length}) ခု ရှိပါသည်။</span>
