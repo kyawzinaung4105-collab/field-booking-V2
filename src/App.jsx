@@ -66,6 +66,9 @@ export default function FieldBookingApp() {
   const [smsNotifications, setSmsNotifications] = useState([]);
   const [showNotiDropdown, setShowNotiDropdown] = useState(false);
 
+  // Notification Filter state for Admin Page
+  const [notiFilterType, setNotiFilterType] = useState('all');
+
   const [activeTab, setActiveTab] = useState(() => {
     return sessionStorage.getItem('activeTab') || 'fields';
   }); 
@@ -227,9 +230,10 @@ export default function FieldBookingApp() {
     }
   }, [fields]);
 
-  const triggerSmsNotification = async (message) => {
+  const triggerSmsNotification = async (message, type = 'general') => {
     const newNoti = {
       message: message,
+      type: type, // 'booking', 'owner_update', 'miu', etc.
       time: new Date().toLocaleTimeString(),
       date: new Date().toLocaleDateString(),
       read: false
@@ -583,7 +587,8 @@ export default function FieldBookingApp() {
 
       if (currentUser.role === 'owner') {
         await triggerSmsNotification(
-          `🔔 [Direct Booking] Owner မှ ${targetFieldObj?.name} (${selectedSubField.name}) အတွက် Direct Booking တင်ပြီးပါပြီ။`
+          `🔔 [Direct Booking] Owner မှ ${targetFieldObj?.name} (${selectedSubField.name}) အတွက် Direct Booking တင်ပြီးပါပြီ။`,
+          'booking'
         );
         alert('Owner ၏ Manual Booking တင်ခြင်း အောင်မြင်ပြီး အတည်ပြုပြီးသား ဖြစ်သွားပါပြီ။');
         setOwnerCustomerName('');
@@ -591,7 +596,8 @@ export default function FieldBookingApp() {
         setActiveTab('owner_manage');
       } else {
         await triggerSmsNotification(
-          `🔔 [New Booking] ${currentUser.name} ထံမှ ${targetFieldObj?.name} (${selectedSubField.name}) အတွက် Booking အသစ် ဝင်ရောက်လာပါသည်။`
+          `🔔 [New Booking] ${currentUser.name} ထံမှ ${targetFieldObj?.name} (${selectedSubField.name}) အတွက် Booking အသစ် ဝင်ရောက်လာပါသည်။`,
+          'booking'
         );
         alert('Booking တင်ခြင်း အောင်မြင်ပါသည်။ Admin အတည်ပြုရန် စောင့်ဆိုင်းပါ။');
         setActiveTab('history');
@@ -714,7 +720,7 @@ export default function FieldBookingApp() {
     }
   };
 
-  // Owner ဘက်မှ ကွင်းများကို ပြင်ဆင်ခြင်း
+  // Owner ဘက်မှ ကွင်းများကို ပြင်ဆင်ခြင်း (KPay/Wave No ပါ ပြင်နိုင်ပြီး Admin သို့ Noti ဝင်မည်)
   const handleStartEditOwnerField = (field) => {
     setEditingOwnerFieldId(field.id);
     setOwnerEditFieldName(field.name);
@@ -751,7 +757,14 @@ export default function FieldBookingApp() {
 
     try {
       await updateDoc(doc(db, "fields", editingOwnerFieldId), updatedData);
-      alert('ကွင်းအချက်အလက် ပြင်ဆင်မှု အောင်မြင်ပါသည်။');
+      
+      // Admin ဘက်မှာ Noti ကျန်ခဲ့စေရန် Trigger လုပ်ခြင်း
+      await triggerSmsNotification(
+        `🔔 [Owner Update] ${currentUser.name} (${ownerEditFieldName}) မှ KPay/Wave နံပါတ် သို့မဟုတ် ကွင်းအချက်အလက်များကို ပြင်ဆင်သွားပါသည်။`,
+        'owner_update'
+      );
+
+      alert('ကွင်းအချက်အလက် ပြင်ဆင်မှု အောင်မြင်ပါသည်။ Admin ထံသို့ အကြောင်းကြားပြီးပါပြီ။');
       setEditingOwnerFieldId(null);
     } catch (error) {
       console.error("Error updating owner field: ", error);
@@ -779,7 +792,6 @@ export default function FieldBookingApp() {
     }
   };
 
-  // Status ပြောင်းရန်နှင့် Confirm မေးခွန်းများ ထည့်သွင်းထားသော Function
   const handleStatusChangeWithConfirm = async (bookingId, currentStatus, desiredStatus) => {
     let confirmMsg = "";
     if (currentStatus === 'Approved' && desiredStatus === 'Rejected') {
@@ -797,7 +809,7 @@ export default function FieldBookingApp() {
     if (window.confirm(confirmMsg)) {
       const targetBooking = bookings.find(b => b.id === bookingId);
       if (targetBooking) {
-        await triggerSmsNotification(`🔔 Booking Status Update: ${targetBooking.subFieldName} (${targetBooking.date}) - ${desiredStatus}`);
+        await triggerSmsNotification(`🔔 Booking Status Update: ${targetBooking.subFieldName} (${targetBooking.date}) - ${desiredStatus}`, 'booking');
       }
       await updateDoc(doc(db, "bookings", bookingId), { status: desiredStatus });
     }
@@ -1003,6 +1015,10 @@ export default function FieldBookingApp() {
               <button onClick={() => setAdminTab('manage_owners')} className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${adminTab === 'manage_owners' ? 'bg-emerald-600 text-white shadow' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}>
                 🔑 Manage Owners & Passwords
               </button>
+              {/* Noti Filter Page (MIU / Notifications Filter) */}
+              <button onClick={() => setAdminTab('notifications_page')} className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${adminTab === 'notifications_page' ? 'bg-emerald-600 text-white shadow' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}>
+                🔔 Notifications & Filter Page
+              </button>
               <button onClick={() => setAdminTab('change_password')} className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${adminTab === 'change_password' ? 'bg-emerald-600 text-white shadow' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}>
                 🔒 ကိုယ်ပိုင် Password ပြောင်းရန်
               </button>
@@ -1025,6 +1041,57 @@ export default function FieldBookingApp() {
                   </div>
                   <button type="submit" className="bg-emerald-600 text-white px-4 py-2.5 rounded-lg text-xs font-bold shadow hover:bg-emerald-700">Password ပြောင်းမည်</button>
                 </form>
+              </div>
+            )}
+
+            {/* Notifications Filter Page */}
+            {adminTab === 'notifications_page' && (
+              <div className="space-y-4">
+                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-gray-50 p-4 rounded-xl border">
+                  <div>
+                    <h3 className="text-base font-bold text-gray-800">🔔 Notifications Filter Page</h3>
+                    <p className="text-xs text-gray-500">Owner များနှင့် Booking မှ လာသော Noti များကို အမျိုးအစားအလိုက် Filter လုပ်၍ စစ်ဆေးနိုင်ပါသည်။</p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <label className="text-xs font-bold text-gray-700">Filter By:</label>
+                    <select 
+                      value={notiFilterType} 
+                      onChange={(e) => setNotiFilterType(e.target.value)}
+                      className="border rounded-lg p-2 text-xs bg-white font-bold"
+                    >
+                      <option value="all">အားလုံးပြရန် (All)</option>
+                      <option value="owner_update">Owner များ KPay/Wave ပြင်ဆင်ချက်များ</option>
+                      <option value="booking">Booking အသစ်များနှင့် Status များ</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="space-y-3">
+                  {smsNotifications
+                    .filter(n => notiFilterType === 'all' || n.type === notiFilterType)
+                    .length > 0 ? (
+                      smsNotifications
+                        .filter(n => notiFilterType === 'all' || n.type === notiFilterType)
+                        .map(n => (
+                          <div key={n.id} className="bg-white border rounded-xl p-4 shadow-sm flex justify-between items-start">
+                            <div>
+                              <p className="text-sm font-medium text-gray-800">{n.message}</p>
+                              <div className="flex items-center gap-3 mt-2">
+                                <span className="text-xs text-gray-400 font-mono">{n.date} {n.time}</span>
+                                <span className={`text-[10px] px-2 py-0.5 rounded font-bold uppercase ${n.type === 'owner_update' ? 'bg-amber-100 text-amber-800' : 'bg-emerald-100 text-emerald-800'}`}>
+                                  {n.type || 'general'}
+                                </span>
+                              </div>
+                            </div>
+                            <span className={`text-xs font-bold px-2 py-1 rounded ${n.read ? 'text-gray-500 bg-gray-100' : 'text-red-600 bg-red-50'}`}>
+                              {n.read ? 'Read' : 'Unread'}
+                            </span>
+                          </div>
+                        ))
+                    ) : (
+                      <p className="text-center py-12 text-gray-500 text-sm">ရွေးချယ်ထားသော Filter နှင့် ကိုက်ညီသော Notifications များ မရှိသေးပါ။</p>
+                    )}
+                </div>
               </div>
             )}
 
