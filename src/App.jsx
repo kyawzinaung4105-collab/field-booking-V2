@@ -584,6 +584,36 @@ export default function FieldBookingApp() {
     })));
   };
 
+  // ✏️ [ပြင်ဆင်ပြီး] ကွင်းအချက်အလက်အသစ်များကို Firebase သို့ တိုက်ရိုက် Update လုပ်ရန် Function
+  const handleSaveEditedField = async () => {
+    if (!editingFieldId) return;
+    if (!editFieldName || !editFieldLocation || editSubFields.length === 0) {
+      alert('ကွင်းအမည်၊ မြို့နယ် နှင့် ကွင်းခွဲ အနည်းဆုံး ၁ ခု ထည့်သွင်းပါ။');
+      return;
+    }
+
+    const updatedData = {
+      name: editFieldName,
+      location: editFieldLocation,
+      address: editFieldAddress || editFieldLocation,
+      phone: editFieldPhone || '09-XXXXXXXXX',
+      openHour: parseInt(editFieldOpenHour),
+      closeHour: parseInt(editFieldCloseHour),
+      subFields: editSubFields
+    };
+
+    try {
+      await updateDoc(doc(db, "fields", editingFieldId), updatedData);
+
+      setFields(prev => prev.map(f => f.id === editingFieldId ? { ...f, ...updatedData } : f));
+      alert('ကွင်းအချက်အလက် ပြင်ဆင်မှု အောင်မြင်ပါသည်။');
+      setEditingFieldId(null);
+    } catch (error) {
+      console.error("Error updating field: ", error);
+      alert('ကွင်းပြင်ဆင်ရာတွင် အမှားအယွင်းရှိပါသည်။');
+    }
+  };
+
   const handleAdminUpdateOwnerInfo = async (fieldId, newEmail, newPass, newStatus) => {
     try {
       await updateDoc(doc(db, "fields", fieldId), {
@@ -872,11 +902,9 @@ export default function FieldBookingApp() {
                                 <div className="font-bold">{targetField?.name || 'Unknown'}</div>
                                 <div className="text-xs text-gray-500">{item.subFieldName}</div>
                               </td>
-                              {/* တင်ချိန် (Booking Time) Column သီးသန့် */}
                               <td className="p-3 text-xs font-mono text-gray-500">
                                 {item.bookedAt || '-'}
                               </td>
-                              {/* ကစားမည့်အချိန် (Play Time) Column သီးသန့် */}
                               <td className="p-3 text-xs">
                                 <div className="text-gray-700 font-bold">{item.date}</div>
                                 <div className="font-bold text-emerald-600">{item.fullTimeSlot || item.timeSlot}</div>
@@ -911,63 +939,153 @@ export default function FieldBookingApp() {
 
             {adminTab === 'manage_fields' && (
               <div className="space-y-8">
-                <div className="bg-gray-50 border rounded-2xl p-6">
-                  <h3 className="text-base font-bold mb-4 text-gray-800">🏟️ ကွင်းအသစ် ထည့်သွင်းရန်</h3>
-                  <form onSubmit={handleCreateNewField} className="space-y-4">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-xs font-bold text-gray-700 mb-1">ကွင်းအမည်</label>
-                        <input type="text" placeholder="ဥပမာ - YUFC Football" value={newFieldName} onChange={(e) => setNewFieldName(e.target.value)} className="w-full border rounded-lg p-2.5 text-sm bg-white" required />
-                      </div>
-                      <div>
-                        <label className="block text-xs font-bold text-gray-700 mb-1">မြို့နယ်</label>
-                        <input type="text" placeholder="ဥပမာ - လှိုင်မြို့နယ်" value={newFieldLocation} onChange={(e) => setNewFieldLocation(e.target.value)} className="w-full border rounded-lg p-2.5 text-sm bg-white" required />
-                      </div>
-                      <div>
-                        <label className="block text-xs font-bold text-gray-700 mb-1">လိပ်စာ အပြည့်အစုံ</label>
-                        <input type="text" placeholder="လိပ်စာ" value={newFieldAddress} onChange={(e) => setNewFieldAddress(e.target.value)} className="w-full border rounded-lg p-2.5 text-sm bg-white" />
-                      </div>
-                      <div>
-                        <label className="block text-xs font-bold text-gray-700 mb-1">ဖုန်းနံပါတ်</label>
-                        <input type="text" placeholder="09xxxxxxxxx" value={newFieldPhone} onChange={(e) => setNewFieldPhone(e.target.value)} className="w-full border rounded-lg p-2.5 text-sm bg-white" />
-                      </div>
-                      <div>
-                        <label className="block text-xs font-bold text-gray-700 mb-1">Owner Email (Login ဝင်ရန်)</label>
-                        <input type="email" placeholder="owner@gmail.com" value={newOwnerEmail} onChange={(e) => setNewOwnerEmail(e.target.value)} className="w-full border rounded-lg p-2.5 text-sm bg-white" />
-                      </div>
-                      <div>
-                        <label className="block text-xs font-bold text-gray-700 mb-1">Owner Password</label>
-                        <input type="text" placeholder="owner password" value={newOwnerPassword} onChange={(e) => setNewOwnerPassword(e.target.value)} className="w-full border rounded-lg p-2.5 text-sm bg-white" />
-                      </div>
+                {/* ✏️ [ပြင်ဆင်ပြီး] ကွင်းအချက်အလက်ပြင်ဆင်နေစဉ် ပေါ်လာမည့် Edit Form UI */}
+                {editingFieldId ? (
+                  <div className="bg-amber-50 border-2 border-amber-300 rounded-2xl p-6 shadow-md">
+                    <div className="flex justify-between items-center mb-4">
+                      <h3 className="text-base font-bold text-amber-900">✏️ ကွင်းအချက်အလက် ပြင်ဆင်ရန် (Editing Field)</h3>
+                      <button onClick={() => setEditingFieldId(null)} className="text-xs text-red-600 font-bold hover:underline">ပယ်ဖျက်ရန် (Cancel)</button>
                     </div>
-
-                    <div className="border-t pt-4 mt-4">
-                      <h4 className="text-sm font-bold mb-3 text-gray-800">ကွင်းခွဲများ (Sub-Fields) ထည့်ရန်</h4>
-                      <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mb-3">
-                        <input type="text" placeholder="ကွင်းခွဲအမည် (ဥပမာ - Field A)" value={newSubFieldName} onChange={(e) => setNewSubFieldName(e.target.value)} className="border rounded-lg p-2 text-sm bg-white" />
-                        <input type="number" placeholder="ဈေးနှုန်း (ကျပ်)" value={newSubFieldPrice} onChange={(e) => setNewSubFieldPrice(e.target.value)} className="border rounded-lg p-2 text-sm bg-white" />
-                        <select value={newSubFieldStatus} onChange={(e) => setNewSubFieldStatus(e.target.value)} className="border rounded-lg p-2 text-sm bg-white">
-                          <option value="Active">Active (ဖွင့်)</option>
-                          <option value="Inactive">Inactive (ပိတ်)</option>
-                        </select>
-                        <button type="button" onClick={handleAddOwnerSubField} className="bg-blue-600 text-white rounded-lg p-2 text-xs font-bold hover:bg-blue-700">+ ကွင်းခွဲ ထည့်မည်</button>
+                    <div className="space-y-4">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-xs font-bold text-gray-700 mb-1">ကွင်းအမည်</label>
+                          <input type="text" value={editFieldName} onChange={(e) => setEditFieldName(e.target.value)} className="w-full border rounded-lg p-2.5 text-sm bg-white" />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-bold text-gray-700 mb-1">မြို့နယ်</label>
+                          <input type="text" value={editFieldLocation} onChange={(e) => setEditFieldLocation(e.target.value)} className="w-full border rounded-lg p-2.5 text-sm bg-white" />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-bold text-gray-700 mb-1">လိပ်စာ အပြည့်အစုံ</label>
+                          <input type="text" value={editFieldAddress} onChange={(e) => setEditFieldAddress(e.target.value)} className="w-full border rounded-lg p-2.5 text-sm bg-white" />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-bold text-gray-700 mb-1">ဖုန်းနံပါတ်</label>
+                          <input type="text" value={editFieldPhone} onChange={(e) => setEditFieldPhone(e.target.value)} className="w-full border rounded-lg p-2.5 text-sm bg-white" />
+                        </div>
                       </div>
 
-                      {ownerSubFields.length > 0 && (
-                        <div className="bg-white p-3 rounded-lg border space-y-2">
-                          {ownerSubFields.map(sf => (
-                            <div key={sf.id} className="flex justify-between items-center text-xs bg-gray-50 p-2 rounded">
-                              <span><b>{sf.name}</b> - {sf.price} ကျပ် ({sf.status})</span>
-                              <button type="button" onClick={() => setOwnerSubFields(prev => prev.filter(x => x.id !== sf.id))} className="text-red-500 font-bold">ဖယ်ရှားမည်</button>
+                      <div className="border-t pt-4">
+                        <h4 className="text-sm font-bold mb-3 text-gray-800">ကွင်းခွဲများ (Sub-Fields) ပြင်ဆင်ရန်</h4>
+                        <div className="space-y-3 mb-4">
+                          {editSubFields.map((sf, index) => (
+                            <div key={sf.id || index} className="grid grid-cols-1 md:grid-cols-3 gap-2 bg-white p-3 rounded-lg border">
+                              <input 
+                                type="text" 
+                                value={sf.name} 
+                                onChange={(e) => {
+                                  const val = e.target.value;
+                                  setEditSubFields(prev => prev.map((item, idx) => idx === index ? { ...item, name: val } : item));
+                                }} 
+                                placeholder="ကွင်းခွဲအမည်" 
+                                className="border rounded p-2 text-xs" 
+                              />
+                              <input 
+                                type="number" 
+                                value={sf.price} 
+                                onChange={(e) => {
+                                  const val = e.target.value;
+                                  setEditSubFields(prev => prev.map((item, idx) => idx === index ? { ...item, price: parseFloat(val) || 0 } : item));
+                                }} 
+                                placeholder="ဈေးနှုန်း" 
+                                className="border rounded p-2 text-xs" 
+                              />
+                              <div className="flex gap-2">
+                                <select 
+                                  value={sf.status} 
+                                  onChange={(e) => {
+                                    const val = e.target.value;
+                                    setEditSubFields(prev => prev.map((item, idx) => idx === index ? { ...item, status: val } : item));
+                                  }} 
+                                  className="border rounded p-2 text-xs flex-1"
+                                >
+                                  <option value="Active">Active</option>
+                                  <option value="Inactive">Inactive</option>
+                                </select>
+                                <button 
+                                  type="button" 
+                                  onClick={() => setEditSubFields(prev => prev.filter((_, idx) => idx !== index))} 
+                                  className="bg-red-500 text-white px-2 py-1 rounded text-xs"
+                                >
+                                  ဖယ်ရန်
+                                </button>
+                              </div>
                             </div>
                           ))}
                         </div>
-                      )}
-                    </div>
+                        {/* ကွင်းခွဲအသစ် ထပ်ထည့်ရန် */}
+                        <button 
+                          type="button" 
+                          onClick={() => setEditSubFields(prev => [...prev, { id: 'sf_' + Date.now(), name: 'New SubField', price: 35000, status: 'Active' }])}
+                          className="bg-blue-600 text-white px-3 py-1.5 rounded text-xs font-bold mb-4"
+                        >
+                          + ကွင်းခွဲအသစ် ထပ်ထည့်ရန်
+                        </button>
+                      </div>
 
-                    <button type="submit" className="w-full bg-emerald-600 text-white py-3 rounded-lg text-sm font-bold shadow hover:bg-emerald-700">ကွင်းအသစ်ကို သိမ်းဆည်းမည်</button>
-                  </form>
-                </div>
+                      <button onClick={handleSaveEditedField} className="w-full bg-amber-600 text-white py-3 rounded-lg text-sm font-bold shadow hover:bg-amber-700">ပြင်ဆင်မှုများကို သိမ်းဆည်းမည် (Save Changes)</button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="bg-gray-50 border rounded-2xl p-6">
+                    <h3 className="text-base font-bold mb-4 text-gray-800">🏟️ ကွင်းအသစ် ထည့်သွင်းရန်</h3>
+                    <form onSubmit={handleCreateNewField} className="space-y-4">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-xs font-bold text-gray-700 mb-1">ကွင်းအမည်</label>
+                          <input type="text" placeholder="ဥပမာ - YUFC Football" value={newFieldName} onChange={(e) => setNewFieldName(e.target.value)} className="w-full border rounded-lg p-2.5 text-sm bg-white" required />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-bold text-gray-700 mb-1">မြို့နယ်</label>
+                          <input type="text" placeholder="ဥပမာ - လှိုင်မြို့နယ်" value={newFieldLocation} onChange={(e) => setNewFieldLocation(e.target.value)} className="w-full border rounded-lg p-2.5 text-sm bg-white" required />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-bold text-gray-700 mb-1">လိပ်စာ အပြည့်အစုံ</label>
+                          <input type="text" placeholder="လိပ်စာ" value={newFieldAddress} onChange={(e) => setNewFieldAddress(e.target.value)} className="w-full border rounded-lg p-2.5 text-sm bg-white" />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-bold text-gray-700 mb-1">ဖုန်းနံပါတ်</label>
+                          <input type="text" placeholder="09xxxxxxxxx" value={newFieldPhone} onChange={(e) => setNewFieldPhone(e.target.value)} className="w-full border rounded-lg p-2.5 text-sm bg-white" />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-bold text-gray-700 mb-1">Owner Email (Login ဝင်ရန်)</label>
+                          <input type="email" placeholder="owner@gmail.com" value={newOwnerEmail} onChange={(e) => setNewOwnerEmail(e.target.value)} className="w-full border rounded-lg p-2.5 text-sm bg-white" />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-bold text-gray-700 mb-1">Owner Password</label>
+                          <input type="text" placeholder="owner password" value={newOwnerPassword} onChange={(e) => setNewOwnerPassword(e.target.value)} className="w-full border rounded-lg p-2.5 text-sm bg-white" />
+                        </div>
+                      </div>
+
+                      <div className="border-t pt-4 mt-4">
+                        <h4 className="text-sm font-bold mb-3 text-gray-800">ကွင်းခွဲများ (Sub-Fields) ထည့်ရန်</h4>
+                        <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mb-3">
+                          <input type="text" placeholder="ကွင်းခွဲအမည် (ဥပမာ - Field A)" value={newSubFieldName} onChange={(e) => setNewSubFieldName(e.target.value)} className="border rounded-lg p-2 text-sm bg-white" />
+                          <input type="number" placeholder="ဈေးနှုန်း (ကျပ်)" value={newSubFieldPrice} onChange={(e) => setNewSubFieldPrice(e.target.value)} className="border rounded-lg p-2 text-sm bg-white" />
+                          <select value={newSubFieldStatus} onChange={(e) => setNewSubFieldStatus(e.target.value)} className="border rounded-lg p-2 text-sm bg-white">
+                            <option value="Active">Active (ဖွင့်)</option>
+                            <option value="Inactive">Inactive (ပိတ်)</option>
+                          </select>
+                          <button type="button" onClick={handleAddOwnerSubField} className="bg-blue-600 text-white rounded-lg p-2 text-xs font-bold hover:bg-blue-700">+ ကွင်းခွဲ ထည့်မည်</button>
+                        </div>
+
+                        {ownerSubFields.length > 0 && (
+                          <div className="bg-white p-3 rounded-lg border space-y-2">
+                            {ownerSubFields.map(sf => (
+                              <div key={sf.id} className="flex justify-between items-center text-xs bg-gray-50 p-2 rounded">
+                                <span><b>{sf.name}</b> - {sf.price} ကျပ် ({sf.status})</span>
+                                <button type="button" onClick={() => setOwnerSubFields(prev => prev.filter(x => x.id !== sf.id))} className="text-red-500 font-bold">ဖယ်ရှားမည်</button>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+
+                      <button type="submit" className="w-full bg-emerald-600 text-white py-3 rounded-lg text-sm font-bold shadow hover:bg-emerald-700">ကွင်းအသစ်ကို သိမ်းဆည်းမည်</button>
+                    </form>
+                  </div>
+                )}
 
                 <div>
                   <h3 className="text-base font-bold mb-4 text-gray-800">လက်ရှိ ကွင်းများစာရင်း</h3>
@@ -1105,11 +1223,9 @@ export default function FieldBookingApp() {
                                 <div className="font-bold">{targetField?.name || 'Unknown'}</div>
                                 <div className="text-xs text-gray-500">{item.subFieldName}</div>
                               </td>
-                              {/* တင်ချိန် (Booking Time) Column သီးသန့် */}
                               <td className="p-3 text-xs font-mono text-gray-500">
                                 {item.bookedAt || '-'}
                               </td>
-                              {/* ကစားမည့်အချိန် (Play Time) Column သီးသန့် */}
                               <td className="p-3 text-xs">
                                 <div className="text-gray-700 font-bold">{item.date}</div>
                                 <div className="font-bold text-emerald-600">{item.fullTimeSlot || item.timeSlot}</div>
@@ -1195,11 +1311,9 @@ export default function FieldBookingApp() {
                             <div className="font-bold">{targetField?.name}</div>
                             <div className="text-xs text-gray-500">{item.subFieldName}</div>
                           </td>
-                          {/* တင်ချိန် (Booking Time) Column သီးသန့် */}
                           <td className="p-3 text-xs font-mono text-gray-500">
                             {item.bookedAt || '-'}
                           </td>
-                          {/* ကစားမည့်အချိန် (Play Time) Column သီးသန့် */}
                           <td className="p-3 text-xs">
                             <div className="text-gray-700 font-bold">{item.date}</div>
                             <div className="font-bold text-emerald-600">{item.fullTimeSlot || item.timeSlot}</div>
@@ -1312,7 +1426,7 @@ export default function FieldBookingApp() {
                     <option value="">ရွေးပါ</option>
                     {generateSingleTimeSlots(
                       selectedStartSlot !== '' ? parseInt(selectedStartSlot) + 1 : userSelectedField.openHour + 1, 
-                      userSelectedField.closeHour
+                      userSelectedField.closeHour + 1
                     ).map(slot => (
                       <option key={slot.hour} value={slot.hour}>{slot.label}</option>
                     ))}
