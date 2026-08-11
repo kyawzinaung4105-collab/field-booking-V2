@@ -74,7 +74,15 @@ export default function FieldBookingApp() {
 
   const [userSelectedField, setUserSelectedField] = useState(null);
   const [selectedSubField, setSelectedSubField] = useState(null);
-  const [userCheckDate, setUserCheckDate] = useState('2026-08-10');
+  
+  // 🛠️ [ပြင်ဆင်ချက် 1] Current Date (ယနေ့ရက်စွဲ) ကို အလိုအလျောက် ယူသုံးရန်
+  const [userCheckDate, setUserCheckDate] = useState(() => {
+    const today = new Date();
+    const yyyy = today.getFullYear();
+    const mm = String(today.getMonth() + 1).padStart(2, '0');
+    const dd = String(today.getDate()).padStart(2, '0');
+    return `${yyyy}-${mm}-${dd}`;
+  });
   
   const [selectedStartSlot, setSelectedStartSlot] = useState('');
   const [selectedEndSlot, setSelectedEndSlot] = useState('');
@@ -325,10 +333,35 @@ export default function FieldBookingApp() {
     if (checkIsExpired(hour)) return true;
     const slotLabelCheck = `${format12Hour(hour)} - ${format12Hour(hour + 1)}`;
     const bookingFound = bookings.find(
-      b => b.subFieldId === selectedSubField?.id && b.date === userCheckDate && b.status === 'Approved' &&
+      b => b.subFieldId === selectedSubField?.id && b.date === userCheckDate && (b.status === 'Approved' || b.status === 'Pending') &&
       (b.timeSlot === slotLabelCheck || (b.startHour !== undefined && b.endHour !== undefined && hour >= b.startHour && hour < b.endHour))
     );
     return !!bookingFound;
+  };
+
+  // 🛠️ [ပြင်ဆင်ချက် 2] အတည်မပြုရသေးသော Pending Booking Slot ဟုတ်မဟုတ် စစ်ဆေးရန် Helper Function
+  const getSlotStatusType = (hour) => {
+    if (checkIsExpired(hour)) return 'expired';
+    
+    // Approved booking ရှိမရှိ စစ်ဆေးရန်
+    const approvedBooking = bookings.find(
+      b => b.subFieldId === selectedSubField?.id && 
+           b.date === userCheckDate && 
+           b.status === 'Approved' && 
+           (hour >= b.startHour && hour < b.endHour)
+    );
+    if (approvedBooking) return 'booked';
+
+    // Pending (approve မဖြစ်သေးသော) booking ရှိမရှိ စစ်ဆေးရန်
+    const pendingBooking = bookings.find(
+      b => b.subFieldId === selectedSubField?.id && 
+           b.date === userCheckDate && 
+           b.status === 'Pending' && 
+           (hour >= b.startHour && hour < b.endHour)
+    );
+    if (pendingBooking) return 'pending';
+
+    return 'available';
   };
 
   const calculatedDuration = selectedStartSlot !== '' && selectedEndSlot !== '' 
@@ -584,7 +617,6 @@ export default function FieldBookingApp() {
     })));
   };
 
-  // ✏️ [ပြင်ဆင်ပြီး] ကွင်းအချက်အလက်အသစ်များကို Firebase သို့ တိုက်ရိုက် Update လုပ်ရန် Function
   const handleSaveEditedField = async () => {
     if (!editingFieldId) return;
     if (!editFieldName || !editFieldLocation || editSubFields.length === 0) {
@@ -939,7 +971,6 @@ export default function FieldBookingApp() {
 
             {adminTab === 'manage_fields' && (
               <div className="space-y-8">
-                {/* ✏️ [ပြင်ဆင်ပြီး] ကွင်းအချက်အလက်ပြင်ဆင်နေစဉ် ပေါ်လာမည့် Edit Form UI */}
                 {editingFieldId ? (
                   <div className="bg-amber-50 border-2 border-amber-300 rounded-2xl p-6 shadow-md">
                     <div className="flex justify-between items-center mb-4">
@@ -1014,7 +1045,6 @@ export default function FieldBookingApp() {
                             </div>
                           ))}
                         </div>
-                        {/* ကွင်းခွဲအသစ် ထပ်ထည့်ရန် */}
                         <button 
                           type="button" 
                           onClick={() => setEditSubFields(prev => [...prev, { id: 'sf_' + Date.now(), name: 'New SubField', price: 35000, status: 'Active' }])}
@@ -1360,26 +1390,30 @@ export default function FieldBookingApp() {
             <div className="mb-6 bg-gray-50 border rounded-xl p-4">
               <div className="flex justify-between items-center mb-3">
                 <h3 className="text-xs font-bold text-gray-800">⏰ ရွေးချယ်ထားသောနေ့အတွက် အချိန်ဇယားများ (Time Slots)</h3>
-                <div className="flex items-center space-x-3 text-[10px]">
+                <div className="flex items-center space-x-2 text-[10px] flex-wrap gap-y-1">
                   <span className="flex items-center"><span className="w-2.5 h-2.5 bg-emerald-500 rounded-full inline-block mr-1"></span> Available</span>
+                  <span className="flex items-center"><span className="w-2.5 h-2.5 bg-amber-500 rounded-full inline-block mr-1"></span> Pending</span>
                   <span className="flex items-center"><span className="w-2.5 h-2.5 bg-red-500 rounded-full inline-block mr-1"></span> Booked / Expired</span>
                 </div>
               </div>
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
                 {generateSingleTimeSlots(userSelectedField.openHour, userSelectedField.closeHour).map(slot => {
-                  const expired = checkIsExpired(slot.hour);
-                  const unavailable = isSlotUnavailable(slot.hour);
-                  const isBooked = !expired && unavailable;
+                  const statusType = getSlotStatusType(slot.hour); // 'expired', 'booked', 'pending', 'available'
                   const isSelected = selectedStartSlot !== '' && selectedEndSlot !== '' && slot.hour >= parseInt(selectedStartSlot) && slot.hour < parseInt(selectedEndSlot);
 
                   let badgeBg = "bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100";
                   let statusText = "Available";
-                  if (expired) {
+                  
+                  if (statusType === 'expired') {
                     badgeBg = "bg-gray-100 text-gray-400 border-gray-200 opacity-60 cursor-not-allowed";
                     statusText = "Expired";
-                  } else if (isBooked) {
+                  } else if (statusType === 'booked') {
                     badgeBg = "bg-red-50 text-red-600 border-red-200 cursor-not-allowed";
                     statusText = "Already Booked";
+                  } else if (statusType === 'pending') {
+                    // 🛠️ [ပြင်ဆင်ချက် 2] Pending Status အတွက် အဝါရောင် UI Styling
+                    badgeBg = "bg-amber-50 text-amber-700 border-amber-300 cursor-not-allowed";
+                    statusText = "Pending";
                   } else if (isSelected) {
                     badgeBg = "bg-emerald-600 text-white border-emerald-700 shadow-sm";
                     statusText = "Selected";
