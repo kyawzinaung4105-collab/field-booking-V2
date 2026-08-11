@@ -70,10 +70,21 @@ export default function FieldBookingApp() {
     return sessionStorage.getItem('activeTab') || 'fields';
   }); 
 
-  const [userSelectedField, setUserSelectedField] = useState(null);
-  const [selectedSubField, setSelectedSubField] = useState(null);
+  // Refresh လုပ်ချိန်တွင် ရောက်နေသောနေရာ (ကွင်းနှင့် ကွင်းခွဲ) မပျောက်စေရန် sessionStorage မှ ပြန်ဖတ်မည်
+  const [userSelectedField, setUserSelectedField] = useState(() => {
+    const saved = sessionStorage.getItem('userSelectedField');
+    return saved ? JSON.parse(saved) : null;
+  });
+  
+  const [selectedSubField, setSelectedSubField] = useState(() => {
+    const saved = sessionStorage.getItem('selectedSubField');
+    return saved ? JSON.parse(saved) : null;
+  });
   
   const [userCheckDate, setUserCheckDate] = useState(() => {
+    const savedDate = sessionStorage.getItem('userCheckDate');
+    if (savedDate) return savedDate;
+
     const today = new Date();
     const yyyy = today.getFullYear();
     const mm = String(today.getMonth() + 1).padStart(2, '0');
@@ -132,6 +143,29 @@ export default function FieldBookingApp() {
     sessionStorage.setItem('activeTab', activeTab);
   }, [activeTab]);
 
+  // userSelectedField ပြောင်းလဲတိုင်း sessionStorage တွင် သိမ်းမည်
+  useEffect(() => {
+    if (userSelectedField) {
+      sessionStorage.setItem('userSelectedField', JSON.stringify(userSelectedField));
+    } else {
+      sessionStorage.removeItem('userSelectedField');
+    }
+  }, [userSelectedField]);
+
+  // selectedSubField ပြောင်းလဲတိုင်း sessionStorage တွင် သိမ်းမည်
+  useEffect(() => {
+    if (selectedSubField) {
+      sessionStorage.setItem('selectedSubField', JSON.stringify(selectedSubField));
+    } else {
+      sessionStorage.removeItem('selectedSubField');
+    }
+  }, [selectedSubField]);
+
+  // userCheckDate ပြောင်းလဲတိုင်း sessionStorage တွင် သိမ်းမည်
+  useEffect(() => {
+    sessionStorage.setItem('userCheckDate', userCheckDate);
+  }, [userCheckDate]);
+
   useEffect(() => {
     const fetchDataFromFirebase = async () => {
       try {
@@ -178,15 +212,12 @@ export default function FieldBookingApp() {
     }
   };
 
-  // Notification များကို ဖတ်ပြီးသားဖြစ်အောင် (read: true) ပြောင်းလဲပေးသော Function
   const handleMarkNotificationsAsRead = async () => {
     const unreadNotis = smsNotifications.filter(n => !n.read);
     if (unreadNotis.length === 0) return;
 
-    // Local state ကို အရင် update လုပ်မည်
     setSmsNotifications(prev => prev.map(n => ({ ...n, read: true })));
 
-    // Firestore ထဲမှာပါ unread များကို read: true ပြောင်းမည်
     try {
       for (const n of unreadNotis) {
         await updateDoc(doc(db, "notifications", n.id), { read: true });
@@ -327,6 +358,9 @@ export default function FieldBookingApp() {
     setActiveTab('fields');
     sessionStorage.removeItem('currentUser');
     sessionStorage.removeItem('activeTab');
+    sessionStorage.removeItem('userSelectedField');
+    sessionStorage.removeItem('selectedSubField');
+    sessionStorage.removeItem('userCheckDate');
   };
 
   const format12Hour = (h24) => {
@@ -816,7 +850,7 @@ export default function FieldBookingApp() {
     <div className="min-h-screen bg-gray-50 font-sans pb-12">
       <header className="bg-emerald-700 text-white shadow-md sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 py-3 flex justify-between items-center">
-          <div className="flex items-center space-x-2 cursor-pointer" onClick={() => { setActiveTab('fields'); setUserSelectedField(null); setSelectedSubField(null); }}>
+          <div className="flex items-center space-x-2 cursor-pointer" onClick={() => { setActiveTab('fields'); setUserSelectedField(null); setSelectedSubField(null); sessionStorage.removeItem('userSelectedField'); sessionStorage.removeItem('selectedSubField'); }}>
             <span className="text-2xl">⚽</span>
             <h1 className="text-xl font-bold">Field Booking App</h1>
           </div>
@@ -1389,7 +1423,7 @@ export default function FieldBookingApp() {
           </div>
         ) : userSelectedField && selectedSubField ? (
           <div className="bg-white rounded-xl shadow p-6 max-w-2xl mx-auto">
-            <button onClick={() => { setUserSelectedField(null); setSelectedSubField(null); }} className="text-xs text-blue-600 font-bold mb-4 inline-block hover:underline">← ကွင်းများစာရင်းသို့ ပြန်ရန်</button>
+            <button onClick={() => { setUserSelectedField(null); setSelectedSubField(null); sessionStorage.removeItem('userSelectedField'); sessionStorage.removeItem('selectedSubField'); }} className="text-xs text-blue-600 font-bold mb-4 inline-block hover:underline">← ကွင်းများစာရင်းသို့ ပြန်ရန်</button>
             <h2 className="text-xl font-bold text-gray-800 mb-1">{userSelectedField.name} - {selectedSubField.name}</h2>
             <p className="text-xs text-emerald-600 font-bold mb-2">ဈေးနှုန်း: {selectedSubField.price} ကျပ် / တစ်နာရီ</p>
             
@@ -1567,7 +1601,7 @@ export default function FieldBookingApp() {
           </div>
         ) : userSelectedField ? (
           <div className="bg-white rounded-xl shadow p-6 max-w-4xl mx-auto">
-            <button onClick={() => setUserSelectedField(null)} className="text-xs text-blue-600 font-bold mb-4 inline-block hover:underline">← ကွင်းများစာရင်းသို့ ပြန်ရန်</button>
+            <button onClick={() => { setUserSelectedField(null); sessionStorage.removeItem('userSelectedField'); }} className="text-xs text-blue-600 font-bold mb-4 inline-block hover:underline">← ကွင်းများစာရင်းသို့ ပြန်ရန်</button>
             <div className="flex justify-between items-start mb-6 border-b pb-4">
               <div>
                 <h2 className="text-2xl font-bold text-gray-800">{userSelectedField.name}</h2>
