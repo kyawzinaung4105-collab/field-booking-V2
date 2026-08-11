@@ -178,6 +178,24 @@ export default function FieldBookingApp() {
     }
   };
 
+  // Notification များကို ဖတ်ပြီးသားဖြစ်အောင် (read: true) ပြောင်းလဲပေးသော Function
+  const handleMarkNotificationsAsRead = async () => {
+    const unreadNotis = smsNotifications.filter(n => !n.read);
+    if (unreadNotis.length === 0) return;
+
+    // Local state ကို အရင် update လုပ်မည်
+    setSmsNotifications(prev => prev.map(n => ({ ...n, read: true })));
+
+    // Firestore ထဲမှာပါ unread များကို read: true ပြောင်းမည်
+    try {
+      for (const n of unreadNotis) {
+        await updateDoc(doc(db, "notifications", n.id), { read: true });
+      }
+    } catch (error) {
+      console.error("Error updating notification read status: ", error);
+    }
+  };
+
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (!event.target.closest('.township-dropdown-container') && !event.target.closest('.notification-dropdown-container')) {
@@ -816,7 +834,13 @@ export default function FieldBookingApp() {
             {(currentUser.role === 'owner' || currentUser.role === 'admin') && (
               <div className="relative notification-dropdown-container">
                 <button 
-                  onClick={() => setShowNotiDropdown(!showNotiDropdown)}
+                  onClick={() => {
+                    const nextState = !showNotiDropdown;
+                    setShowNotiDropdown(nextState);
+                    if (nextState) {
+                      handleMarkNotificationsAsRead();
+                    }
+                  }}
                   className="p-1.5 bg-emerald-800 hover:bg-emerald-900 rounded-full relative text-sm"
                 >
                   🔔
