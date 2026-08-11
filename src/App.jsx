@@ -1312,7 +1312,7 @@ export default function FieldBookingApp() {
                     <option value="">ရွေးပါ</option>
                     {generateSingleTimeSlots(
                       selectedStartSlot !== '' ? parseInt(selectedStartSlot) + 1 : userSelectedField.openHour + 1, 
-                      userSelectedField.closeHour + 1
+                      userSelectedField.closeHour
                     ).map(slot => (
                       <option key={slot.hour} value={slot.hour}>{slot.label}</option>
                     ))}
