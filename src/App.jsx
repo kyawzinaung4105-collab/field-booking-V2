@@ -1881,7 +1881,7 @@ export default function FieldBookingApp() {
             {ownerActiveTab === 'pending' && (
               <div>
                 <h3 className="text-base font-bold mb-4 text-gray-800">🏟️ Direct Booking တင်ရန် (Owner Manual Booking)</h3>
-                <p className="text-xs text-gray-500 mb-4">ကိုယ့်ကွင်းများအတွက် ဖုန်းဖြင့်ဖြစ်စေ၊ လူကိုယ်တိုင်ဖြစ်စေ လာရောက် booking တင်သည်များကို ဤနေရာမှ တိုက်ရိုက်ထည့်သွင်းနိုင်ပါသည်။ (Approved ပြီးသားဖြစ်သွားပါမည်)</p>
+                <p className="text-xs text-gray-500 mb-4">ကိုယ့်ကွင်းများအတွက် ဖုန်းဖြင့်ဖြစ်စေ၊ လူကိုယ်တိုင်ဖြစ်စေ လာရောက် booking တင်သည်များကို ဤနေရာမှ တိုက်ရိုက်ထည့်သွင်းနိုင်ပါသည်။ </p>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="space-y-4 bg-gray-50 p-4 rounded-xl border">
