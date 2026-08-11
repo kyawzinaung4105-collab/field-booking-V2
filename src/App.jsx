@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { db } from './firebase'; // firebase.js မှ db ကို ယူမည်
+import { db } from './firebase'; 
 import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, setDoc, runTransaction, onSnapshot } from 'firebase/firestore';
 
 const defaultUsers = [
@@ -637,8 +637,9 @@ export default function FieldBookingApp() {
     };
 
     try {
-      const docRef = await addDoc(collection(db, "fields"), newFieldObj);
-      setFields(prev => [...prev, { id: docRef.id, ...newFieldObj }]);
+      // ဒီနေရာမှာ Firestore သို့ အချက်အလက်အသစ် ထည့်မည် (State ထဲသို့ တစ်ခါထပ်မထည့်ပါ)
+      await addDoc(collection(db, "fields"), newFieldObj);
+      
       alert('ကွင်းအသစ် သိမ်းဆည်းခြင်း အောင်မြင်ပါသည်။');
       setNewFieldName('');
       setNewFieldLocation('');
@@ -649,6 +650,7 @@ export default function FieldBookingApp() {
       setOwnerSubFields([]);
     } catch (error) {
       console.error("Error creating field: ", error);
+      alert('ကွင်းအသစ်ထည့်သွင်းရာတွင် အမှားအယွင်းရှိပါသည်။');
     }
   };
 
