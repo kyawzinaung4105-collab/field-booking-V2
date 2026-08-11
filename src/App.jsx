@@ -372,7 +372,6 @@ export default function FieldBookingApp() {
     const totalPrice = totalDurationHours * selectedSubField.price;
 
     const now = new Date();
-    // Booking တင်လိုက်သည့် အချိန်ကို YYYY-MM-DD HH:mm ပုံစံဖြင့် ထည့်သွင်းခြင်း
     const bookedTimeFormatted = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
 
     const timestampMillis = Date.now();
@@ -430,7 +429,7 @@ export default function FieldBookingApp() {
           fullTimeSlot: overallTimeSlotText,
           duration: `${totalDurationHours} Hr`,
           totalPrice: totalPrice,
-          bookedAt: bookedTimeFormatted, // 👈 ဤနေရာတွင် Booking တင်လိုက်သော အချိန်ကို သိမ်းဆည်းပေးမည်
+          bookedAt: bookedTimeFormatted,
           createdAtTime: timestampMillis,
           userEmail: currentUser.email,
           userName: currentUser.role === 'owner' ? `${ownerCustomerName} (${ownerCustomerPhone}) [Owner Direct Booked]` : currentUser.name,
@@ -459,7 +458,6 @@ export default function FieldBookingApp() {
         setOwnerCustomerPhone('');
         setActiveTab('owner_manage');
       } else {
-        await triggerSnsNotification?.();
         await triggerSmsNotification(
           `🔔 [New Booking] ${currentUser.name} ထံမှ ${targetFieldObj?.name} (${selectedSubField.name}) အတွက် Booking အသစ် ဝင်ရောက်လာပါသည်။`
         );
