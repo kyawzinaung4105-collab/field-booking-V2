@@ -873,7 +873,7 @@ export default function FieldBookingApp() {
                               </td>
                               <td className="p-3 text-xs">
                                 <div className="text-gray-500 font-mono">တင်ချိန်: {item.bookedAt || '-'}</div>
-                                <div className="text-gray-700 font-bold">ရက်: {item.date}</div>
+                                <div className="text-gray-700 font-bold">{item.date}</div>
                                 <div className="font-bold text-emerald-600">{item.fullTimeSlot || item.timeSlot}</div>
                               </td>
                               <td className="p-3 text-xs">
@@ -1101,7 +1101,7 @@ export default function FieldBookingApp() {
                               </td>
                               <td className="p-3 text-xs">
                                 <div className="text-gray-500 font-mono">တင်ချိန်: {item.bookedAt || '-'}</div>
-                                <div className="text-gray-700 font-bold">ရက်: {item.date}</div>
+                                <div className="text-gray-700 font-bold">{item.date}</div>
                                 <div className="font-bold text-emerald-600">{item.fullTimeSlot || item.timeSlot}</div>
                               </td>
                               <td className="p-3 text-xs">
@@ -1186,7 +1186,7 @@ export default function FieldBookingApp() {
                           </td>
                           <td className="p-3 text-xs">
                             <div className="text-gray-500 font-mono">တင်ချိန်: {item.bookedAt || '-'}</div>
-                            <div className="text-gray-700 font-bold">ရက်: {item.date}</div>
+                            <div className="text-gray-700 font-bold">{item.date}</div>
                             <div className="font-bold text-emerald-600">{item.fullTimeSlot || item.timeSlot}</div>
                           </td>
                           <td className="p-3 text-xs">
