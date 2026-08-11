@@ -1130,7 +1130,7 @@ export default function FieldBookingApp() {
 
             {ownerActiveTab === 'pending' && (
               <div>
-                <p className="text-xs text-gray-600 mb-4">ဖုန်းဖြင့်ဖြစ်စေ၊ လူကိုယ်တိုင်ဖြစ်စေ လာရောက်ဘိုកင်တင်သူများအတွက် Owner ကိုယ်တိုင် ဤနေရာမှ တိုက်ရိုက် Booking တင်နိုင်ပါသည်။</p>
+                <p className="text-xs text-gray-600 mb-4">ဖုန်းဖြင့်ဖြစ်စေ၊ လူကိုယ်တိုင်ဖြစ်စေ လာရောက်ဘိုကင်တင်သူများအတွက် Owner ကိုယ်တိုင် ဤနေရာမှ တိုက်ရိုက် Booking တင်နိုင်ပါသည်။</p>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   {fields.filter(f => f.ownerEmail === currentUser.email).map(f => (
                     <div key={f.id} className="border rounded-xl p-4 bg-gray-50 flex flex-col justify-between">
