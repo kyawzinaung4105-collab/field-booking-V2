@@ -1106,7 +1106,7 @@ export default function FieldBookingApp() {
                 <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-gray-50 p-4 rounded-xl border">
                   <div>
                     <h3 className="text-base font-bold text-gray-800">🔔 Notifications Filter Page</h3>
-                    <p className="text-xs text-gray-500">Owner များနှင့် Booking မှ လာသော Noti များကို ကွင်း၊ ရက်စွဲ နှင့် အမျိုးအစားအလိုက် Filter လုပ်၍ စစ်ဆေးနိုင်ပါသည်။ (နောက်ဆုံးတွင် current date and time ကို ထည့်သွင်းထားသည်)</p>
+                    <p className="text-xs text-gray-500"></p>
                   </div>
                   <div className="flex flex-wrap items-center gap-3">
                     {/* Field Filter */}
@@ -1192,7 +1192,7 @@ export default function FieldBookingApp() {
 
             {adminTab === 'pending' && (
               <div>
-                <h3 className="text-base font-bold mb-4 text-gray-800">Booking မှတ်တမ်းများ (Approve / Reject များကို လွယ်ကူစွာ ပြောင်းနိုင်ပါသည်)</h3>
+                <h3 className="text-base font-bold mb-4 text-gray-800">Booking မှတ်တမ်းများ</h3>
                 <div className="overflow-x-auto">
                   <table className="w-full text-left border-collapse">
                     <thead>
