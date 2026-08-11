@@ -111,7 +111,7 @@ export default function FieldBookingApp() {
   const [activeTab, setActiveTab] = useState('fields'); 
   const [userSelectedField, setUserSelectedField] = useState(null);
   const [selectedSubField, setSelectedSubField] = useState(null);
-  const [userCheckDate, setUserCheckDate] = useState('2026-08-07');
+  const [userCheckDate, setUserCheckDate] = useState('2026-08-10');
   
   const [selectedStartSlot, setSelectedStartSlot] = useState('');
   const [selectedEndSlot, setSelectedEndSlot] = useState('');
@@ -164,7 +164,6 @@ export default function FieldBookingApp() {
     };
   }, []);
 
-  
   const ownerFieldIds = fields.filter(f => f.ownerEmail === currentUser?.email).map(f => f.id);
 
   const handleLogin = (e) => {
@@ -302,7 +301,8 @@ export default function FieldBookingApp() {
     if (checkIsExpired(hour)) return true;
     const slotLabelCheck = `${format12Hour(hour)} - ${format12Hour(hour + 1)}`;
     const bookingFound = bookings.find(
-      b => b.subFieldId === selectedSubField?.id && b.date === userCheckDate && b.timeSlot === slotLabelCheck && b.status === 'Approved'
+      b => b.subFieldId === selectedSubField?.id && b.date === userCheckDate && b.status === 'Approved' &&
+      (b.timeSlot === slotLabelCheck || (b.startHour !== undefined && b.endHour !== undefined && hour >= b.startHour && hour < b.endHour))
     );
     return !!bookingFound;
   };
@@ -355,38 +355,39 @@ export default function FieldBookingApp() {
 
     const now = new Date();
     const bookedTimeFormatted = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')} ${now.toLocaleTimeString()}`;
+    const timestampMillis = Date.now(); 
     
     const totalDurationHours = endH - startH;
     const overallTimeSlotText = `${format12Hour(startH)} - ${format12Hour(endH)}`;
+    const totalPrice = totalDurationHours * selectedSubField.price;
 
-    const newBookings = [];
-    for (let h = startH; h < endH; h++) {
-      newBookings.push({
-        fieldId: userSelectedField.id,
-        subFieldId: selectedSubField.id,
-        subFieldName: selectedSubField.name,
-        date: userCheckDate,
-        timeSlot: `${format12Hour(h)} - ${format12Hour(h + 1)}`,
-        fullTimeSlot: overallTimeSlotText,
-        duration: `${totalDurationHours} Hr`,
-        bookedAt: bookedTimeFormatted,
-        userEmail: currentUser.email,
-        userName: currentUser.role === 'owner' ? `${ownerCustomerName} (${ownerCustomerPhone}) [Owner Direct Booked]` : currentUser.name,
-        paymentMethod: selectedPaymentMethod,
-        transactionLast5: currentUser.role === 'owner' ? 'OWNER' : transactionLast5,
-        screenshotName: currentUser.role === 'owner' ? 'Direct Manual Booking' : paymentScreenshot?.name,
-        status: currentUser.role === 'owner' ? 'Approved' : 'Pending',
-        bookedBy: currentUser.role === 'owner' ? 'Owner' : 'User'
-      });
-    }
+    const newBookingObj = {
+      fieldId: userSelectedField.id,
+      subFieldId: selectedSubField.id,
+      subFieldName: selectedSubField.name,
+      date: userCheckDate,
+      startHour: startH,
+      endHour: endH,
+      timeSlot: overallTimeSlotText,
+      fullTimeSlot: overallTimeSlotText,
+      duration: `${totalDurationHours} Hr`,
+      totalPrice: totalPrice,
+      bookedAt: bookedTimeFormatted,
+      createdAtTime: timestampMillis, 
+      userEmail: currentUser.email,
+      userName: currentUser.role === 'owner' ? `${ownerCustomerName} (${ownerCustomerPhone}) [Owner Direct Booked]` : currentUser.name,
+      paymentMethod: selectedPaymentMethod,
+      transactionLast5: currentUser.role === 'owner' ? 'OWNER' : transactionLast5,
+      screenshotName: currentUser.role === 'owner' ? 'Direct Manual Booking' : paymentScreenshot?.name,
+      status: currentUser.role === 'owner' ? 'Approved' : 'Pending',
+      bookedBy: currentUser.role === 'owner' ? 'Owner' : 'User'
+    };
 
     try {
-      const addedList = [];
-      for (let b of newBookings) {
-        const docRef = await addDoc(collection(db, "bookings"), b);
-        addedList.push({ id: docRef.id, ...b });
-      }
-      setBookings(prev => [...prev, ...addedList]);
+      const docRef = await addDoc(collection(db, "bookings"), newBookingObj);
+      const createdBooking = { id: docRef.id, ...newBookingObj };
+      
+      setBookings(prev => [createdBooking, ...prev]);
 
       const targetFieldObj = fields.find(f => f.id === userSelectedField.id);
       if (currentUser.role === 'owner') {
@@ -484,16 +485,14 @@ export default function FieldBookingApp() {
     })));
   };
 
- const handleAdminUpdateOwnerInfo = async (fieldId, newEmail, newPass, newStatus) => {
+  const handleAdminUpdateOwnerInfo = async (fieldId, newEmail, newPass, newStatus) => {
     try {
-      // 1. Firebase Firestore ကို အရင် Update လုပ်မည်
       await updateDoc(doc(db, "fields", fieldId), {
         ownerEmail: newEmail,
         ownerPassword: newPass,
         ownerStatus: newStatus
       });
 
-      // 2. Local State ကိုပါ ချက်ချင်း Update လုပ်ပေးမည် (ဒါမှ UI မှာ တန်းပျောက်သွားမည်)
       setFields(prevFields => prevFields.map(f => {
         if (f.id === fieldId) {
           return { ...f, ownerEmail: newEmail, ownerPassword: newPass, ownerStatus: newStatus };
@@ -527,19 +526,27 @@ export default function FieldBookingApp() {
     await updateDoc(doc(db, "bookings", bookingId), { status: newStatus });
   };
 
-  
-const activeFieldsForUser = fields.filter(f => {
+  const activeFieldsForUser = fields.filter(f => {
     const status = f.ownerStatus ? f.ownerStatus.trim().toLowerCase() : '';
     return status !== 'disabled';
   });
 
-  // ဒီနေရာမှာ baseFieldsList ကို အောက်ပါအတိုင်း ပြန်ထည့်ပေးပါ
   const baseFieldsList = currentUser?.role === 'owner'
     ? activeFieldsForUser.filter(f => f.ownerEmail === currentUser.email)
     : activeFieldsForUser;
+    
   const displayedFields = selectedTownship.trim() === '' 
     ? baseFieldsList 
     : baseFieldsList.filter(f => f.location && f.location.toLowerCase().includes(selectedTownship.trim().toLowerCase()));
+
+  const sortedBookings = [...bookings].sort((a, b) => {
+    const timeA = a.createdAtTime || (a.bookedAt ? new Date(a.bookedAt).getTime() : 0);
+    const timeB = b.createdAtTime || (b.bookedAt ? new Date(b.bookedAt).getTime() : 0);
+    if (timeA !== timeB) {
+      return timeB - timeA; 
+    }
+    return String(b.id || '').localeCompare(String(a.id || ''));
+  });
 
   if (!currentUser) {
     return (
@@ -707,7 +714,7 @@ const activeFieldsForUser = fields.filter(f => {
 
             <div className="flex flex-wrap gap-2 mb-6">
               <button onClick={() => setAdminTab('pending')} className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${adminTab === 'pending' ? 'bg-emerald-600 text-white shadow' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}>
-                Pending Bookings ({bookings.filter(b => b.status === 'Pending').length})
+                Pending Bookings ({sortedBookings.filter(b => b.status === 'Pending').length})
               </button>
               <button onClick={() => setAdminTab('manage_fields')} className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${adminTab === 'manage_fields' ? 'bg-emerald-600 text-white shadow' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}>
                 Manage Fields & Add Field
@@ -750,14 +757,15 @@ const activeFieldsForUser = fields.filter(f => {
                         <th className="p-3">အသုံးပြုသူ</th>
                         <th className="p-3">ကွင်း / ကွင်းခွဲ</th>
                         <th className="p-3">ရက်စွဲ / အချိန်</th>
-                        <th className="p-3">Duration / တင်ခဲ့ချိန်</th>
+                        <th className="p-3">Duration (ကြာချိန်)</th>
+                        <th className="p-3">Price (သင့်ငွေ)</th>
                         <th className="p-3">ငွေပေးချေမှု / Txn</th>
                         <th className="p-3 text-center">လုပ်ဆောင်ချက်</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y text-sm">
-                      {bookings.filter(b => b.status === 'Pending').length > 0 ? (
-                        bookings.filter(b => b.status === 'Pending').map(item => {
+                      {sortedBookings.filter(b => b.status === 'Pending').length > 0 ? (
+                        sortedBookings.filter(b => b.status === 'Pending').map(item => {
                           const targetField = fields.find(f => f.id === item.fieldId);
                           return (
                             <tr key={item.id} className="hover:bg-gray-50">
@@ -771,8 +779,10 @@ const activeFieldsForUser = fields.filter(f => {
                                 <div className="font-bold text-emerald-600">{item.fullTimeSlot || item.timeSlot}</div>
                               </td>
                               <td className="p-3 text-xs">
-                                <div className="font-bold text-blue-600">{item.duration || '1 Hr'}</div>
-                                <div className="text-gray-500 text-[10px]">တင်ခဲ့ချိန်: {item.bookedAt || 'မရှိပါ။'}</div>
+                                <span className="font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded">{item.duration || '1 Hr'}</span>
+                              </td>
+                              <td className="p-3 text-xs">
+                                <span className="font-bold text-emerald-700 bg-emerald-50 px-2 py-1 rounded">{item.totalPrice ? `${item.totalPrice.toLocaleString()} ကျပ်` : '-'}</span>
                               </td>
                               <td className="p-3 text-xs">
                                 <div className="uppercase font-bold">{item.paymentMethod}</div>
@@ -787,7 +797,7 @@ const activeFieldsForUser = fields.filter(f => {
                         })
                       ) : (
                         <tr>
-                          <td colSpan="6" className="text-center py-8 text-gray-500 text-sm">စောင့်ဆိုင်းဆဲ Booking များ မရှိပါ။</td>
+                          <td colSpan="7" className="text-center py-8 text-gray-500 text-sm">စောင့်ဆိုင်းဆဲ Booking များ မရှိပါ။</td>
                         </tr>
                       )}
                     </tbody>
@@ -973,32 +983,44 @@ const activeFieldsForUser = fields.filter(f => {
                   <table className="w-full text-left border-collapse">
                     <thead>
                       <tr className="bg-gray-100 text-xs border-b">
+                        <th className="p-3">ကွင်း / ကွင်းခွဲ</th>
+                        <th className="p-3">ရက်စွဲ / အချိန်</th>
+                        <th className="p-3">Duration (ကြာချိန်)</th>
+                        <th className="p-3">Total Price (သင့်ငွေ)</th>
                         <th className="p-3">Customer အမည် / ဖုန်း</th>
-                        <th className="p-3">ကွင်းခွဲ</th>
-                        <th className="p-3">နေ့စွဲ / အချိန်</th>
-                        <th className="p-3">Duration / တင်ခဲ့ချိန်</th>
                         <th className="p-3">Status</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y text-sm">
-                      {bookings.filter(b => ownerFieldIds.includes(b.fieldId)).length > 0 ? (
-                        bookings.filter(b => ownerFieldIds.includes(b.fieldId)).map(item => (
-                          <tr key={item.id} className="hover:bg-gray-50">
-                            <td className="p-3 font-medium">{item.userName}</td>
-                            <td className="p-3">{item.subFieldName}</td>
-                            <td className="p-3 text-xs">{item.date} ({item.fullTimeSlot || item.timeSlot})</td>
-                            <td className="p-3 text-xs">
-                              <div className="font-bold text-blue-600">{item.duration || '1 Hr'}</div>
-                              <div className="text-gray-500 text-[10px]">တင်ခဲ့ချိန်: {item.bookedAt || 'မရှိပါ။'}</div>
-                            </td>
-                            <td className="p-3 font-bold text-xs">
-                              <span className={item.status === 'Approved' ? 'text-emerald-600' : item.status === 'Rejected' ? 'text-red-500' : 'text-amber-500'}>{item.status}</span>
-                            </td>
-                          </tr>
-                        ))
+                      {sortedBookings.filter(b => ownerFieldIds.includes(b.fieldId)).length > 0 ? (
+                        sortedBookings.filter(b => ownerFieldIds.includes(b.fieldId)).map(item => {
+                          const targetField = fields.find(f => f.id === item.fieldId);
+                          return (
+                            <tr key={item.id} className="hover:bg-gray-50">
+                              <td className="p-3">
+                                <div className="font-bold">{targetField?.name || 'Unknown'}</div>
+                                <div className="text-xs text-gray-500">{item.subFieldName}</div>
+                              </td>
+                              <td className="p-3 text-xs">
+                                <div>{item.date}</div>
+                                <div className="font-bold text-emerald-600">{item.fullTimeSlot || item.timeSlot}</div>
+                              </td>
+                              <td className="p-3 text-xs">
+                                <span className="font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded">{item.duration || '1 Hr'}</span>
+                              </td>
+                              <td className="p-3 text-xs">
+                                <span className="font-bold text-emerald-700 bg-emerald-50 px-2 py-1 rounded">{item.totalPrice ? `${item.totalPrice.toLocaleString()} ကျပ်` : '-'}</span>
+                              </td>
+                              <td className="p-3 font-medium text-xs">{item.userName}</td>
+                              <td className="p-3 font-bold text-xs">
+                                <span className={item.status === 'Approved' ? 'text-emerald-600' : item.status === 'Rejected' ? 'text-red-500' : 'text-amber-500'}>{item.status}</span>
+                              </td>
+                            </tr>
+                          );
+                        })
                       ) : (
                         <tr>
-                          <td colSpan="5" className="text-center py-8 text-gray-500">Booking မှတ်တမ်း မရှိသေးပါ။</td>
+                          <td colSpan="6" className="text-center py-8 text-gray-500">Booking မှတ်တမ်း မရှိသေးပါ။</td>
                         </tr>
                       )}
                     </tbody>
@@ -1047,14 +1069,15 @@ const activeFieldsForUser = fields.filter(f => {
                   <tr className="bg-gray-100 text-xs border-b">
                     <th className="p-3">ကွင်း / ကွင်းခွဲ</th>
                     <th className="p-3">ရက်စွဲ / အချိန်</th>
-                    <th className="p-3">Duration / တင်ခဲ့ချိန်</th>
+                    <th className="p-3">Duration (ကြာချိန်)</th>
+                    <th className="p-3">Total Price (သင့်ငွေ)</th>
                     <th className="p-3">ငွေပေးချေမှု</th>
                     <th className="p-3">Status</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y text-sm">
-                  {bookings.filter(b => b.userEmail === currentUser.email).length > 0 ? (
-                    bookings.filter(b => b.userEmail === currentUser.email).map(item => {
+                  {sortedBookings.filter(b => b.userEmail === currentUser.email).length > 0 ? (
+                    sortedBookings.filter(b => b.userEmail === currentUser.email).map(item => {
                       const targetField = fields.find(f => f.id === item.fieldId);
                       return (
                         <tr key={item.id} className="hover:bg-gray-50">
@@ -1067,8 +1090,10 @@ const activeFieldsForUser = fields.filter(f => {
                             <div className="font-bold text-emerald-600">{item.fullTimeSlot || item.timeSlot}</div>
                           </td>
                           <td className="p-3 text-xs">
-                            <div className="font-bold text-blue-600">{item.duration || '1 Hr'}</div>
-                            <div className="text-gray-500 text-[10px]">တင်ခဲ့ချိန်: {item.bookedAt || 'မရှိပါ။'}</div>
+                            <span className="font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded">{item.duration || '1 Hr'}</span>
+                          </td>
+                          <td className="p-3 text-xs">
+                            <span className="font-bold text-emerald-700 bg-emerald-50 px-2 py-1 rounded">{item.totalPrice ? `${item.totalPrice.toLocaleString()} ကျပ်` : '-'}</span>
                           </td>
                           <td className="p-3 text-xs uppercase font-bold">{item.paymentMethod}</td>
                           <td className="p-3 text-xs font-bold">
@@ -1079,7 +1104,7 @@ const activeFieldsForUser = fields.filter(f => {
                     })
                   ) : (
                     <tr>
-                      <td colSpan="5" className="text-center py-8 text-gray-500 text-sm">သင်၏ Booking မှတ်တမ်းများ မရှိသေးပါ။</td>
+                      <td colSpan="6" className="text-center py-8 text-gray-500 text-sm">သင်၏ Booking မှတ်တမ်းများ မရှိသေးပါ။</td>
                     </tr>
                   )}
                 </tbody>
@@ -1303,7 +1328,7 @@ const activeFieldsForUser = fields.filter(f => {
                   placeholder="မြို့နယ် ရှာရန် (ဥပမာ - လှိုင်)"
                   value={selectedTownship}
                   onChange={(e) => setSelectedTownship(e.target.value)}
-                  className="w-full border rounded-lg px-3 py-2 text-xs bg-gray-50 focus:bg-white"
+                  className="w-full border rounded-lg px-3 py-2 text-xs bg-gray-50 flex focus:bg-white"
                 />
                 <datalist id="townships-list">
                   {Array.from(new Set(fields.map(f => f.location))).map((loc, idx) => (
@@ -1337,4 +1362,4 @@ const activeFieldsForUser = fields.filter(f => {
       </main>
     </div>
   );
-} 
+}
