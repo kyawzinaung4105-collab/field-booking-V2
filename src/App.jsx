@@ -1509,7 +1509,7 @@ export default function FieldBookingApp() {
                             <span className="text-xs bg-gray-100 px-2 py-1 rounded font-medium">{f.location}</span>
                           </div>
                           <p className="text-xs text-gray-500 mt-1">{f.address} | Tel: {f.phone}</p>
-                          <p className="text-xs text-emerald-700 font-bold mt-1">🕒 ကွင်းအထွေထွေ ဖွင့်ချိန်: {format12Hour(f.openHour ?? 8)} မှ {format12Hour(f.closeHour ?? 22)} ထိ</p>
+                          <p className="text-xs text-emerald-700 font-bold mt-1">🕒 ကွင်းဖွင့်ချိန်: {format12Hour(f.openHour ?? 8)} မှ {format12Hour(f.closeHour ?? 22)} ထိ</p>
                           <div className="mt-2 text-xs text-gray-600 space-y-0.5">
                             <p>💳 <b>KPay:</b> {f.paymentInfo?.kpay || 'မထည့်ရသေးပါ'}</p>
                             <p>💳 <b>Wave:</b> {f.paymentInfo?.wave || 'မထည့်ရသေးပါ'}</p>
