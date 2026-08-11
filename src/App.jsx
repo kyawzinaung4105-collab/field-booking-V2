@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { db } from './firebase'; // firebase.js မှ db ကို ယူမည်
-import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, setDoc } from 'firebase/firestore';
+import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, setDoc, runTransaction } from 'firebase/firestore';
 
 const defaultUsers = [
   { email: 'admin@gmail.com', password: 'admin123', name: 'System Admin', role: 'admin' }
@@ -317,21 +317,35 @@ export default function FieldBookingApp() {
 
   const handleBookingSubmit = async (e) => {
     e.preventDefault();
+
     if (!selectedSubField || selectedSubField.status !== 'Active') {
-      alert('ဤကွင်းခွဲမှာ လက်ရှိ ပိတ်ထားပါသဖြင့် (Inactive) Booking တင်၍ မရပါ။');
+      alert('ဤကွင်းခွဲမှာ လက်ရှိ ပိတ်ထားပါသဖြင့် Booking တင်၍ မရပါ။');
       return;
     }
 
     if (currentUser.role === 'owner') {
-      if (selectedStartSlot === '' || selectedEndSlot === '' || !selectedPaymentMethod || !ownerCustomerName || !ownerCustomerPhone) {
+      if (
+        selectedStartSlot === '' ||
+        selectedEndSlot === '' ||
+        !selectedPaymentMethod ||
+        !ownerCustomerName ||
+        !ownerCustomerPhone
+      ) {
         alert('ကျေးဇူးပြု၍ လိုအပ်သော အချက်အလက်များ အားလုံးဖြည့်စွက်ပါ။');
         return;
       }
     } else {
-      if (selectedStartSlot === '' || selectedEndSlot === '' || !selectedPaymentMethod || !transactionLast5 || !paymentScreenshot) {
+      if (
+        selectedStartSlot === '' ||
+        selectedEndSlot === '' ||
+        !selectedPaymentMethod ||
+        !transactionLast5 ||
+        !paymentScreenshot
+      ) {
         alert('ကျေးဇူးပြု၍ လိုအပ်သော အချက်အလက်များ အားလုံးဖြည့်စွက်ပါ။');
         return;
       }
+
       if (transactionLast5.length !== 5) {
         alert('Transaction နံပါတ် နောက်ဆုံး ၅ လုံးတိတိ ထည့်ပါ။');
         return;
@@ -348,57 +362,108 @@ export default function FieldBookingApp() {
 
     for (let h = startH; h < endH; h++) {
       if (isSlotUnavailable(h)) {
-        alert('ရွေးချယ်ထားသော အချိန်အတွင်း အတည်ပြုပြီးသား (Approved) Booking များ ပါဝင်နေပါသည်။');
+        alert('ရွေးချယ်ထားသော အချိန်အတွင်း Booking ရှိနေပါသည်။ အခြားအချိန်ကို ရွေးချယ်ပါ။');
         return;
       }
     }
 
-    const now = new Date();
-    const bookedTimeFormatted = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')} ${now.toLocaleTimeString()}`;
-    const timestampMillis = Date.now(); 
-    
     const totalDurationHours = endH - startH;
     const overallTimeSlotText = `${format12Hour(startH)} - ${format12Hour(endH)}`;
     const totalPrice = totalDurationHours * selectedSubField.price;
 
-    const newBookingObj = {
-      fieldId: userSelectedField.id,
-      subFieldId: selectedSubField.id,
-      subFieldName: selectedSubField.name,
-      date: userCheckDate,
-      startHour: startH,
-      endHour: endH,
-      timeSlot: overallTimeSlotText,
-      fullTimeSlot: overallTimeSlotText,
-      duration: `${totalDurationHours} Hr`,
-      totalPrice: totalPrice,
-      bookedAt: bookedTimeFormatted,
-      createdAtTime: timestampMillis, 
-      userEmail: currentUser.email,
-      userName: currentUser.role === 'owner' ? `${ownerCustomerName} (${ownerCustomerPhone}) [Owner Direct Booked]` : currentUser.name,
-      paymentMethod: selectedPaymentMethod,
-      transactionLast5: currentUser.role === 'owner' ? 'OWNER' : transactionLast5,
-      screenshotName: currentUser.role === 'owner' ? 'Direct Manual Booking' : paymentScreenshot?.name,
-      status: currentUser.role === 'owner' ? 'Approved' : 'Pending',
-      bookedBy: currentUser.role === 'owner' ? 'Owner' : 'User'
-    };
+    const now = new Date();
+    // Booking တင်လိုက်သည့် အချိန်ကို YYYY-MM-DD HH:mm ပုံစံဖြင့် ထည့်သွင်းခြင်း
+    const bookedTimeFormatted = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+
+    const timestampMillis = Date.now();
+    const targetFieldObj = fields.find(f => f.id === userSelectedField.id);
 
     try {
-      const docRef = await addDoc(collection(db, "bookings"), newBookingObj);
-      const createdBooking = { id: docRef.id, ...newBookingObj };
-      
-      setBookings(prev => [createdBooking, ...prev]);
+      const result = await runTransaction(db, async (transaction) => {
+        const bookingsRef = collection(db, "bookings");
+        const bookingsSnap = await getDocs(bookingsRef);
+        const existingBookings = bookingsSnap.docs.map(d => ({
+          id: d.id,
+          ...d.data()
+        }));
 
-      const targetFieldObj = fields.find(f => f.id === userSelectedField.id);
+        const conflictingBooking = existingBookings.find(b => {
+          if (
+            b.fieldId !== userSelectedField.id ||
+            b.subFieldId !== selectedSubField.id ||
+            b.date !== userCheckDate
+          ) {
+            return false;
+          }
+
+          if (b.status !== 'Pending' && b.status !== 'Approved') {
+            return false;
+          }
+
+          const existingStart = Number(b.startHour);
+          const existingEnd = Number(b.endHour);
+
+          if (Number.isNaN(existingStart) || Number.isNaN(existingEnd)) {
+            return false;
+          }
+
+          return (
+            startH < existingEnd &&
+            endH > existingStart
+          );
+        });
+
+        if (conflictingBooking) {
+          throw new Error('SLOT_ALREADY_BOOKED');
+        }
+
+        const newBookingRef = doc(collection(db, "bookings"));
+
+        const newBookingObj = {
+          fieldId: userSelectedField.id,
+          subFieldId: selectedSubField.id,
+          subFieldName: selectedSubField.name,
+          date: userCheckDate,
+          startHour: startH,
+          endHour: endH,
+          timeSlot: overallTimeSlotText,
+          fullTimeSlot: overallTimeSlotText,
+          duration: `${totalDurationHours} Hr`,
+          totalPrice: totalPrice,
+          bookedAt: bookedTimeFormatted, // 👈 ဤနေရာတွင် Booking တင်လိုက်သော အချိန်ကို သိမ်းဆည်းပေးမည်
+          createdAtTime: timestampMillis,
+          userEmail: currentUser.email,
+          userName: currentUser.role === 'owner' ? `${ownerCustomerName} (${ownerCustomerPhone}) [Owner Direct Booked]` : currentUser.name,
+          paymentMethod: selectedPaymentMethod,
+          transactionLast5: currentUser.role === 'owner' ? 'OWNER' : transactionLast5,
+          screenshotName: currentUser.role === 'owner' ? 'Direct Manual Booking' : paymentScreenshot?.name,
+          status: currentUser.role === 'owner' ? 'Approved' : 'Pending',
+          bookedBy: currentUser.role === 'owner' ? 'Owner' : 'User'
+        };
+
+        transaction.set(newBookingRef, newBookingObj);
+        return {
+          id: newBookingRef.id,
+          ...newBookingObj
+        };
+      });
+
+      setBookings(prev => [result, ...prev]);
+
       if (currentUser.role === 'owner') {
-        triggerSmsNotification(`🔔 [Direct Booking] Owner မှ ${targetFieldObj?.name} (${selectedSubField.name}) အတွက် Direct Booking တင်ပြီးပါပြီ။`);
+        await triggerSmsNotification(
+          `🔔 [Direct Booking] Owner မှ ${targetFieldObj?.name} (${selectedSubField.name}) အတွက် Direct Booking တင်ပြီးပါပြီ။`
+        );
         alert('Owner ၏ Manual Booking တင်ခြင်း အောင်မြင်ပြီး အတည်ပြုပြီးသား ဖြစ်သွားပါပြီ။');
         setOwnerCustomerName('');
         setOwnerCustomerPhone('');
         setActiveTab('owner_manage');
       } else {
-        triggerSmsNotification(`🔔 [New Booking] ${currentUser.name} ထံမှ ${targetFieldObj?.name} (${selectedSubField.name}) အတွက် Booking အသစ် ဝင်ရောက်လာပါသည်။`);
-        alert('Booking တင်ခြင်း အောင်မြင်ပါသည်။');
+        await triggerSnsNotification?.();
+        await triggerSmsNotification(
+          `🔔 [New Booking] ${currentUser.name} ထံမှ ${targetFieldObj?.name} (${selectedSubField.name}) အတွက် Booking အသစ် ဝင်ရောက်လာပါသည်။`
+        );
+        alert('Booking တင်ခြင်း အောင်မြင်ပါသည်။ Admin အတည်ပြုရန် စောင့်ဆိုင်းပါ။');
         setActiveTab('history');
       }
 
@@ -407,8 +472,20 @@ export default function FieldBookingApp() {
       setSelectedPaymentMethod('');
       setPaymentScreenshot(null);
       setTransactionLast5('');
+
     } catch (error) {
-      console.error("Error saving booking: ", error);
+      if (error.message === 'SLOT_ALREADY_BOOKED') {
+        alert('⚠️ ဒီအချိန်ကို အခြား User တစ်ယောက်က Booking တင်ပြီးပါပြီ။\n\nအခြားအချိန်ကို ရွေးချယ်ပေးပါ။');
+        try {
+          const bookingsSnap = await getDocs(collection(db, "bookings"));
+          setBookings(bookingsSnap.docs.map(d => ({ id: d.id, ...d.data() })));
+        } catch (refreshError) {
+          console.error("Booking refresh error:", refreshError);
+        }
+        return;
+      }
+
+      console.error("Error saving booking:", error);
       alert('Booking သိမ်းဆည်းရာတွင် အမှားအယွင်းရှိပါသည်။');
     }
   };
@@ -615,7 +692,6 @@ export default function FieldBookingApp() {
                   className="w-full border rounded-lg p-2.5 text-sm bg-gray-50 focus:bg-white focus:outline-none focus:border-emerald-600" 
                   required 
                 />
-                <p className="text-[10px] text-gray-500 mt-1">အင်္ဂလိပ်စာလုံး (A-Z, a-z) နှင့် ဂဏန်း (0-9) သာ လက်ခံပါသည်။</p>
               </div>
               <div>
                 <label className="block text-xs font-bold text-gray-700 mb-1">Password (ဂဏန်းသီးသန့်)</label>
@@ -632,7 +708,6 @@ export default function FieldBookingApp() {
                   className="w-full border rounded-lg p-2.5 text-sm bg-gray-50 focus:bg-white focus:outline-none focus:border-emerald-600 font-mono" 
                   required 
                 />
-                <p className="text-[10px] text-gray-500 mt-1">ဂဏန်း (0-9) များသာ ရိုက်ထည့်နိုင်ပါသည်။</p>
               </div>
               <button type="submit" className="w-full bg-emerald-600 text-white py-2.5 rounded-lg text-sm font-bold shadow hover:bg-emerald-700 transition-colors">အကောင့်ဖန်တီးမည် (Sign Up)</button>
             </form>
@@ -756,7 +831,7 @@ export default function FieldBookingApp() {
                       <tr className="bg-gray-100 text-xs border-b">
                         <th className="p-3">အသုံးပြုသူ</th>
                         <th className="p-3">ကွင်း / ကွင်းခွဲ</th>
-                        <th className="p-3">ရက်စွဲ / အချိန်</th>
+                        <th className="p-3">ဘိုကင်တင်ချိန် / ကစားမည့်အချိန်</th>
                         <th className="p-3">Duration (ကြာချိန်)</th>
                         <th className="p-3">Price (သင့်ငွေ)</th>
                         <th className="p-3">ငွေပေးချေမှု / Txn</th>
@@ -775,7 +850,8 @@ export default function FieldBookingApp() {
                                 <div className="text-xs text-gray-500">{item.subFieldName}</div>
                               </td>
                               <td className="p-3 text-xs">
-                                <div>{item.date}</div>
+                                <div className="text-gray-500 font-mono">တင်ချိန်: {item.bookedAt || '-'}</div>
+                                <div className="text-gray-700 font-bold">ရက်: {item.date}</div>
                                 <div className="font-bold text-emerald-600">{item.fullTimeSlot || item.timeSlot}</div>
                               </td>
                               <td className="p-3 text-xs">
@@ -984,7 +1060,7 @@ export default function FieldBookingApp() {
                     <thead>
                       <tr className="bg-gray-100 text-xs border-b">
                         <th className="p-3">ကွင်း / ကွင်းခွဲ</th>
-                        <th className="p-3">ရက်စွဲ / အချိန်</th>
+                        <th className="p-3">ဘိုကင်တင်ချိန် / ကစားမည့်အချိန်</th>
                         <th className="p-3">Duration (ကြာချိန်)</th>
                         <th className="p-3">Total Price (သင့်ငွေ)</th>
                         <th className="p-3">Customer အမည် / ဖုန်း</th>
@@ -1002,7 +1078,8 @@ export default function FieldBookingApp() {
                                 <div className="text-xs text-gray-500">{item.subFieldName}</div>
                               </td>
                               <td className="p-3 text-xs">
-                                <div>{item.date}</div>
+                                <div className="text-gray-500 font-mono">တင်ချိန်: {item.bookedAt || '-'}</div>
+                                <div className="text-gray-700 font-bold">ရက်: {item.date}</div>
                                 <div className="font-bold text-emerald-600">{item.fullTimeSlot || item.timeSlot}</div>
                               </td>
                               <td className="p-3 text-xs">
@@ -1068,7 +1145,7 @@ export default function FieldBookingApp() {
                 <thead>
                   <tr className="bg-gray-100 text-xs border-b">
                     <th className="p-3">ကွင်း / ကွင်းခွဲ</th>
-                    <th className="p-3">ရက်စွဲ / အချိန်</th>
+                    <th className="p-3">ဘိုကင်တင်ချိန် / ကစားမည့်အချိန်</th>
                     <th className="p-3">Duration (ကြာချိန်)</th>
                     <th className="p-3">Total Price (သင့်ငွေ)</th>
                     <th className="p-3">ငွေပေးချေမှု</th>
@@ -1086,7 +1163,8 @@ export default function FieldBookingApp() {
                             <div className="text-xs text-gray-500">{item.subFieldName}</div>
                           </td>
                           <td className="p-3 text-xs">
-                            <div>{item.date}</div>
+                            <div className="text-gray-500 font-mono">တင်ချိန်: {item.bookedAt || '-'}</div>
+                            <div className="text-gray-700 font-bold">ရက်: {item.date}</div>
                             <div className="font-bold text-emerald-600">{item.fullTimeSlot || item.timeSlot}</div>
                           </td>
                           <td className="p-3 text-xs">
