@@ -106,6 +106,8 @@ export default function FieldBookingApp() {
   const [newFieldPhone, setNewFieldPhone] = useState('');
   const [newFieldOpenHour, setNewFieldOpenHour] = useState(8);
   const [newFieldCloseHour, setNewFieldCloseHour] = useState(22);
+  const [newFieldKpay, setNewFieldKpay] = useState('09-791234567 (KPay)');
+  const [newFieldWave, setNewFieldWave] = useState('09-421234567 (Wave)');
   
   const [newOwnerEmail, setNewOwnerEmail] = useState('');
   const [newOwnerPassword, setNewOwnerPassword] = useState('');
@@ -123,6 +125,8 @@ export default function FieldBookingApp() {
   const [editFieldPhone, setEditFieldPhone] = useState('');
   const [editFieldOpenHour, setEditFieldOpenHour] = useState(8);
   const [editFieldCloseHour, setEditFieldCloseHour] = useState(22);
+  const [editFieldKpay, setEditFieldKpay] = useState('');
+  const [editFieldWave, setEditFieldWave] = useState('');
   const [editSubFields, setEditSubFields] = useState([]);
 
   // Owner ဘက်မှ မိမိကွင်းများကို ပြင်ဆင်ရန် state များ
@@ -133,6 +137,8 @@ export default function FieldBookingApp() {
   const [ownerEditFieldPhone, setOwnerEditFieldPhone] = useState('');
   const [ownerEditFieldOpenHour, setOwnerEditFieldOpenHour] = useState(8);
   const [ownerEditFieldCloseHour, setOwnerEditFieldCloseHour] = useState(22);
+  const [ownerEditFieldKpay, setOwnerEditFieldKpay] = useState('');
+  const [ownerEditFieldWave, setOwnerEditFieldWave] = useState('');
   const [ownerEditSubFields, setOwnerEditSubFields] = useState([]);
 
   const [adminTab, setAdminTab] = useState('pending');
@@ -643,7 +649,7 @@ export default function FieldBookingApp() {
       closeHour: parseInt(newFieldCloseHour),
       city: 'ရန်ကုန်',
       subFields: ownerSubFields,
-      paymentInfo: { kpay: '09-791234567 (KPay)', wave: '09-421234567 (Wave)' }
+      paymentInfo: { kpay: newFieldKpay, wave: newFieldWave }
     };
 
     try {
@@ -655,6 +661,8 @@ export default function FieldBookingApp() {
       setNewFieldPhone('');
       setNewOwnerEmail('');
       setNewOwnerPassword('');
+      setNewFieldKpay('09-791234567 (KPay)');
+      setNewFieldWave('09-421234567 (Wave)');
       setOwnerSubFields([]);
     } catch (error) {
       console.error("Error creating field: ", error);
@@ -670,6 +678,8 @@ export default function FieldBookingApp() {
     setEditFieldPhone(field.phone || '');
     setEditFieldOpenHour(field.openHour ?? 8);
     setEditFieldCloseHour(field.closeHour ?? 22);
+    setEditFieldKpay(field.paymentInfo?.kpay || '');
+    setEditFieldWave(field.paymentInfo?.wave || '');
     setEditSubFields(field.subFields.map(sf => ({
       ...sf,
       status: sf.status ?? 'Active'
@@ -690,7 +700,8 @@ export default function FieldBookingApp() {
       phone: editFieldPhone || '09-XXXXXXXXX',
       openHour: parseInt(editFieldOpenHour),
       closeHour: parseInt(editFieldCloseHour),
-      subFields: editSubFields
+      subFields: editSubFields,
+      paymentInfo: { kpay: editFieldKpay, wave: editFieldWave }
     };
 
     try {
@@ -712,6 +723,8 @@ export default function FieldBookingApp() {
     setOwnerEditFieldPhone(field.phone || '');
     setOwnerEditFieldOpenHour(field.openHour ?? 8);
     setOwnerEditFieldCloseHour(field.closeHour ?? 22);
+    setOwnerEditFieldKpay(field.paymentInfo?.kpay || '');
+    setOwnerEditFieldWave(field.paymentInfo?.wave || '');
     setOwnerEditSubFields(field.subFields.map(sf => ({
       ...sf,
       status: sf.status ?? 'Active'
@@ -732,7 +745,8 @@ export default function FieldBookingApp() {
       phone: ownerEditFieldPhone || '09-XXXXXXXXX',
       openHour: parseInt(ownerEditFieldOpenHour),
       closeHour: parseInt(ownerEditFieldCloseHour),
-      subFields: ownerEditSubFields
+      subFields: ownerEditSubFields,
+      paymentInfo: { kpay: ownerEditFieldKpay, wave: ownerEditFieldWave }
     };
 
     try {
@@ -765,12 +779,28 @@ export default function FieldBookingApp() {
     }
   };
 
-  const handleUpdateBookingStatus = async (bookingId, newStatus) => {
-    const targetBooking = bookings.find(b => b.id === bookingId);
-    if (targetBooking) {
-      await triggerSmsNotification(`🔔 Booking Status Update: ${targetBooking.subFieldName} (${targetBooking.date}) - ${newStatus}`);
+  // Status ပြောင်းရန်နှင့် Confirm မေးခွန်းများ ထည့်သွင်းထားသော Function
+  const handleStatusChangeWithConfirm = async (bookingId, currentStatus, desiredStatus) => {
+    let confirmMsg = "";
+    if (currentStatus === 'Approved' && desiredStatus === 'Rejected') {
+      confirmMsg = "ဒီ Booking ကို Reject လုပ်မှာ သေချာပါသလား?";
+    } else if (currentStatus === 'Rejected' && desiredStatus === 'Approved') {
+      confirmMsg = "ဒီ Booking ကို Approve ပြန်လုပ်မှာ သေချာပါသလား?";
+    } else if (currentStatus === 'Pending' && desiredStatus === 'Rejected') {
+      confirmMsg = "ဒီ Booking ကို Reject လုပ်မှာ သေချာပါသလား?";
+    } else if (currentStatus === 'Pending' && desiredStatus === 'Approved') {
+      confirmMsg = "ဒီ Booking ကို Approve လုပ်မှာ သေချာပါသလား?";
+    } else {
+      confirmMsg = `Status ကို ${desiredStatus} သို့ ပြောင်းရန် သေချာပါသလား?`;
     }
-    await updateDoc(doc(db, "bookings", bookingId), { status: newStatus });
+
+    if (window.confirm(confirmMsg)) {
+      const targetBooking = bookings.find(b => b.id === bookingId);
+      if (targetBooking) {
+        await triggerSmsNotification(`🔔 Booking Status Update: ${targetBooking.subFieldName} (${targetBooking.date}) - ${desiredStatus}`);
+      }
+      await updateDoc(doc(db, "bookings", bookingId), { status: desiredStatus });
+    }
   };
 
   const activeFieldsForUser = fields.filter(f => {
@@ -965,7 +995,7 @@ export default function FieldBookingApp() {
 
             <div className="flex flex-wrap gap-2 mb-6">
               <button onClick={() => setAdminTab('pending')} className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${adminTab === 'pending' ? 'bg-emerald-600 text-white shadow' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}>
-                Pending Bookings ({sortedBookings.filter(b => b.status === 'Pending').length})
+                Bookings အားလုံး ({sortedBookings.length})
               </button>
               <button onClick={() => setAdminTab('manage_fields')} className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${adminTab === 'manage_fields' ? 'bg-emerald-600 text-white shadow' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}>
                 Manage Fields & Add Field
@@ -1000,7 +1030,7 @@ export default function FieldBookingApp() {
 
             {adminTab === 'pending' && (
               <div>
-                <h3 className="text-base font-bold mb-4 text-gray-800">အတည်ပြုရန် စောင့်ဆိုင်းနေသော Booking များ</h3>
+                <h3 className="text-base font-bold mb-4 text-gray-800">Booking မှတ်တမ်းများ (Approve / Reject များကို လွယ်ကူစွာ ပြောင်းနိုင်ပါသည်)</h3>
                 <div className="overflow-x-auto">
                   <table className="w-full text-left border-collapse">
                     <thead>
@@ -1012,12 +1042,13 @@ export default function FieldBookingApp() {
                         <th className="p-3">Duration (ကြာချိန်)</th>
                         <th className="p-3">Price (သင့်ငွေ)</th>
                         <th className="p-3">ငွေပေးချေမှု / Txn</th>
-                        <th className="p-3 text-center">လုပ်ဆောင်ချက်</th>
+                        <th className="p-3">Status</th>
+                        <th className="p-3 text-center">လုပ်ဆောင်ချက် (Approve / Reject)</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y text-sm">
-                      {sortedBookings.filter(b => b.status === 'Pending').length > 0 ? (
-                        sortedBookings.filter(b => b.status === 'Pending').map(item => {
+                      {sortedBookings.length > 0 ? (
+                        sortedBookings.map(item => {
                           const targetField = fields.find(f => f.id === item.fieldId);
                           return (
                             <tr key={item.id} className="hover:bg-gray-50">
@@ -1043,16 +1074,29 @@ export default function FieldBookingApp() {
                                 <div className="uppercase font-bold">{item.paymentMethod}</div>
                                 <div className="font-mono text-gray-600">Txn: {item.transactionLast5}</div>
                               </td>
-                              <td className="p-3 text-center space-x-2">
-                                <button onClick={() => handleUpdateBookingStatus(item.id, 'Approved')} className="bg-emerald-600 text-white px-3 py-1 rounded text-xs font-bold hover:bg-emerald-700">Approve</button>
-                                <button onClick={() => handleUpdateBookingStatus(item.id, 'Rejected')} className="bg-red-500 text-white px-3 py-1 rounded text-xs font-bold hover:bg-red-600">Reject</button>
+                              <td className="p-3 font-bold text-xs">
+                                <span className={item.status === 'Approved' ? 'text-emerald-600' : item.status === 'Rejected' ? 'text-red-500' : 'text-amber-500'}>{item.status}</span>
+                              </td>
+                              <td className="p-3 text-center space-x-1">
+                                <button 
+                                  onClick={() => handleStatusChangeWithConfirm(item.id, item.status, 'Approved')} 
+                                  className="bg-emerald-600 text-white px-2.5 py-1 rounded text-[11px] font-bold hover:bg-emerald-700"
+                                >
+                                  Approve
+                                </button>
+                                <button 
+                                  onClick={() => handleStatusChangeWithConfirm(item.id, item.status, 'Rejected')} 
+                                  className="bg-red-500 text-white px-2.5 py-1 rounded text-[11px] font-bold hover:bg-red-600"
+                                >
+                                  Reject
+                                </button>
                               </td>
                             </tr>
                           );
                         })
                       ) : (
                         <tr>
-                          <td colSpan="8" className="text-center py-8 text-gray-500 text-sm">စောင့်ဆိုင်းဆဲ Booking များ မရှိပါ။</td>
+                          <td colSpan="9" className="text-center py-8 text-gray-500 text-sm">Booking များ မရှိသေးပါ။</td>
                         </tr>
                       )}
                     </tbody>
@@ -1094,6 +1138,14 @@ export default function FieldBookingApp() {
                         <div>
                           <label className="block text-xs font-bold text-gray-700 mb-1">ကွင်းပိတ်ချိန် (Close Hour - 24 Hours format)</label>
                           <input type="number" min="1" max="24" value={editFieldCloseHour} onChange={(e) => setEditFieldCloseHour(e.target.value)} className="w-full border rounded-lg p-2.5 text-sm bg-white" />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-bold text-gray-700 mb-1">KPay No ထည့်ရန်</label>
+                          <input type="text" value={editFieldKpay} onChange={(e) => setEditFieldKpay(e.target.value)} placeholder="09-xxxxxxxxx (KPay)" className="w-full border rounded-lg p-2.5 text-sm bg-white" />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-bold text-gray-700 mb-1">Wave No ထည့်ရန်</label>
+                          <input type="text" value={editFieldWave} onChange={(e) => setEditFieldWave(e.target.value)} placeholder="09-xxxxxxxxx (Wave)" className="w-full border rounded-lg p-2.5 text-sm bg-white" />
                         </div>
                       </div>
 
@@ -1187,6 +1239,14 @@ export default function FieldBookingApp() {
                           <input type="number" min="1" max="24" value={newFieldCloseHour} onChange={(e) => setNewFieldCloseHour(e.target.value)} className="w-full border rounded-lg p-2.5 text-sm bg-white" required />
                         </div>
                         <div>
+                          <label className="block text-xs font-bold text-gray-700 mb-1">KPay No ထည့်ရန်</label>
+                          <input type="text" value={newFieldKpay} onChange={(e) => setNewFieldKpay(e.target.value)} placeholder="09-xxxxxxxxx (KPay)" className="w-full border rounded-lg p-2.5 text-sm bg-white" />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-bold text-gray-700 mb-1">Wave No ထည့်ရန်</label>
+                          <input type="text" value={newFieldWave} onChange={(e) => setNewFieldWave(e.target.value)} placeholder="09-xxxxxxxxx (Wave)" className="w-full border rounded-lg p-2.5 text-sm bg-white" />
+                        </div>
+                        <div>
                           <label className="block text-xs font-bold text-gray-700 mb-1">Owner Email (Login ဝင်ရန်)</label>
                           <input type="email" placeholder="owner@gmail.com" value={newOwnerEmail} onChange={(e) => setNewOwnerEmail(e.target.value)} className="w-full border rounded-lg p-2.5 text-sm bg-white" />
                         </div>
@@ -1237,6 +1297,10 @@ export default function FieldBookingApp() {
                           </div>
                           <p className="text-xs text-gray-500 mt-1">{f.address} | Tel: {f.phone}</p>
                           <p className="text-xs text-emerald-700 font-bold mt-1">🕒 ဖွင့်ချိန်/ပိတ်ချိန်: {format12Hour(f.openHour ?? 8)} မှ {format12Hour(f.closeHour ?? 22)} ထိ</p>
+                          <div className="mt-2 text-xs text-gray-600 space-y-0.5">
+                            <p>💳 <b>KPay:</b> {f.paymentInfo?.kpay || 'မထည့်ရသေးပါ'}</p>
+                            <p>💳 <b>Wave:</b> {f.paymentInfo?.wave || 'မထည့်ရသေးပါ'}</p>
+                          </div>
                           <div className="mt-3 space-y-1">
                             {f.subFields.map(sf => (
                               <div key={sf.id} className="text-xs bg-gray-50 p-2 rounded flex justify-between">
@@ -1322,7 +1386,7 @@ export default function FieldBookingApp() {
                 🔒 Password ချိန်းရန်
               </button>
               <button onClick={() => setOwnerActiveTab('fields_edit')} className={`px-4 py-2 rounded-lg text-xs font-bold ${ownerActiveTab === 'fields_edit' ? 'bg-emerald-600 text-white' : 'bg-gray-100 text-gray-700'}`}>
-                🏟️ ကွင်းပြင်ဆင်ရန်
+                🏟️ ကွင်းနှင့် KPay/Wave နံပါတ်များ ပြင်ဆင်ရန်
               </button>
             </div>
 
@@ -1341,7 +1405,7 @@ export default function FieldBookingApp() {
 
             {ownerActiveTab === 'fields_edit' && (
               <div className="space-y-6 max-w-2xl">
-                <h3 className="text-lg font-bold mb-4 text-gray-800">ကွင်းများကို ပြင်ဆင်ရန် (Edit Fields & Sub-Fields)</h3>
+                <h3 className="text-lg font-bold mb-4 text-gray-800">ကွင်းများကို ပြင်ဆင်ရန် (KPay & Wave No အပါအဝင်)</h3>
                 
                 {editingOwnerFieldId ? (
                   <div className="bg-amber-50 border-2 border-amber-300 rounded-xl p-4 shadow-sm mb-4">
@@ -1367,6 +1431,14 @@ export default function FieldBookingApp() {
                           <label className="block text-xs font-bold text-gray-700 mb-1">ပိတ်ချိန် (Close Hour)</label>
                           <input type="number" min="1" max="24" value={ownerEditFieldCloseHour} onChange={(e) => setOwnerEditFieldCloseHour(e.target.value)} className="w-full border rounded p-2 text-xs bg-white" />
                         </div>
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold text-gray-700 mb-1">KPay No (User ဘက်တွင်ပေါ်မည့်နံပါတ်)</label>
+                        <input type="text" value={ownerEditFieldKpay} onChange={(e) => setOwnerEditFieldKpay(e.target.value)} placeholder="09-xxxxxxxxx (KPay)" className="w-full border rounded p-2 text-xs bg-white" />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold text-gray-700 mb-1">Wave No (User ဘက်တွင်ပေါ်မည့်နံပါတ်)</label>
+                        <input type="text" value={ownerEditFieldWave} onChange={(e) => setOwnerEditFieldWave(e.target.value)} placeholder="09-xxxxxxxxx (Wave)" className="w-full border rounded p-2 text-xs bg-white" />
                       </div>
 
                       <div className="border-t pt-3">
@@ -1438,6 +1510,10 @@ export default function FieldBookingApp() {
                         <div>
                           <h4 className="font-bold text-base text-gray-800">{f.name}</h4>
                           <p className="text-xs text-gray-500 mt-0.5">{f.location} | ဖွင့်/ပိတ်: {format12Hour(f.openHour ?? 8)} - {format12Hour(f.closeHour ?? 22)}</p>
+                          <div className="mt-2 text-xs text-gray-600 space-y-0.5">
+                            <p>💳 <b>KPay No:</b> {f.paymentInfo?.kpay || 'မထည့်ရသေးပါ'}</p>
+                            <p>💳 <b>Wave No:</b> {f.paymentInfo?.wave || 'မထည့်ရသေးပါ'}</p>
+                          </div>
                           <div className="mt-3 space-y-1">
                             {f.subFields.map(sf => (
                               <div key={sf.id} className="text-xs bg-gray-50 p-2 rounded flex justify-between">
@@ -1448,7 +1524,7 @@ export default function FieldBookingApp() {
                           </div>
                         </div>
                         <div className="mt-4 pt-3 border-t flex justify-end">
-                          <button onClick={() => handleStartEditOwnerField(f)} className="bg-amber-500 text-white px-3 py-1.5 rounded text-xs font-bold hover:bg-amber-600">✏️ ကွင်းပြင်ဆင်ရန်</button>
+                          <button onClick={() => handleStartEditOwnerField(f)} className="bg-amber-500 text-white px-3 py-1.5 rounded text-xs font-bold hover:bg-amber-600">✏️ ကွင်းပြင်ဆင်ရန် & KPay/Wave နံပါတ်ထည့်ရန်</button>
                         </div>
                       </div>
                     ))}
@@ -1459,7 +1535,7 @@ export default function FieldBookingApp() {
 
             {ownerActiveTab === 'history' && (
               <div>
-                <h3 className="text-base font-bold mb-4 text-gray-800">သင့်ကွင်းများ၏ Booking မှတ်တမ်းများ</h3>
+                <h3 className="text-base font-bold mb-4 text-gray-800">သင့်ကွင်းများ၏ Booking မှတ်တမ်းများ (Approve / Reject များကို လွယ်ကူစွာ ပြောင်းနိုင်ပါသည်)</h3>
                 <div className="overflow-x-auto">
                   <table className="w-full text-left border-collapse">
                     <thead>
@@ -1471,7 +1547,7 @@ export default function FieldBookingApp() {
                         <th className="p-3">Total Price (သင့်ငွေ)</th>
                         <th className="p-3">Customer အမည် / ဖုန်း</th>
                         <th className="p-3">Status</th>
-                        <th className="p-3 text-center">လုပ်ဆောင်ချက် (Approve/Reject)</th>
+                        <th className="p-3 text-center">လုပ်ဆောင်ချက် (Approve / Reject)</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y text-sm">
@@ -1502,8 +1578,18 @@ export default function FieldBookingApp() {
                                 <span className={item.status === 'Approved' ? 'text-emerald-600' : item.status === 'Rejected' ? 'text-red-500' : 'text-amber-500'}>{item.status}</span>
                               </td>
                               <td className="p-3 text-center space-x-1">
-                                <button onClick={() => handleUpdateBookingStatus(item.id, 'Approved')} className="bg-emerald-600 text-white px-2.5 py-1 rounded text-[11px] font-bold hover:bg-emerald-700">Approve</button>
-                                <button onClick={() => handleUpdateBookingStatus(item.id, 'Rejected')} className="bg-red-500 text-white px-2.5 py-1 rounded text-[11px] font-bold hover:bg-red-600">Reject</button>
+                                <button 
+                                  onClick={() => handleStatusChangeWithConfirm(item.id, item.status, 'Approved')} 
+                                  className="bg-emerald-600 text-white px-2.5 py-1 rounded text-[11px] font-bold hover:bg-emerald-700"
+                                >
+                                  Approve
+                                </button>
+                                <button 
+                                  onClick={() => handleStatusChangeWithConfirm(item.id, item.status, 'Rejected')} 
+                                  className="bg-red-500 text-white px-2.5 py-1 rounded text-[11px] font-bold hover:bg-red-600"
+                                >
+                                  Reject
+                                </button>
                               </td>
                             </tr>
                           );
@@ -1615,6 +1701,8 @@ export default function FieldBookingApp() {
               <p>🕒 <b>ဖွင့်ချိန်/ပိတ်ချိန်:</b> {format12Hour(userSelectedField.openHour ?? 8)} မှ {format12Hour(userSelectedField.closeHour ?? 22)} ထိ</p>
               <p>📍 <b>လိပ်စာ:</b> {userSelectedField.address || userSelectedField.location}</p>
               <p>📞 <b>ဖုန်းနံပါတ်:</b> {userSelectedField.phone || 'မရှိပါ'}</p>
+              <p>💳 <b>KPay No:</b> {userSelectedField.paymentInfo?.kpay || '09-791234567 (KPay)'}</p>
+              <p>💳 <b>Wave No:</b> {userSelectedField.paymentInfo?.wave || '09-421234567 (Wave)'}</p>
             </div>
 
             <div className="mb-6">
@@ -1733,12 +1821,12 @@ export default function FieldBookingApp() {
                 </div>
                 {selectedPaymentMethod === 'kpay' && (
                   <div className="bg-emerald-50 border border-emerald-200 text-emerald-800 p-3 rounded-lg text-xs font-medium">
-                    <b>KPay ဖုန်းနံပါတ်:</b> {userSelectedField.paymentInfo?.kpay}
+                    <b>KPay ဖုန်းနံပါတ်:</b> {userSelectedField.paymentInfo?.kpay || '09-791234567 (KPay)'}
                   </div>
                 )}
                 {selectedPaymentMethod === 'wave' && (
                   <div className="bg-blue-50 border border-blue-200 text-blue-800 p-3 rounded-lg text-xs font-medium">
-                    <b>Wave Money ဖုန်းနံပါတ်:</b> {userSelectedField.paymentInfo?.wave}
+                    <b>Wave Money ဖုန်းနံပါတ်:</b> {userSelectedField.paymentInfo?.wave || '09-421234567 (Wave)'}
                   </div>
                 )}
               </div>
@@ -1761,12 +1849,12 @@ export default function FieldBookingApp() {
 
                 {selectedPaymentMethod === 'kpay' && (
                   <div className="bg-emerald-50 border border-emerald-200 text-emerald-800 p-3 rounded-lg text-xs font-medium">
-                    <b>KPay ဖုန်းနံပါတ်:</b> {userSelectedField.paymentInfo?.kpay}
+                    <b>KPay ဖုန်းနံပါတ်:</b> {userSelectedField.paymentInfo?.kpay || '09-791234567 (KPay)'}
                   </div>
                 )}
                 {selectedPaymentMethod === 'wave' && (
                   <div className="bg-blue-50 border border-blue-200 text-blue-800 p-3 rounded-lg text-xs font-medium">
-                    <b>Wave Money ဖုန်းနံပါတ်:</b> {userSelectedField.paymentInfo?.wave}
+                    <b>Wave Money ဖုန်းနံပါတ်:</b> {userSelectedField.paymentInfo?.wave || '09-421234567 (Wave)'}
                   </div>
                 )}
 
@@ -1791,6 +1879,10 @@ export default function FieldBookingApp() {
                 <h2 className="text-2xl font-bold text-gray-800">{userSelectedField.name}</h2>
                 <p className="text-xs text-gray-500 mt-1">{userSelectedField.address} | Tel: {userSelectedField.phone}</p>
                 <p className="text-xs text-emerald-700 font-bold mt-1">🕒 ဖွင့်ချိန်/ပိတ်ချိန်: {format12Hour(userSelectedField.openHour ?? 8)} မှ {format12Hour(userSelectedField.closeHour ?? 22)} ထိ</p>
+                <div className="mt-1 text-xs text-gray-600 space-y-0.5">
+                  <p>💳 <b>KPay:</b> {userSelectedField.paymentInfo?.kpay || '09-791234567 (KPay)'}</p>
+                  <p>💳 <b>Wave:</b> {userSelectedField.paymentInfo?.wave || '09-421234567 (Wave)'}</p>
+                </div>
               </div>
               <span className="text-xs bg-emerald-100 text-emerald-800 px-3 py-1 rounded font-bold">{userSelectedField.location}</span>
             </div>
@@ -1844,9 +1936,13 @@ export default function FieldBookingApp() {
                       <h3 className="firestore-title font-bold text-lg text-gray-800">{field.name}</h3>
                       <span className="text-[10px] bg-emerald-100 text-emerald-800 px-2.5 py-1 rounded-full font-bold">{field.location}</span>
                     </div>
-                    <p className="text-xs text-gray-500 mb-3">{field.address}</p>
+                    <p className="text-xs text-gray-500 mb-2">{field.address}</p>
                     <p className="text-xs text-gray-600 mb-1">📞 {field.phone}</p>
-                    <p className="text-xs text-emerald-700 font-bold">🕒 ဖွင့်ချိန်: {format12Hour(field.openHour ?? 8)} - {format12Hour(field.closeHour ?? 22)}</p>
+                    <p className="text-xs text-emerald-700 font-bold mb-2">🕒 ဖွင့်ချိန်: {format12Hour(field.openHour ?? 8)} - {format12Hour(field.closeHour ?? 22)}</p>
+                    <div className="text-[11px] text-gray-600 bg-gray-50 p-2 rounded space-y-0.5">
+                      <p>💳 KPay: {field.paymentInfo?.kpay || '09-791234567'}</p>
+                      <p>💳 Wave: {field.paymentInfo?.wave || '09-421234567'}</p>
+                    </div>
                   </div>
                   <div className="mt-4 pt-3 border-t flex justify-between items-center">
                     <span className="text-xs font-bold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded">ကွင်းခွဲ ({field.subFields.length}) ခု ရှိပါသည်။</span>
