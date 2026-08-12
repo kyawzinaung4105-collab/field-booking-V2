@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { db } from './firebase'; 
-import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, setDoc, runTransaction, onSnapshot, query, where } from 'firebase/firestore';
+import { collection, getDoc, getDocs, addDoc, updateDoc, deleteDoc, doc, setDoc, runTransaction, onSnapshot, query, where } from 'firebase/firestore';
 
 const defaultUsers = [
   { email: 'admin@gmail.com', password: 'admin123', name: 'System Admin', role: 'admin' }
@@ -59,6 +59,10 @@ export default function FieldBookingApp() {
         const docSnap = await getDoc(docRef);
         if (docSnap.exists()) {
           const data = docSnap.data();
+          const configuredAdminPassword = typeof data.adminPassword === 'string' ? data.adminPassword.trim() : '';
+          if (configuredAdminPassword) {
+            setAdminPassword(configuredAdminPassword);
+          }
           const minVersion = data.minVersion || 1;
           const remoteVersionName = data.versionName || 'v1.1';
           const apkUrl = data.apkUrl || '#';
@@ -116,6 +120,9 @@ export default function FieldBookingApp() {
   const [signupPassword, setSignupPassword] = useState('');
 
   const [myNewPassword, setMyNewPassword] = useState('');
+  // The admin password is persisted in appConfig/settings and is loaded once at startup.
+  // Keep the legacy default only as an offline/first-run fallback.
+  const [adminPassword, setAdminPassword] = useState('admin123');
   const [selectedTownship, setSelectedTownship] = useState('');
 
   const [usersList, setUsersList] = useState(defaultUsers);
@@ -433,11 +440,11 @@ export default function FieldBookingApp() {
 
   const ownerFieldIds = fields.filter(f => f.ownerEmail === currentUser?.email).map(f => f.id);
 
-  const handleLogin = (e) => {
+    const handleLogin = (e) => {
     e.preventDefault();
-
-    if (email.trim().toLowerCase() === 'admin@gmail.com') {
-      if (password === 'admin123') {
+    const loginIdentifier = email.trim().toLowerCase();
+    if (loginIdentifier === 'admin@gmail.com') {
+      if (password === adminPassword) {
         setCurrentUser({ name: 'System Admin', role: 'admin', email: 'admin@gmail.com' });
         setActiveTab('fields');
         setEmail('');
@@ -516,30 +523,42 @@ export default function FieldBookingApp() {
     }
   };
 
-  const handleChangeMyPassword = async (e) => {
+    const handleChangeMyPassword = async (e) => {
     e.preventDefault();
-    if (!myNewPassword.trim()) {
+    const nextPassword = myNewPassword.trim();
+    if (!nextPassword) {
       alert('ကျေးဇူးပြု၍ Password အသစ် ထည့်သွင်းပါ။');
       return;
     }
 
-    if (currentUser.role === 'admin') {
-      alert('Password ပြောင်းတာအောင်မြင်ပါသည်');
-      setMyNewPassword('');
-    } else if (currentUser.role === 'owner') {
-      const updatedFields = fields.map(f => {
-        if (f.ownerEmail === currentUser.email) {
-          return { ...f, ownerPassword: myNewPassword.trim() };
+    try {
+      if (currentUser.role === 'admin') {
+        // Use the same canonical document that is read during startup. `setDoc` with
+        // merge also works when appConfig/settings has not been created yet.
+        await setDoc(doc(db, 'appConfig', 'settings'), { adminPassword: nextPassword }, { merge: true });
+        setAdminPassword(nextPassword);
+        alert('Password ပြောင်းတာအောင်မြင်ပါသည်။ နောက်တစ်ကြိမ် Login ဝင်ရာတွင် Password အသစ်ကို အသုံးပြုပါ။');
+        setMyNewPassword('');
+      } else if (currentUser.role === 'owner') {
+        const updatedFields = fields.map(f => {
+          if (f.ownerEmail === currentUser.email) {
+            return { ...f, ownerPassword: nextPassword };
+          }
+          return f;
+        });
+        const targetField = updatedFields.find(f => f.ownerEmail === currentUser.email);
+        if (!targetField || !targetField.id) {
+          alert('Owner ကွင်းအချက်အလက် မတွေ့ပါသဖြင့် Password ပြောင်း၍ မရပါ။');
+          return;
         }
-        return f;
-      });
-      setFields(updatedFields);
-      const targetField = updatedFields.find(f => f.ownerEmail === currentUser.email);
-      if (targetField && targetField.id) {
-        await updateDoc(doc(db, "fields", targetField.id), { ownerPassword: myNewPassword.trim() });
+        await updateDoc(doc(db, 'fields', targetField.id), { ownerPassword: nextPassword });
+        setFields(updatedFields);
+        alert('Password ပြောင်းတာအောင်မြင်ပါသည်');
+        setMyNewPassword('');
       }
-      alert('Password ပြောင်းတာအောင်မြင်ပါသည်');
-      setMyNewPassword('');
+    } catch (error) {
+      console.error('Error changing password:', error);
+      alert('Password ပြောင်းရာတွင် အမှားအယွင်းရှိပါသည်။ ကျေးဇူးပြု၍ ထပ်မံကြိုးစားပါ။');
     }
   };
 
