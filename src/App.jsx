@@ -609,32 +609,15 @@ export default function FieldBookingApp() {
 
   const isSlotUnavailable = (hour) => {
     if (checkIsExpired(hour)) return true;
-    const slotLabelCheck = `${format12Hour(hour)} - ${format12Hour(hour + 1)}`;
-    const bookingFound = bookings.find(
-      b => b.subFieldId === selectedSubField?.id && b.date === userCheckDate && (b.status === 'Approved' || b.status === 'Pending') &&
-      (b.timeSlot === slotLabelCheck || (b.startHour !== undefined && b.endHour !== undefined && hour >= b.startHour && hour < b.endHour))
-    );
-    return !!bookingFound;
+    return Boolean(getConflictingBooking(hour, hour + 1));
   };
 
   const getSlotStatusType = (hour) => {
     if (checkIsExpired(hour)) return 'expired';
-    
-    const approvedBooking = bookings.find(
-      b => b.subFieldId === selectedSubField?.id && 
-           b.date === userCheckDate && 
-           b.status === 'Approved' && 
-           (hour >= b.startHour && hour < b.endHour)
-    );
-    if (approvedBooking) return 'booked';
 
-    const pendingBooking = bookings.find(
-      b => b.subFieldId === selectedSubField?.id && 
-           b.date === userCheckDate && 
-           b.status === 'Pending' && 
-           (hour >= b.startHour && hour < b.endHour)
-    );
-    if (pendingBooking) return 'pending';
+    const booking = getConflictingBooking(hour, hour + 1);
+    if (booking?.status === 'Approved') return 'booked';
+    if (booking?.status === 'Pending') return 'pending';
 
     return 'available';
   };
