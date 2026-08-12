@@ -1244,6 +1244,107 @@ export default function FieldBookingApp() {
     if (method === 'cash' || method === 'ငွေသား') return 'cash';
     return 'other';
   };
+  const getBookingTimeParts = (booking) => {
+    const rawRange = String(booking?.fullTimeSlot || booking?.timeSlot || '').trim();
+    const parts = rawRange.split(/\s*-\s*/).filter(Boolean);
+    if (parts.length >= 2) return { start: parts[0], end: parts[1] };
+    const startHour = Number(booking?.startHour);
+    const endHour = Number(booking?.endHour);
+    return {
+      start: Number.isFinite(startHour) ? format12Hour(startHour) : (parts[0] || '-'),
+      end: Number.isFinite(endHour) ? format12Hour(endHour) : '-'
+    };
+  };
+
+  const createHistoryExportRows = (historyBookings) => historyBookings.map((booking) => {
+    const timeParts = getBookingTimeParts(booking);
+    return {
+      Name: getBookingCustomerName(booking),
+      'Ph No': getBookingCustomerPhone(booking),
+      'Field / Sub-Field': getBookingFieldLabel(booking),
+      Date: booking?.date || '-',
+      'Start Time': timeParts.start,
+      'End Time': timeParts.end,
+      Duration: booking?.duration || `${getBookingDurationHours(booking)} Hr`,
+      'Booked At': booking?.bookedAt || '-',
+      'Payment Method': booking?.paymentMethod || '-',
+      Transaction: booking?.transactionLast5 || '-',
+      Amount: getBookingRevenue(booking),
+      Status: booking?.status || 'Pending'
+    };
+  });
+
+  const escapeExportHtml = (value) => String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+
+  const escapeCsvValue = (value) => {
+    const normalized = String(value ?? '').replace(/\r?\n/g, ' ');
+    return /[\",]/.test(normalized) ? `\"${normalized.replace(/\"/g, '\"\"')}\"` : normalized;
+  };
+
+  const downloadHistoryExcel = (historyBookings, scopeLabel) => {
+    const rows = createHistoryExportRows(historyBookings);
+    if (!rows.length) {
+      alert('Export လုပ်ရန် Booking မှတ်တမ်း မရှိသေးပါ။');
+      return;
+    }
+    const headers = Object.keys(rows[0]);
+    const csv = [
+      headers,
+      ...rows.map(row => headers.map(header => header === 'Amount' ? Number(row[header] || 0) : row[header]))
+    ].map(row => row.map(escapeCsvValue).join(',')).join('\r\n');
+    const blob = new Blob([`\uFEFF${csv}`], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    const dateLabel = new Date().toISOString().slice(0, 10);
+    anchor.href = url;
+    anchor.download = `booking-history-${scopeLabel}-${dateLabel}.csv`;
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  };
+
+  const printBookingHistory = (historyBookings, scopeLabel) => {
+    const rows = createHistoryExportRows(historyBookings);
+    if (!rows.length) {
+      alert('Print ထုတ်ရန် Booking မှတ်တမ်း မရှိသေးပါ။');
+      return;
+    }
+    const headers = Object.keys(rows[0]);
+    const tableHead = headers.map(header => `<th>${escapeExportHtml(header)}</th>`).join('');
+    const tableBody = rows.map(row => `<tr>${headers.map(header => `<td>${escapeExportHtml(header === 'Amount' ? `${Number(row[header] || 0).toLocaleString()} ကျပ်` : row[header])}</td>`).join('')}</tr>`).join('');
+    const printFrame = document.createElement('iframe');
+    printFrame.setAttribute('aria-hidden', 'true');
+    printFrame.style.position = 'fixed';
+    printFrame.style.right = '0';
+    printFrame.style.bottom = '0';
+    printFrame.style.width = '1px';
+    printFrame.style.height = '1px';
+    printFrame.style.border = '0';
+    printFrame.onload = () => {
+      const printWindow = printFrame.contentWindow;
+      printWindow.focus();
+      printWindow.print();
+      setTimeout(() => printFrame.remove(), 800);
+    };
+    printFrame.srcdoc = `<!doctype html><html><head><meta charset="UTF-8"><title>${escapeExportHtml(scopeLabel)} Booking History</title><style>
+      @page { size: landscape; margin: 12mm; }
+      * { box-sizing: border-box; }
+      body { font-family: Arial, "Noto Sans Myanmar", sans-serif; color: #1f2937; margin: 0; }
+      h1 { font-size: 18px; margin: 0 0 4px; }
+      p { font-size: 11px; color: #6b7280; margin: 0 0 14px; }
+      table { width: 100%; border-collapse: collapse; font-size: 9px; }
+      th { background: #e5e7eb; font-weight: 700; text-align: left; }
+      th, td { border: 1px solid #cbd5e1; padding: 5px; vertical-align: top; }
+      tr { page-break-inside: avoid; }
+    </style></head><body><h1>${escapeExportHtml(scopeLabel)} Booking History</h1><p>Printed: ${escapeExportHtml(new Date().toLocaleString())}</p><table><thead><tr>${tableHead}</tr></thead><tbody>${tableBody}</tbody></table></body></html>`;
+    document.body.appendChild(printFrame);
+  };
+
   const createReportData = (reportBookings) => {
     const statusCounts = reportBookings.reduce((counts, booking) => {
       const key = getBookingStatusKey(booking);
@@ -1307,6 +1408,8 @@ export default function FieldBookingApp() {
   const ownerReportBookings = sortedBookings.filter(booking => booking.date === ownerReportDate && ownerReportFieldIds.has(booking.fieldId));
   const adminReport = createReportData(adminReportBookings);
   const ownerReport = createReportData(ownerReportBookings);
+  const adminHistoryBookings = sortedBookings;
+  const ownerHistoryBookings = sortedBookings.filter(booking => ownerFieldIds.includes(booking.fieldId));
 
   if (!currentUser) {
     return (
@@ -1776,7 +1879,26 @@ export default function FieldBookingApp() {
 
             {adminTab === 'pending' && (
               <div>
-                <h3 className="text-base font-bold mb-4 text-gray-800">Booking မှတ်တမ်းများ</h3>
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-4">
+                  <h3 className="text-base font-bold text-gray-800">Booking မှတ်တမ်းများ</h3>
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      onClick={() => printBookingHistory(adminHistoryBookings, 'admin')}
+                      className="rounded-lg bg-slate-700 px-3 py-2 text-xs font-bold text-white shadow-sm transition hover:bg-slate-800 active:scale-[0.98]"
+                    >
+                      🖨️ Print ထုတ်ရန်
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => downloadHistoryExcel(adminHistoryBookings, 'admin')}
+                      className="rounded-lg bg-emerald-600 px-3 py-2 text-xs font-bold text-white shadow-sm transition hover:bg-emerald-700 active:scale-[0.98]"
+                      title="Excel ဖြင့်ဖွင့်နိုင်သော CSV ဖိုင် ဒေါင်းလုဒ်ရန်"
+                    >
+                      📊 Excel Export
+                    </button>
+                  </div>
+                </div>
                 <div className="overflow-x-auto">
                   <table className="w-full text-left border-collapse">
                     <thead>
@@ -2727,7 +2849,26 @@ export default function FieldBookingApp() {
 
             {ownerActiveTab === 'history' && (
               <div>
-                <h3 className="text-base font-bold mb-4 text-gray-800">Booking မှတ်တမ်းများ (Owner Fields)</h3>
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-4">
+                  <h3 className="text-base font-bold text-gray-800">Booking မှတ်တမ်းများ (Owner Fields)</h3>
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      onClick={() => printBookingHistory(ownerHistoryBookings, 'owner')}
+                      className="rounded-lg bg-slate-700 px-3 py-2 text-xs font-bold text-white shadow-sm transition hover:bg-slate-800 active:scale-[0.98]"
+                    >
+                      🖨️ Print ထုတ်ရန်
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => downloadHistoryExcel(ownerHistoryBookings, 'owner')}
+                      className="rounded-lg bg-emerald-600 px-3 py-2 text-xs font-bold text-white shadow-sm transition hover:bg-emerald-700 active:scale-[0.98]"
+                      title="Excel ဖြင့်ဖွင့်နိုင်သော CSV ဖိုင် ဒေါင်းလုဒ်ရန်"
+                    >
+                      📊 Excel Export
+                    </button>
+                  </div>
+                </div>
                 <div className="overflow-x-auto rounded-lg">
                   <table className="w-full min-w-[1350px] table-fixed text-left border-collapse">
                     <thead>
@@ -2746,10 +2887,8 @@ export default function FieldBookingApp() {
                       </tr>
                     </thead>
                     <tbody className="divide-y text-sm">
-                      {sortedBookings.filter(b => ownerFieldIds.includes(b.fieldId)).length > 0 ? (
-                        sortedBookings
-                          .filter(b => ownerFieldIds.includes(b.fieldId))
-                          .map(item => {
+                      {ownerHistoryBookings.length > 0 ? (
+                        ownerHistoryBookings.map(item => {
                             const bookingExpired = isBookingExpired(item);
                             const timeRange = item.fullTimeSlot || item.timeSlot || '';
                             const [startTime, endTime] = timeRange.split(/\s*-\s*/);
