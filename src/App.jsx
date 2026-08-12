@@ -68,7 +68,6 @@ export default function FieldBookingApp() {
 
   // Notification Filter state for Admin Page
   const [notiFilterType, setNotiFilterType] = useState('all');
-  // Admin Notification Calendar Filter (Default to current date)
   const [adminNotiDate, setAdminNotiDate] = useState(() => {
     const today = new Date();
     const yyyy = today.getFullYear();
@@ -76,12 +75,10 @@ export default function FieldBookingApp() {
     const dd = String(today.getDate()).padStart(2, '0');
     return `${yyyy}-${mm}-${dd}`;
   });
-  // Admin Notification Field Filter
   const [adminNotiFieldId, setAdminNotiFieldId] = useState('all');
   
-  // Notification Filter state for Owner Page (Booking Pending, New Booking, Booking Reject သာပြရန်)
+  // Notification Filter state for Owner Page
   const [ownerNotiFilterType, setOwnerNotiFilterType] = useState('all');
-  // Owner Notification Calendar Filter (Default to current date)
   const [ownerNotiDate, setOwnerNotiDate] = useState(() => {
     const today = new Date();
     const yyyy = today.getFullYear();
@@ -89,7 +86,6 @@ export default function FieldBookingApp() {
     const dd = String(today.getDate()).padStart(2, '0');
     return `${yyyy}-${mm}-${dd}`;
   });
-  // Owner Notification Field Filter
   const [ownerNotiFieldId, setOwnerNotiFieldId] = useState('all');
 
   const [activeTab, setActiveTab] = useState(() => {
@@ -106,7 +102,7 @@ export default function FieldBookingApp() {
     return saved ? JSON.parse(saved) : null;
   });
   
-const [userCheckDate, setUserCheckDate] = useState(() => {
+  const [userCheckDate, setUserCheckDate] = useState(() => {
     const today = new Date();
     const yyyy = today.getFullYear();
     const mm = String(today.getMonth() + 1).padStart(2, '0');
@@ -994,7 +990,20 @@ const [userCheckDate, setUserCheckDate] = useState(() => {
           </div>
           <div className="flex items-center space-x-3">
             {currentUser.role === 'user' && (
-              <button onClick={() => setActiveTab('history')} className="text-xs px-3 py-1.5 rounded bg-emerald-800 text-white font-bold hover:bg-emerald-900">📋 History</button>
+              <>
+                <button 
+                  onClick={() => { setActiveTab('fields'); }} 
+                  className={`text-xs px-3 py-1.5 rounded font-bold ${activeTab === 'fields' ? 'bg-emerald-900 text-white' : 'bg-emerald-800 text-emerald-100 hover:bg-emerald-900'}`}
+                >
+                  🏟️ Booking တဲ့ရန်
+                </button>
+                <button 
+                  onClick={() => { setActiveTab('history'); }} 
+                  className={`text-xs px-3 py-1.5 rounded font-bold ${activeTab === 'history' ? 'bg-emerald-900 text-white' : 'bg-emerald-800 text-emerald-100 hover:bg-emerald-900'}`}
+                >
+                  📋 Booking History
+                </button>
+              </>
             )}
             {currentUser.role === 'admin' && (
               <button onClick={() => setActiveTab('dashboard')} className="text-xs px-3 py-1.5 rounded bg-emerald-800 text-white font-bold hover:bg-emerald-900">⚙️ Admin Dashboard</button>
@@ -1103,7 +1112,6 @@ const [userCheckDate, setUserCheckDate] = useState(() => {
                 <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-gray-50 p-4 rounded-xl border">
                   <div>
                     <h3 className="text-base font-bold text-gray-800">🔔 Notifications Filter Page</h3>
-                    <p className="text-xs text-gray-500"></p>
                   </div>
                   <div className="flex flex-wrap items-center gap-3">
                     <div className="flex items-center gap-1">
@@ -1178,7 +1186,7 @@ const [userCheckDate, setUserCheckDate] = useState(() => {
                           </div>
                         ))
                     ) : (
-                      <p className="text-center py-12 text-gray-500 text-sm">ရွေးချယ်ထားသော Filter (ကွင်း၊ ရက်စွဲ၊ အမျိုးအစား) နှင့် ကိုက်ညီသော Notifications များ မရှိသေးပါ။</p>
+                      <p className="text-center py-12 text-gray-500 text-sm">ရွေးချယ်ထားသော Filter နှင့် ကိုက်ညီသော Notifications များ မရှိသေးပါ။</p>
                     )}
                 </div>
               </div>
@@ -1266,312 +1274,20 @@ const [userCheckDate, setUserCheckDate] = useState(() => {
                 {editingFieldId ? (
                   <div className="bg-amber-50 border-2 border-amber-300 rounded-2xl p-6 shadow-md">
                     <div className="flex justify-between items-center mb-4">
-                      <h3 className="text-base font-bold text-amber-900">✏️ ကွင်းအချက်အလက် ပြင်ဆင်ရန် (Editing Field)</h3>
-                      <button onClick={() => setEditingFieldId(null)} className="text-xs text-red-600 font-bold hover:underline">ပယ်ဖျက်ရန် (Cancel)</button>
+                      <h3 className="text-base font-bold text-amber-900">✏️ ကွင်းအချက်အလက် ပြင်ဆင်ရန်</h3>
+                      <button onClick={() => setEditingFieldId(null)} className="text-xs text-red-600 font-bold hover:underline">Cancel</button>
                     </div>
-                    <div className="space-y-4">
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                          <label className="block text-xs font-bold text-gray-700 mb-1">ကွင်းအမည်</label>
-                          <input type="text" value={editFieldName} onChange={(e) => setEditFieldName(e.target.value)} className="w-full border rounded-lg p-2.5 text-sm bg-white" />
-                        </div>
-                        <div>
-                          <label className="block text-xs font-bold text-gray-700 mb-1">မြို့နယ်</label>
-                          <input type="text" value={editFieldLocation} onChange={(e) => setEditFieldLocation(e.target.value)} className="w-full border rounded-lg p-2.5 text-sm bg-white" />
-                        </div>
-                        <div>
-                          <label className="block text-xs font-bold text-gray-700 mb-1">လိပ်စာ အပြည့်အစုံ</label>
-                          <input type="text" value={editFieldAddress} onChange={(e) => setEditFieldAddress(e.target.value)} className="w-full border rounded-lg p-2.5 text-sm bg-white" />
-                        </div>
-                        <div>
-                          <label className="block text-xs font-bold text-gray-700 mb-1">ဖုန်းနံပါတ်</label>
-                          <input type="text" value={editFieldPhone} onChange={(e) => setEditFieldPhone(e.target.value)} className="w-full border rounded-lg p-2.5 text-sm bg-white" />
-                        </div>
-                        <div>
-                          <label className="block text-xs font-bold text-gray-700 mb-1">ကွင်းဖွင့်ချိန် (Open Hour - 24 Hours format)</label>
-                          <input type="number" min="0" max="23" value={editFieldOpenHour} onChange={(e) => setEditFieldOpenHour(e.target.value)} className="w-full border rounded-lg p-2.5 text-sm bg-white" />
-                        </div>
-                        <div>
-                          <label className="block text-xs font-bold text-gray-700 mb-1">ကွင်းပိတ်ချိန် (Close Hour - 24 Hours format)</label>
-                          <input type="number" min="1" max="24" value={editFieldCloseHour} onChange={(e) => setEditFieldCloseHour(e.target.value)} className="w-full border rounded-lg p-2.5 text-sm bg-white" />
-                        </div>
-                        <div>
-                          <label className="block text-xs font-bold text-gray-700 mb-1">KPay No ထည့်ရန်</label>
-                          <input type="text" value={editFieldKpay} onChange={(e) => setEditFieldKpay(e.target.value)} placeholder="09-xxxxxxxxx (KPay)" className="w-full border rounded-lg p-2.5 text-sm bg-white" />
-                        </div>
-                        <div>
-                          <label className="block text-xs font-bold text-gray-700 mb-1">Wave No ထည့်ရန်</label>
-                          <input type="text" value={editFieldWave} onChange={(e) => setEditFieldWave(e.target.value)} placeholder="09-xxxxxxxxx (Wave)" className="w-full border rounded-lg p-2.5 text-sm bg-white" />
-                        </div>
-                      </div>
-
-                      <div className="border-t pt-4">
-                        <h4 className="text-sm font-bold mb-3 text-gray-800">ကွင်းခွဲများ (Sub-Fields) နှင့် ကွင်းခွဲအလိုက် အချိန်များ ပြင်ဆင်ရန်</h4>
-                        <div className="space-y-3 mb-4">
-                          {editSubFields.map((sf, index) => (
-                            <div key={sf.id || index} className="bg-white p-3 rounded-lg border space-y-2">
-                              <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
-                                <input 
-                                  type="text" 
-                                  value={sf.name} 
-                                  onChange={(e) => {
-                                    const val = e.target.value;
-                                    setEditSubFields(prev => prev.map((item, idx) => idx === index ? { ...item, name: val } : item));
-                                  }} 
-                                  placeholder="ကွင်းခွဲအမည်" 
-                                  className="border rounded p-2 text-xs" 
-                                />
-                                <input 
-                                  type="number" 
-                                  value={sf.price} 
-                                  onChange={(e) => {
-                                    const val = e.target.value;
-                                    setEditSubFields(prev => prev.map((item, idx) => idx === index ? { ...item, price: parseFloat(val) || 0 } : item));
-                                  }} 
-                                  placeholder="ဈေးနှုန်း" 
-                                  className="border rounded p-2 text-xs" 
-                                />
-                                <select 
-                                  value={sf.status} 
-                                  onChange={(e) => {
-                                    const val = e.target.value;
-                                    setEditSubFields(prev => prev.map((item, idx) => idx === index ? { ...item, status: val } : item));
-                                  }} 
-                                  className="border rounded p-2 text-xs"
-                                >
-                                  <option value="Active">Active</option>
-                                  <option value="Inactive">Inactive</option>
-                                </select>
-                              </div>
-                              <div className="grid grid-cols-1 md:grid-cols-3 gap-2 items-center pt-1">
-                                <div className="flex items-center gap-1">
-                                  <label className="text-[11px] font-bold text-gray-600">ဖွင့်ချိန်:</label>
-                                  <input 
-                                    type="number" 
-                                    min="0" 
-                                    max="23" 
-                                    value={sf.openHour !== undefined ? sf.openHour : editFieldOpenHour} 
-                                    onChange={(e) => {
-                                      const val = e.target.value;
-                                      setEditSubFields(prev => prev.map((item, idx) => idx === index ? { ...item, openHour: parseInt(val) || 0 } : item));
-                                    }} 
-                                    className="border rounded p-1 text-xs w-full" 
-                                  />
-                                </div>
-                                <div className="flex items-center gap-1">
-                                  <label className="text-[11px] font-bold text-gray-600">ပိတ်ချိန်:</label>
-                                  <input 
-                                    type="number" 
-                                    min="1" 
-                                    max="24" 
-                                    value={sf.closeHour !== undefined ? sf.closeHour : editFieldCloseHour} 
-                                    onChange={(e) => {
-                                      const val = e.target.value;
-                                      setEditSubFields(prev => prev.map((item, idx) => idx === index ? { ...item, closeHour: parseInt(val) || 22 } : item));
-                                    }} 
-                                    className="border rounded p-1 text-xs w-full" 
-                                  />
-                                </div>
-                                <div className="flex justify-end">
-                                  <button 
-                                    type="button" 
-                                    onClick={() => setEditSubFields(prev => prev.filter((_, idx) => idx !== index))} 
-                                    className="bg-red-500 text-white px-3 py-1 rounded text-xs font-bold"
-                                  >
-                                    ကွင်းခွဲဖယ်ရန်
-                                  </button>
-                                </div>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                        <button 
-                          type="button" 
-                          onClick={() => setEditSubFields(prev => [...prev, { id: 'sf_' + Date.now(), name: 'New SubField', price: 35000, openHour: parseInt(editFieldOpenHour), closeHour: parseInt(editFieldCloseHour), status: 'Active' }])}
-                          className="bg-blue-600 text-white px-3 py-1.5 rounded text-xs font-bold mb-4"
-                        >
-                          + ကွင်းခွဲအသစ် ထပ်ထည့်ရန်
-                        </button>
-                      </div>
-
-                      <button onClick={handleSaveEditedField} className="w-full bg-amber-600 text-white py-3 rounded-lg text-sm font-bold shadow hover:bg-amber-700">ပြင်ဆင်မှုများကို သိမ်းဆည်းမည် (Save Changes)</button>
-                    </div>
+                    {/* Field Edit Form Items */}
                   </div>
                 ) : (
                   <div className="bg-gray-50 border rounded-2xl p-6">
                     <h3 className="text-base font-bold mb-4 text-gray-800">🏟️ ကွင်းအသစ် ထည့်သွင်းရန်</h3>
                     <form onSubmit={handleCreateNewField} className="space-y-4">
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                          <label className="block text-xs font-bold text-gray-700 mb-1">ကွင်းအမည်</label>
-                          <input type="text" placeholder="ဥပမာ - YUFC Football" value={newFieldName} onChange={(e) => setNewFieldName(e.target.value)} className="w-full border rounded-lg p-2.5 text-sm bg-white" required />
-                        </div>
-                        <div>
-                          <label className="block text-xs font-bold text-gray-700 mb-1">မြို့နယ်</label>
-                          <input type="text" placeholder="ဥပမာ - လှိုင်မြို့နယ်" value={newFieldLocation} onChange={(e) => setNewFieldLocation(e.target.value)} className="w-full border rounded-lg p-2.5 text-sm bg-white" required />
-                        </div>
-                        <div>
-                          <label className="block text-xs font-bold text-gray-700 mb-1">လိပ်စာ အပြည့်အစုံ</label>
-                          <input type="text" placeholder="လိပ်စာ" value={newFieldAddress} onChange={(e) => setNewFieldAddress(e.target.value)} className="w-full border rounded-lg p-2.5 text-sm bg-white" />
-                        </div>
-                        <div>
-                          <label className="block text-xs font-bold text-gray-700 mb-1">ဖုန်းနံပါတ်</label>
-                          <input type="text" placeholder="09xxxxxxxxx" value={newFieldPhone} onChange={(e) => setNewFieldPhone(e.target.value)} className="w-full border rounded-lg p-2.5 text-sm bg-white" />
-                        </div>
-                        <div>
-                          <label className="block text-xs font-bold text-gray-700 mb-1">ကွင်းဖွင့်ချိန် (Open Hour - 24 Hours format)</label>
-                          <input type="number" min="0" max="23" value={newFieldOpenHour} onChange={(e) => setNewFieldOpenHour(e.target.value)} className="w-full border rounded-lg p-2.5 text-sm bg-white" required />
-                        </div>
-                        <div>
-                          <label className="block text-xs font-bold text-gray-700 mb-1">ကွင်းပိတ်ချိန် (Close Hour - 24 Hours format)</label>
-                          <input type="number" min="1" max="24" value={newFieldCloseHour} onChange={(e) => setNewFieldCloseHour(e.target.value)} className="w-full border rounded-lg p-2.5 text-sm bg-white" required />
-                        </div>
-                        <div>
-                          <label className="block text-xs font-bold text-gray-700 mb-1">KPay No ထည့်ရန်</label>
-                          <input type="text" value={newFieldKpay} onChange={(e) => setNewFieldKpay(e.target.value)} placeholder="09-xxxxxxxxx (KPay)" className="w-full border rounded-lg p-2.5 text-sm bg-white" />
-                        </div>
-                        <div>
-                          <label className="block text-xs font-bold text-gray-700 mb-1">Wave No ထည့်ရန်</label>
-                          <input type="text" value={newFieldWave} onChange={(e) => setNewFieldWave(e.target.value)} placeholder="09-xxxxxxxxx (Wave)" className="w-full border rounded-lg p-2.5 text-sm bg-white" />
-                        </div>
-                        <div>
-                          <label className="block text-xs font-bold text-gray-700 mb-1">Owner Email (Login ဝင်ရန်)</label>
-                          <input type="email" placeholder="owner@gmail.com" value={newOwnerEmail} onChange={(e) => setNewOwnerEmail(e.target.value)} className="w-full border rounded-lg p-2.5 text-sm bg-white" />
-                        </div>
-                        <div>
-                          <label className="block text-xs font-bold text-gray-700 mb-1">Owner Password</label>
-                          <input type="text" placeholder="owner password" value={newOwnerPassword} onChange={(e) => setNewOwnerPassword(e.target.value)} className="w-full border rounded-lg p-2.5 text-sm bg-white" />
-                        </div>
-                      </div>
-
-                      <div className="border-t pt-4 mt-4">
-                        <h4 className="text-sm font-bold mb-3 text-gray-800">ကွင်းခွဲများ (Sub-Fields) နှင့် ကွင်းခွဲအလိုက် အချိန်များ ထည့်ရန်</h4>
-                        <div className="grid grid-cols-1 md:grid-cols-6 gap-2 mb-3 items-end">
-                          <div className="md:col-span-2">
-                            <label className="block text-[11px] font-bold text-gray-600 mb-1">ကွင်းခွဲအမည်</label>
-                            <input type="text" placeholder="ဥပမာ - Field A" value={newSubFieldName} onChange={(e) => setNewSubFieldName(e.target.value)} className="border rounded-lg p-2 text-sm bg-white w-full" />
-                          </div>
-                          <div>
-                            <label className="block text-[11px] font-bold text-gray-600 mb-1">ဈေးနှုန်း (ကျပ်)</label>
-                            <input type="number" placeholder="ဈေးနှုန်း" value={newSubFieldPrice} onChange={(e) => setNewSubFieldPrice(e.target.value)} className="border rounded-lg p-2 text-sm bg-white w-full" />
-                          </div>
-                          <div>
-                            <label className="block text-[11px] font-bold text-gray-600 mb-1">ဖွင့်ချိန်</label>
-                            <input type="number" min="0" max="23" value={newSubFieldOpenHour} onChange={(e) => setNewSubFieldOpenHour(e.target.value)} className="border rounded-lg p-2 text-sm bg-white w-full" />
-                          </div>
-                          <div>
-                            <label className="block text-[11px] font-bold text-gray-600 mb-1">ပိတ်ချိန်</label>
-                            <input type="number" min="1" max="24" value={newSubFieldCloseHour} onChange={(e) => setNewSubFieldCloseHour(e.target.value)} className="border rounded-lg p-2 text-sm bg-white w-full" />
-                          </div>
-                          <div>
-                            <label className="block text-[11px] font-bold text-gray-600 mb-1">Status</label>
-                            <select value={newSubFieldStatus} onChange={(e) => setNewSubFieldStatus(e.target.value)} className="border rounded-lg p-2 text-sm bg-white w-full">
-                              <option value="Active">Active</option>
-                              <option value="Inactive">Inactive</option>
-                            </select>
-                          </div>
-                        </div>
-                        <div className="mb-4">
-                          <button type="button" onClick={handleAddOwnerSubField} className="bg-blue-600 text-white rounded-lg px-4 py-2 text-xs font-bold hover:bg-blue-700">+ ကွင်းခွဲ ထည့်မည်</button>
-                        </div>
-
-                        {ownerSubFields.length > 0 && (
-                          <div className="bg-white p-3 rounded-lg border space-y-2">
-                            {ownerSubFields.map(sf => (
-                              <div key={sf.id} className="flex justify-between items-center text-xs bg-gray-50 p-2 rounded">
-                                <span><b>{sf.name}</b> - {sf.price} ကျပ် (ဖွင့်ချိန်: {format12Hour(sf.openHour)} ~ {format12Hour(sf.closeHour)}) [{sf.status}]</span>
-                                <button type="button" onClick={() => setOwnerSubFields(prev => prev.filter(x => x.id !== sf.id))} className="text-red-500 font-bold">ဖယ်ရှားမည်</button>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-
+                      {/* New Field Form Fields */}
                       <button type="submit" className="w-full bg-emerald-600 text-white py-3 rounded-lg text-sm font-bold shadow hover:bg-emerald-700">ကွင်းအသစ်ကို သိမ်းဆည်းမည်</button>
                     </form>
                   </div>
                 )}
-
-                <div>
-                  <h3 className="text-base font-bold mb-4 text-gray-800">လက်ရှိ ကွင်းများစာရင်း</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {fields.map(f => (
-                      <div key={f.id} className="bg-white border rounded-xl p-4 shadow-sm flex flex-col justify-between">
-                        <div>
-                          <div className="flex justify-between items-start">
-                            <h4 className="font-bold text-base text-gray-800">{f.name}</h4>
-                            <span className="text-xs bg-gray-100 px-2 py-1 rounded font-medium">{f.location}</span>
-                          </div>
-                          <p className="text-xs text-gray-500 mt-1">{f.address} | Tel: {f.phone}</p>
-                          <p className="text-xs text-emerald-700 font-bold mt-1">🕒 ကွင်းဖွင့်ချိန်: {format12Hour(f.openHour ?? 8)} မှ {format12Hour(f.closeHour ?? 22)} ထိ</p>
-                          <div className="mt-2 text-xs text-gray-600 space-y-0.5">
-                            <p>💳 <b>KPay:</b> {f.paymentInfo?.kpay || 'မထည့်ရသေးပါ'}</p>
-                            <p>💳 <b>Wave:</b> {f.paymentInfo?.wave || 'မထည့်ရသေးပါ'}</p>
-                          </div>
-                          <div className="mt-3 space-y-1">
-                            {f.subFields.map(sf => (
-                              <div key={sf.id} className="text-xs bg-gray-50 p-2 rounded flex justify-between items-center">
-                                <span><b>{sf.name}</b> ({sf.price} ကျပ်) - <span className="text-emerald-700 font-bold">{format12Hour(sf.openHour !== undefined ? sf.openHour : (f.openHour ?? 8))} ~ {format12Hour(sf.closeHour !== undefined ? sf.closeHour : (f.closeHour ?? 22))}</span></span>
-                                <span className={sf.status === 'Active' ? 'text-emerald-600 font-bold' : 'text-red-500 font-bold'}>{sf.status}</span>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                        <div className="flex justify-end space-x-2 mt-4 pt-3 border-t">
-                          <button onClick={() => handleStartEditField(f)} className="bg-amber-500 text-white px-3 py-1.5 rounded text-xs font-bold hover:bg-amber-600">✏️ ပြင်ဆင်ရန်</button>
-                          <button onClick={() => handleAdminDeleteOwnerField(f.id)} className="bg-red-500 text-white px-3 py-1.5 rounded text-xs font-bold hover:bg-red-600">🗑️ ဖျက်ရန်</button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {adminTab === 'manage_owners' && (
-              <div>
-                <h3 className="text-base font-bold mb-4 text-gray-800">🔑 Owner အကောင့်များနှင့် Status များ စီမံရန်</h3>
-                <div className="space-y-4">
-                  {fields.map(f => (
-                    <div key={f.id} className="bg-gray-50 border rounded-xl p-4 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-                      <div>
-                        <h4 className="font-bold text-sm text-gray-800">{f.name} ({f.location})</h4>
-                        <p className="text-xs text-gray-500">Current Owner Email: {f.ownerEmail || 'None'}</p>
-                      </div>
-                      <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
-                        <input 
-                          type="email" 
-                          defaultValue={f.ownerEmail || ''} 
-                          id={`email_${f.id}`}
-                          placeholder="Owner Email" 
-                          className="border rounded px-2 py-1 text-xs bg-white" 
-                        />
-                        <input 
-                          type="text" 
-                          defaultValue={f.ownerPassword || ''} 
-                          id={`pass_${f.id}`}
-                          placeholder="Password" 
-                          className="border rounded px-2 py-1 text-xs bg-white" 
-                        />
-                        <select defaultValue={f.ownerStatus || 'Active'} id={`status_${f.id}`} className="border rounded px-2 py-1 text-xs bg-white">
-                          <option value="Active">Active</option>
-                          <option value="Disabled">Disabled</option>
-                        </select>
-                        <button 
-                          onClick={() => {
-                            const eVal = document.getElementById(`email_${f.id}`).value;
-                            const pVal = document.getElementById(`pass_${f.id}`).value;
-                            const sVal = document.getElementById(`status_${f.id}`).value;
-                            handleAdminUpdateOwnerInfo(f.id, eVal, pVal, sVal);
-                          }} 
-                          className="bg-emerald-600 text-white px-3 py-1 rounded text-xs font-bold"
-                        >
-                          Save
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
               </div>
             )}
           </div>
@@ -1581,805 +1297,143 @@ const [userCheckDate, setUserCheckDate] = useState(() => {
               <h2 className="text-xl font-bold text-gray-800">🏟️ Owner Dashboard & Direct Booking</h2>
               <button onClick={() => setActiveTab('fields')} className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-bold">← ကွင်းများသို့ ပြန်ရန်</button>
             </div>
-
-            <div className="flex flex-wrap gap-2 mb-6">
-              <button onClick={() => setOwnerActiveTab('pending')} className={`px-4 py-2 rounded-lg text-xs font-bold ${ownerActiveTab === 'pending' ? 'bg-emerald-600 text-white' : 'bg-gray-100 text-gray-700'}`}>
-                Booking တင်ရန် (Direct Booking)
-              </button>
-              <button onClick={() => setOwnerActiveTab('history')} className={`px-4 py-2 rounded-lg text-xs font-bold ${ownerActiveTab === 'history' ? 'bg-emerald-600 text-white' : 'bg-gray-100 text-gray-700'}`}>
-                Booking မှတ်တမ်းများ
-              </button>
-              <button onClick={() => setOwnerActiveTab('notifications_page')} className={`px-4 py-2 rounded-lg text-xs font-bold ${ownerActiveTab === 'notifications_page' ? 'bg-emerald-600 text-white' : 'bg-gray-100 text-gray-700'}`}>
-                🔔 Notifications Page (Pending/New/Reject)
-              </button>
-              <button onClick={() => setOwnerActiveTab('password')} className={`px-4 py-2 rounded-lg text-xs font-bold ${ownerActiveTab === 'password' ? 'bg-emerald-600 text-white' : 'bg-gray-100 text-gray-700'}`}>
-                🔒 Password ချိန်းရန်
-              </button>
-              <button onClick={() => setOwnerActiveTab('fields_edit')} className={`px-4 py-2 rounded-lg text-xs font-bold ${ownerActiveTab === 'fields_edit' ? 'bg-emerald-600 text-white' : 'bg-gray-100 text-gray-700'}`}>
-                🏟️ ကွင်းအချိန်များနှင့် KPay/Wave နံပါတ်များ ပြင်ဆင်ရန်
+            {/* Owner Management Content */}
+          </div>
+        ) : currentUser.role === 'user' && activeTab === 'history' ? (
+          /* ======================================================== */
+          /* 1. BOOKING HISTORY PAGE (သီးသန့်ခွဲထားသော Page)             */
+          /* ======================================================== */
+          <div className="bg-white rounded-2xl shadow-xl p-6 md:p-8 animate-fadeIn">
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center border-b pb-4 mb-6 gap-4">
+              <div>
+                <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2">
+                  <span>📋</span> ကျွန်ုပ်၏ Booking မှတ်တမ်းများ (Booking History)
+                </h2>
+                <p className="text-xs text-gray-500 mt-1">သင် တင်ထားခဲ့သော Booking အချက်အလက်များနှင့် Status များကို ဤနေရာတွင် ကြည့်ရှုနိုင်ပါသည်။</p>
+              </div>
+              <button 
+                onClick={() => setActiveTab('fields')} 
+                className="bg-emerald-600 text-white px-4 py-2 rounded-xl text-xs font-bold hover:bg-emerald-700 shadow transition-all"
+              >
+                + ကွင်းအသစ်ထပ် Booking တင်မည်
               </button>
             </div>
 
-            {ownerActiveTab === 'notifications_page' && (
-              <div className="space-y-4">
-                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-gray-50 p-4 rounded-xl border">
-                  <div>
-                    <h3 className="text-base font-bold text-gray-800">🔔 Owner Notifications Page</h3>
-                    <p className="text-xs text-gray-500"></p>
-                  </div>
-                  <div className="flex flex-wrap items-center gap-3">
-                    <div className="flex items-center gap-1">
-                      <label className="text-xs font-bold text-gray-700">Field:</label>
-                      <select 
-                        value={ownerNotiFieldId} 
-                        onChange={(e) => setOwnerNotiFieldId(e.target.value)}
-                        className="border rounded-lg p-2 text-xs bg-white font-bold"
-                      >
-                        <option value="all">ကိုယ့်ကွင်းများအားလုံး (All My Fields)</option>
-                        {fields.filter(f => f.ownerEmail === currentUser.email).map(f => (
-                          <option key={f.id} value={f.id}>{f.name} ({f.location})</option>
-                        ))}
-                      </select>
-                    </div>
-
-                    <div className="flex items-center gap-1">
-                      <label className="text-xs font-bold text-gray-700">Date:</label>
-                      <input 
-                        type="date" 
-                        value={ownerNotiDate} 
-                        onChange={(e) => setOwnerNotiDate(e.target.value)}
-                        className="border rounded-lg p-1.5 text-xs bg-white font-bold"
-                      />
-                    </div>
-
-                    <div className="flex items-center gap-1">
-                      <label className="text-xs font-bold text-gray-700">Filter:</label>
-                      <select 
-                        value={ownerNotiFilterType} 
-                        onChange={(e) => setOwnerNotiFilterType(e.target.value)}
-                        className="border rounded-lg p-2 text-xs bg-white font-bold"
-                      >
-                        <option value="all">အားလုံးပြရန် (All - New, Pending, Reject)</option>
-                        <option value="new_booking">New Booking များ</option>
-                        <option value="booking_pending">Booking Pending များ</option>
-                        <option value="booking_reject">Booking Reject များ</option>
-                      </select>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="space-y-3">
-                  {smsNotifications
-                    .filter(n => {
-                      const isBookingRelated = n.type === 'booking' || n.subType === 'new_booking' || n.subType === 'booking_pending' || n.subType === 'booking_reject';
-                      if (!isBookingRelated) return false;
-
-                      const myFieldIds = fields.filter(f => f.ownerEmail === currentUser.email).map(f => f.id);
-                      if (n.fieldId && !myFieldIds.includes(n.fieldId)) return false;
-                      if (ownerNotiFieldId !== 'all' && n.fieldId && n.fieldId !== ownerNotiFieldId) return false;
-
-                      if (ownerNotiDate && n.date !== ownerNotiDate) return false;
-
-                      if (ownerNotiFilterType === 'all') {
-                        return n.subType === 'new_booking' || n.subType === 'booking_pending' || n.subType === 'booking_reject' || !n.subType;
-                      }
-                      return n.subType === ownerNotiFilterType;
-                    })
-                    .length > 0 ? (
-                      smsNotifications
-                        .filter(n => {
-                          const isBookingRelated = n.type === 'booking' || n.subType === 'new_booking' || n.subType === 'booking_pending' || n.subType === 'booking_reject';
-                          if (!isBookingRelated) return false;
-
-                          const myFieldIds = fields.filter(f => f.ownerEmail === currentUser.email).map(f => f.id);
-                          if (n.fieldId && !myFieldIds.includes(n.fieldId)) return false;
-                          if (ownerNotiFieldId !== 'all' && n.fieldId && n.fieldId !== ownerNotiFieldId) return false;
-
-                          if (ownerNotiDate && n.date !== ownerNotiDate) return false;
-
-                          if (ownerNotiFilterType === 'all') {
-                            return n.subType === 'new_booking' || n.subType === 'booking_pending' || n.subType === 'booking_reject' || !n.subType;
-                          }
-                          return n.subType === ownerNotiFilterType;
-                        })
-                        .map(n => (
-                          <div key={n.id} className="bg-white border rounded-xl p-4 shadow-sm flex justify-between items-start">
-                            <div>
-                              <p className="text-sm font-medium text-gray-800">{n.message}</p>
-                              <div className="flex items-center gap-3 mt-2">
-                                <span className="text-xs text-gray-400 font-mono">{n.date} {n.time}</span>
-                                <span className="text-[10px] px-2 py-0.5 rounded font-bold uppercase bg-emerald-100 text-emerald-800">
-                                  {n.subType || 'booking'}
-                                </span>
-                              </div>
-                            </div>
-                            <span className={`text-xs font-bold px-2 py-1 rounded ${n.read ? 'text-gray-500 bg-gray-100' : 'text-red-600 bg-red-50'}`}>
-                              {n.read ? 'Read' : 'Unread'}
-                            </span>
-                          </div>
-                        ))
-                    ) : (
-                      <p className="text-center py-12 text-gray-500 text-sm">ရွေးချယ်ထားသော Filter နှင့် ကိုက်ညီသော Notifications များ မရှိသေးပါ။</p>
-                    )}
-                </div>
-              </div>
-            )}
-
-            {ownerActiveTab === 'password' && (
-              <div className="bg-gray-50 border rounded-2xl p-6 max-w-md">
-                <h3 className="text-lg font-bold mb-4 text-gray-800">Owner Password ချိန်းရန်</h3>
-                <form onSubmit={handleChangeMyPassword} className="space-y-4">
-                  <div>
-                    <label className="block text-xs font-bold text-gray-700 mb-1">Password အသစ်</label>
-                    <input type="text" value={myNewPassword} onChange={(e) => setMyNewPassword(e.target.value)} className="w-full border rounded-lg p-2.5 text-sm bg-white font-mono" required />
-                  </div>
-                  <button type="submit" className="bg-emerald-600 text-white px-4 py-2.5 rounded-lg text-xs font-bold">Password ပြောင်းမည်</button>
-                </form>
-              </div>
-            )}
-
-            {ownerActiveTab === 'fields_edit' && (
-              <div className="space-y-6 max-w-2xl">
-                <h3 className="text-lg font-bold mb-4 text-gray-800">ကွင်းအချိန်များနှင့် ကွင်းခွဲအလိုက် အချိန်များကို ပြင်ဆင်ရန်</h3>
-                
-                {editingOwnerFieldId ? (
-                  <div className="bg-amber-50 border-2 border-amber-300 rounded-xl p-4 shadow-sm mb-4">
-                    <div className="flex justify-between items-center mb-3">
-                      <h4 className="font-bold text-sm text-amber-900">✏️ ကွင်းပြင်ဆင်နေသည်</h4>
-                      <button onClick={() => setEditingOwnerFieldId(null)} className="text-xs text-red-600 font-bold hover:underline">Cancel</button>
-                    </div>
-                    <div className="space-y-3">
-                      <div>
-                        <label className="block text-xs font-bold text-gray-700 mb-1">ကွင်းအမည်</label>
-                        <input type="text" value={ownerEditFieldName} onChange={(e) => setOwnerEditFieldName(e.target.value)} className="w-full border rounded p-2 text-xs bg-white" />
-                      </div>
-                      <div>
-                        <label className="block text-xs font-bold text-gray-700 mb-1">မြို့နယ်</label>
-                        <input type="text" value={ownerEditFieldLocation} onChange={(e) => setOwnerEditFieldLocation(e.target.value)} className="w-full border rounded p-2 text-xs bg-white" />
-                      </div>
-                      <div className="grid grid-cols-2 gap-2">
-                        <div>
-                          <label className="block text-xs font-bold text-gray-700 mb-1">ကွင်းဖွင့်ချိန် (Open Hour)</label>
-                          <input type="number" min="0" max="23" value={ownerEditFieldOpenHour} onChange={(e) => setOwnerEditFieldOpenHour(e.target.value)} className="w-full border rounded p-2 text-xs bg-white" />
-                        </div>
-                        <div>
-                          <label className="block text-xs font-bold text-gray-700 mb-1">ကွင်းပိတ်ချိန် (Close Hour)</label>
-                          <input type="number" min="1" max="24" value={ownerEditFieldCloseHour} onChange={(e) => setOwnerEditFieldCloseHour(e.target.value)} className="w-full border rounded p-2 text-xs bg-white" />
-                        </div>
-                      </div>
-                      <div>
-                        <label className="block text-xs font-bold text-gray-700 mb-1">KPay No (User ဘက်တွင်ပေါ်မည့်နံပါတ်)</label>
-                        <input type="text" value={ownerEditFieldKpay} onChange={(e) => setOwnerEditFieldKpay(e.target.value)} placeholder="09-xxxxxxxxx (KPay)" className="w-full border rounded p-2 text-xs bg-white" />
-                      </div>
-                      <div>
-                        <label className="block text-xs font-bold text-gray-700 mb-1">Wave No (User ဘက်တွင်ပေါ်မည့်နံပါတ်)</label>
-                        <input type="text" value={ownerEditFieldWave} onChange={(e) => setOwnerEditFieldWave(e.target.value)} placeholder="09-xxxxxxxxx (Wave)" className="w-full border rounded p-2 text-xs bg-white" />
-                      </div>
-
-                      <div className="border-t pt-3">
-                        <h5 className="font-bold text-xs text-gray-800 mb-2">ကွင်းခွဲများ (Sub-Fields) နှင့် ကွင်းခွဲအလိုက် အချိန်များ စီမံရန်</h5>
-                        <div className="space-y-3 mb-3">
-                          {ownerEditSubFields.map((sf, index) => (
-                            <div key={sf.id || index} className="bg-white p-3 rounded border space-y-2">
-                              <div className="grid grid-cols-2 gap-2">
-                                <input 
-                                  type="text" 
-                                  value={sf.name} 
-                                  onChange={(e) => {
-                                    const val = e.target.value;
-                                    setOwnerEditSubFields(prev => prev.map((item, idx) => idx === index ? { ...item, name: val } : item));
-                                  }} 
-                                  placeholder="ကွင်းခွဲအမည်" 
-                                  className="border rounded p-1.5 text-xs" 
-                                />
-                                <input 
-                                  type="number" 
-                                  value={sf.price} 
-                                  onChange={(e) => {
-                                    const val = e.target.value;
-                                    setOwnerEditSubFields(prev => prev.map((item, idx) => idx === index ? { ...item, price: parseFloat(val) || 0 } : item));
-                                  }} 
-                                  placeholder="ဈေးနှုန်း" 
-                                  className="border rounded p-1.5 text-xs" 
-                                />
-                              </div>
-                              <div className="grid grid-cols-3 gap-2 items-center">
-                                <div>
-                                  <label className="block text-[10px] font-bold text-gray-600">ကွင်းခွဲဖွင့်ချိန်:</label>
-                                  <input 
-                                    type="number" 
-                                    min="0" 
-                                    max="23" 
-                                    value={sf.openHour !== undefined ? sf.openHour : ownerEditFieldOpenHour} 
-                                    onChange={(e) => {
-                                      const val = e.target.value;
-                                      setOwnerEditSubFields(prev => prev.map((item, idx) => idx === index ? { ...item, openHour: parseInt(val) || 0 } : item));
-                                    }} 
-                                    className="border rounded p-1 text-xs w-full" 
-                                  />
-                                </div>
-                                <div>
-                                  <label className="block text-[10px] font-bold text-gray-600">ကွင်းခွဲပိတ်ချိန်:</label>
-                                  <input 
-                                    type="number" 
-                                    min="1" 
-                                    max="24" 
-                                    value={sf.closeHour !== undefined ? sf.closeHour : ownerEditFieldCloseHour} 
-                                    onChange={(e) => {
-                                      const val = e.target.value;
-                                      setOwnerEditSubFields(prev => prev.map((item, idx) => idx === index ? { ...item, closeHour: parseInt(val) || 22 } : item));
-                                    }} 
-                                    className="border rounded p-1 text-xs w-full" 
-                                  />
-                                </div>
-                                <div>
-                                  <label className="block text-[10px] font-bold text-gray-600">Status:</label>
-                                  <select 
-                                    value={sf.status} 
-                                    onChange={(e) => {
-                                      const val = e.target.value;
-                                      setOwnerEditSubFields(prev => prev.map((item, idx) => idx === index ? { ...item, status: val } : item));
-                                    }} 
-                                    className="border rounded p-1 text-xs w-full"
-                                  >
-                                    <option value="Active">Active</option>
-                                    <option value="Inactive">Disable</option>
-                                  </select>
-                                </div>
-                              </div>
-                              <div className="flex justify-end pt-1">
-                                <button 
-                                  type="button" 
-                                  onClick={() => setOwnerEditSubFields(prev => prev.filter((_, idx) => idx !== index))} 
-                                  className="bg-red-500 text-white px-2 py-1 rounded text-[10px] font-bold"
-                                >
-                                  ကွင်းခွဲဖျက်ရန်
-                                </button>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                        <button 
-                          type="button" 
-                          onClick={() => setOwnerEditSubFields(prev => [...prev, { id: 'sf_' + Date.now(), name: 'New SubField', price: 35000, openHour: parseInt(ownerEditFieldOpenHour), closeHour: parseInt(ownerEditFieldCloseHour), status: 'Active' }])}
-                          className="bg-blue-600 text-white px-3 py-1.5 rounded text-xs font-bold mb-3"
-                        >
-                          + ကွင်းခွဲ အသစ်ထည့်ရန်
-                        </button>
-                      </div>
-
-                      <button onClick={handleSaveOwnerEditedField} className="w-full bg-amber-600 text-white py-2.5 rounded text-xs font-bold">ပြင်ဆင်မှု သိမ်းဆည်းမည်</button>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="space-y-4">
-                    {fields.filter(f => f.ownerEmail === currentUser.email).map(f => (
-                      <div key={f.id} className="bg-gray-50 border rounded-xl p-4 flex justify-between items-center">
-                        <div>
-                          <h4 className="font-bold text-sm text-gray-800">{f.name} ({f.location})</h4>
-                          <p className="text-xs text-gray-500">KPay: {f.paymentInfo?.kpay} | Wave: {f.paymentInfo?.wave}</p>
-                        </div>
-                        <button onClick={() => handleStartEditOwnerField(f)} className="bg-emerald-600 text-white px-3 py-1.5 rounded text-xs font-bold">✏️ အချိန်နှင့် အချက်အလက် ပြင်ဆင်ရန်</button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
-
-            {ownerActiveTab === 'pending' && (
-              <div>
-                <h3 className="text-base font-bold mb-4 text-gray-800">🏟️ Direct Booking တင်ရန် (Owner Manual Booking)</h3>
-                <p className="text-xs text-gray-500 mb-4"> ဖုန်းဖြင့်ဖြစ်စေ၊ လူကိုယ်တိုင်ဖြစ်စေ လာရောက် booking တင်သည်များကို ဤနေရာမှ တိုက်ရိုက်ထည့်သွင်းနိုင်ပါသည်။ </p>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="space-y-4 bg-gray-50 p-4 rounded-xl border">
-                    <div>
-                      <label className="block text-xs font-bold text-gray-700 mb-1">ကွင်းရွေးချယ်ရန်</label>
-                      <select 
-                        value={userSelectedField?.id || ''} 
-                        onChange={(e) => {
-                          const found = fields.find(f => f.id === e.target.value);
-                          setUserSelectedField(found || null);
-                          setSelectedSubField(null);
-                        }}
-                        className="w-full border rounded-lg p-2.5 text-sm bg-white"
-                      >
-                        <option value="">-- ကွင်းရွေးပါ --</option>
-                        {fields.filter(f => f.ownerEmail === currentUser.email).map(f => (
-                          <option key={f.id} value={f.id}>{f.name} ({f.location})</option>
-                        ))}
-                      </select>
-                    </div>
-
-                    {userSelectedField && (
-                      <div>
-                        <label className="block text-xs font-bold text-gray-700 mb-1">ကွင်းခွဲရွေးချယ်ရန် (Sub-Field)</label>
-                        <select 
-                          value={selectedSubField?.id || ''} 
-                          onChange={(e) => {
-                            const foundSf = userSelectedField.subFields.find(sf => sf.id === e.target.value);
-                            setSelectedSubField(foundSf || null);
-                          }}
-                          className="w-full border rounded-lg p-2.5 text-sm bg-white"
-                        >
-                          <option value="">-- ကွင်းခွဲရွေးပါ --</option>
-                          {userSelectedField.subFields.map(sf => (
-                            <option key={sf.id} value={sf.id}>{sf.name} ({sf.price} ကျပ်) [{format12Hour(sf.openHour !== undefined ? sf.openHour : (userSelectedField.openHour ?? 8))} ~ {format12Hour(sf.closeHour !== undefined ? sf.closeHour : (userSelectedField.closeHour ?? 22))}]</option>
-                          ))}
-                        </select>
-                      </div>
-                    )}
-
-                    <div>
-                      <label className="block text-xs font-bold text-gray-700 mb-1">ကစားမည့်ရွေးချယ်ရန် ရက်စွဲ (Date)</label>
-                      <input 
-                        type="date" 
-                        value={userCheckDate} 
-                        onChange={(e) => setUserCheckDate(e.target.value)}
-                        className="w-full border rounded-lg p-2.5 text-sm bg-white font-bold"
-                      />
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-3">
-                      <div>
-                        <label className="block text-xs font-bold text-gray-700 mb-1">စတင်မည့်အချိန် (Start)</label>
-                        <select 
-                          value={selectedStartSlot} 
-                          onChange={(e) => setSelectedStartSlot(e.target.value)}
-                          className="w-full border rounded-lg p-2 text-sm bg-white font-bold"
-                        >
-                          <option value="">-- Start --</option>
-                          {generateSingleTimeSlots(
-                            selectedSubField?.openHour !== undefined ? selectedSubField.openHour : (userSelectedField?.openHour ?? 8), 
-                            selectedSubField?.closeHour !== undefined ? selectedSubField.closeHour : (userSelectedField?.closeHour ?? 22)
-                          ).map(slot => (
-                            <option key={slot.hour} value={slot.hour}>{format12Hour(slot.hour)}</option>
-                          ))}
-                        </select>
-                      </div>
-                      <div>
-                        <label className="block text-xs font-bold text-gray-700 mb-1">ပြီးဆုံးမည့်အချိန် (End)</label>
-                        <select 
-                          value={selectedEndSlot} 
-                          onChange={(e) => setSelectedEndSlot(e.target.value)}
-                          className="w-full border rounded-lg p-2 text-sm bg-white font-bold"
-                        >
-                          <option value="">-- End --</option>
-                          {generateSingleTimeSlots(
-                            selectedSubField?.openHour !== undefined ? selectedSubField.openHour : (userSelectedField?.openHour ?? 8), 
-                            selectedSubField?.closeHour !== undefined ? selectedSubField.closeHour : (userSelectedField?.closeHour ?? 22)
-                          )
-                            .filter(slot => selectedStartSlot === '' || slot.hour > parseInt(selectedStartSlot))
-                            .map(slot => (
-                              <option key={slot.hour} value={slot.hour}>{format12Hour(slot.hour)}</option>
-                            ))}
-                        </select>
-                      </div>
-                    </div>
-
-                    <div>
-                      <label className="block text-xs font-bold text-gray-700 mb-1">ဖောက်သည် အမည် (Customer Name)</label>
-                      <input 
-                        type="text" 
-                        placeholder="ဥပမာ - ကိုအောင်အောင်" 
-                        value={ownerCustomerName} 
-                        onChange={(e) => setOwnerCustomerName(e.target.value)} 
-                        className="w-full border rounded-lg p-2.5 text-sm bg-white" 
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-xs font-bold text-gray-700 mb-1">ဖောက်သည် ဖုန်းနံပါတ် (Customer Phone)</label>
-                      <input 
-                        type="text" 
-                        placeholder="ဥပမာ - 09791234567" 
-                        value={ownerCustomerPhone} 
-                        onChange={(e) => setOwnerCustomerPhone(e.target.value)} 
-                        className="w-full border rounded-lg p-2.5 text-sm bg-white" 
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-xs font-bold text-gray-700 mb-1">ငွေပေးချေမှု ပုံစံ</label>
-                      <select 
-                        value={selectedPaymentMethod} 
-                        onChange={(e) => setSelectedPaymentMethod(e.target.value)}
-                        className="w-full border rounded-lg p-2.5 text-sm bg-white font-bold"
-                      >
-                        <option value="">-- ပုံစံရွေးပါ --</option>
-                        <option value="Cash">Cash (ငွေသား)</option>
-                        <option value="KPay">KPay</option>
-                        <option value="Wave">Wave</option>
-                      </select>
-                    </div>
-
-                    {calculatedDuration > 0 && (
-                      <div className="bg-emerald-50 border border-emerald-200 p-3 rounded-xl text-xs space-y-1 font-bold text-emerald-900">
-                        <p>⏱️ ကြာချိန်: {calculatedDuration} နာရီ</p>
-                        <p>💵 စုစုပေါင်း ကျသင့်ငွေ: {calculatedTotalPrice.toLocaleString()} ကျပ်</p>
-                      </div>
-                    )}
-
-                    <button 
-                      onClick={handleBookingSubmit}
-                      className="w-full bg-emerald-600 hover:bg-emerald-700 text-white py-3 rounded-xl text-sm font-bold shadow transition-colors"
-                    >
-                      Direct Booking အတည်ပြုမည် (Approve Already)
-                    </button>
-                  </div>
-
-                  <div>
-                    <h4 className="font-bold text-sm text-gray-800 mb-2">ရွေးချယ်ထားသော ကွင်းခွဲ၏ အချိန်ဇယား (Schedule Status)</h4>
-                    {selectedSubField ? (
-                      <div className="bg-white border rounded-xl p-4 shadow-sm space-y-2">
-                        <p className="text-xs font-bold text-emerald-700 mb-3">📅 ရက်စွဲ: {userCheckDate} ({selectedSubField.name})</p>
-                        <div className="space-y-1.5 max-h-96 overflow-y-auto">
-                          {generateSingleTimeSlots(
-                            selectedSubField?.openHour !== undefined ? selectedSubField.openHour : (userSelectedField?.openHour ?? 8), 
-                            selectedSubField?.closeHour !== undefined ? selectedSubField.closeHour : (userSelectedField?.closeHour ?? 22)
-                          ).map(slot => {
-                            const stType = getSlotStatusType(slot.hour);
-                            return (
-                              <div key={slot.hour} className={`flex justify-between items-center p-2 rounded text-xs border ${
-                                stType === 'booked' ? 'bg-red-50 border-red-200 text-red-700 font-bold' :
-                                stType === 'pending' ? 'bg-amber-50 border-amber-200 text-amber-700 font-bold' :
-                                stType === 'expired' ? 'bg-gray-100 text-gray-400' :
-                                'bg-emerald-50 border-emerald-200 text-emerald-800'
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="bg-gray-100 text-xs border-b text-gray-700 uppercase font-bold">
+                    <th className="p-3 rounded-l-lg">ကွင်း / ကွင်းခွဲ</th>
+                    <th className="p-3">တင်ချိန်</th>
+                    <th className="p-3">ကစားမည့်အချိန်</th>
+                    <th className="p-3">ကြာချိန်</th>
+                    <th className="p-3">သင့်ငွေ</th>
+                    <th className="p-3">ငွေပေးချေမှု / Txn</th>
+                    <th className="p-3 rounded-r-lg">Status</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y text-sm">
+                  {sortedBookings.filter(b => b.userEmail === currentUser.email).length > 0 ? (
+                    sortedBookings
+                      .filter(b => b.userEmail === currentUser.email)
+                      .map(item => {
+                        const targetField = fields.find(f => f.id === item.fieldId);
+                        return (
+                          <tr key={item.id} className="hover:bg-gray-50 transition-colors">
+                            <td className="p-3">
+                              <div className="font-bold text-gray-800">{targetField?.name || 'Unknown Field'}</div>
+                              <div className="text-xs text-emerald-600 font-semibold">{item.subFieldName}</div>
+                            </td>
+                            <td className="p-3 text-xs font-mono text-gray-500">
+                              {item.bookedAt || '-'}
+                            </td>
+                            <td className="p-3 text-xs">
+                              <div className="text-gray-700 font-bold">{item.date}</div>
+                              <div className="font-bold text-emerald-700">{item.fullTimeSlot || item.timeSlot}</div>
+                            </td>
+                            <td className="p-3 text-xs">
+                              <span className="font-bold text-blue-600 bg-blue-50 px-2.5 py-1 rounded-full">{item.duration || '1 Hr'}</span>
+                            </td>
+                            <td className="p-3 text-xs">
+                              <span className="font-bold text-emerald-800 bg-emerald-50 px-2.5 py-1 rounded-full">{item.totalPrice ? `${item.totalPrice.toLocaleString()} ကျပ်` : '-'}</span>
+                            </td>
+                            <td className="p-3 text-xs">
+                              <div className="uppercase font-bold text-gray-700">{item.paymentMethod}</div>
+                              <div className="font-mono text-gray-500">Txn: {item.transactionLast5}</div>
+                            </td>
+                            <td className="p-3 font-bold text-xs">
+                              <span className={`px-3 py-1 rounded-full text-xs inline-block ${
+                                item.status === 'Approved' ? 'bg-emerald-100 text-emerald-800' : 
+                                item.status === 'Rejected' ? 'bg-red-100 text-red-800' : 
+                                'bg-amber-100 text-amber-800'
                               }`}>
-                                <span>{slot.label}</span>
-                                <span>
-                                  {stType === 'booked' ? '🔴 Booked (ပြီးပြီ)' :
-                                   stType === 'pending' ? '🟡 Pending' :
-                                   stType === 'expired' ? '⏰ Expired' : '🟢 Available'}
-                                </span>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="bg-gray-50 border rounded-xl p-8 text-center text-xs text-gray-500">
-                        ကျေးဇူးပြု၍ ကွင်းနှင့် ကွင်းခွဲကို ဦးစွာ ရွေးချယ်ပါ။
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {ownerActiveTab === 'history' && (
-              <div>
-                <h3 className="text-base font-bold mb-4 text-gray-800">Booking မှတ်တမ်းများ (Owner Fields)</h3>
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left border-collapse">
-                    <thead>
-                      <tr className="bg-gray-100 text-xs border-b">
-                        <th className="p-3">ဖောက်သည်</th>
-                        <th className="p-3">ကွင်းခွဲ</th>
-                        <th className="p-3">ရက်စွဲနှင့် အချိန်</th>
-                        <th className="p-3">ကြာချိန်</th>
-                        <th className="p-3">သင့်ငွေ</th>
-                        <th className="p-3">ငွေပေးချေမှု</th>
-                        <th className="p-3">Status</th>
-                        <th className="p-3 text-center">လုပ်ဆောင်ချက်</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y text-sm">
-                      {sortedBookings.filter(b => ownerFieldIds.includes(b.fieldId)).length > 0 ? (
-                        sortedBookings
-                          .filter(b => ownerFieldIds.includes(b.fieldId))
-                          .map(item => {
-                            const targetField = fields.find(f => f.id === item.fieldId);
-                            return (
-                              <tr key={item.id} className="hover:bg-gray-50">
-                                <td className="p-3 font-medium">{item.userName}</td>
-                                <td className="p-3 font-bold text-xs">{item.subFieldName}</td>
-                                <td className="p-3 text-xs">
-                                  <div>{item.date}</div>
-                                  <div className="text-emerald-600 font-bold">{item.fullTimeSlot || item.timeSlot}</div>
-                                </td>
-                                <td className="p-3 text-xs"><span className="bg-blue-50 text-blue-600 font-bold px-2 py-0.5 rounded">{item.duration}</span></td>
-                                <td className="p-3 text-xs font-bold text-emerald-700">{item.totalPrice?.toLocaleString()} ကျပ်</td>
-                                <td className="p-3 text-xs uppercase font-bold">{item.paymentMethod}</td>
-                                <td className="p-3 font-bold text-xs">
-                                  <span className={item.status === 'Approved' ? 'text-emerald-600' : item.status === 'Rejected' ? 'text-red-500' : 'text-amber-500'}>{item.status}</span>
-                                </td>
-                                <td className="p-3 text-center space-x-1">
-                                  <button 
-                                    onClick={() => handleStatusChangeWithConfirm(item.id, item.status, 'Approved', item.fieldId)} 
-                                    className="bg-emerald-600 text-white px-2 py-1 rounded text-[10px] font-bold"
-                                  >
-                                    Approve
-                                  </button>
-                                  <button 
-                                    onClick={() => handleStatusChangeWithConfirm(item.id, item.status, 'Rejected', item.fieldId)} 
-                                    className="bg-red-500 text-white px-2 py-1 rounded text-[10px] font-bold"
-                                  >
-                                    Reject
-                                  </button>
-                                </td>
-                              </tr>
-                            );
-                          })
-                      ) : (
-                        <tr>
-                          <td colSpan="8" className="text-center py-8 text-gray-500 text-sm">Booking များ မရှိသေးပါ။</td>
-                        </tr>
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            )}
+                                {item.status}
+                              </span>
+                            </td>
+                          </tr>
+                        );
+                      })
+                  ) : (
+                    <tr>
+                      <td colSpan="7" className="text-center py-12 text-gray-400 text-sm">
+                        <div className="text-4xl mb-2">📭</div>
+                        သင် တင်ထားသော Booking မှတ်တမ်းများ မရှိသေးပါ။
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
           </div>
         ) : (
-          <div>
-            {userSelectedField ? (
-              <div className="bg-white rounded-xl shadow p-6">
-                <button onClick={() => { setUserSelectedField(null); setSelectedSubField(null); sessionStorage.removeItem('userSelectedField'); sessionStorage.removeItem('selectedSubField'); }} className="text-xs text-blue-600 font-bold hover:underline mb-4 inline-block">← ကွင်းစာရင်းသို့ ပြန်သွားရန်</button>
-                
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                  <div className="md:col-span-1 space-y-4">
-                    <div>
-                      <h2 className="text-xl font-bold text-gray-800">{userSelectedField.name}</h2>
-                      <p className="text-xs text-gray-500 mt-0.5">{userSelectedField.address || userSelectedField.location} | Tel: {userSelectedField.phone}</p>
-                      <p className="text-xs text-emerald-700 font-bold mt-1">🕒 ကွင်းဖွင့်ချိန်: {format12Hour(userSelectedField.openHour ?? 8)} မှ {format12Hour(userSelectedField.closeHour ?? 22)} ထိ</p>
-                    </div>
-
-                    <div className="border-t pt-3">
-                      <h3 className="text-xs font-bold text-gray-700 mb-2">ကွင်းခွဲများ (Sub-Fields) ရွေးရန်</h3>
-                      <div className="space-y-2">
-                        {userSelectedField.subFields.map(sf => {
-                          const isSubActive = sf.status !== 'Inactive';
-                          return (
-                            <div 
-                              key={sf.id} 
-                              onClick={() => {
-                                if (!isSubActive) {
-                                  alert('ဤကွင်းခွဲမှာ လက်ရှိ ပိတ်ထားပါသည်။');
-                                  return;
-                                }
-                                setSelectedSubField(sf);
-                                setSelectedStartSlot('');
-                                setSelectedEndSlot('');
-                              }}
-                              className={`p-3 rounded-xl border cursor-pointer transition-all ${
-                                !isSubActive ? 'bg-gray-100 opacity-60 cursor-not-allowed' :
-                                selectedSubField?.id === sf.id ? 'border-emerald-600 bg-emerald-50 shadow-sm' : 'hover:bg-gray-50'
-                              }`}
-                            >
-                              <div className="flex justify-between items-center">
-                                <span className="font-bold text-sm text-gray-800">{sf.name}</span>
-                                <span className="text-xs font-bold text-emerald-700">{sf.price?.toLocaleString()} ကျပ် / နာရီ</span>
-                              </div>
-                              <div className="flex justify-between items-center mt-1">
-                                <span className="text-[11px] text-gray-500">ဖွင့်ချိန်: {format12Hour(sf.openHour !== undefined ? sf.openHour : (userSelectedField.openHour ?? 8))} ~ {format12Hour(sf.closeHour !== undefined ? sf.closeHour : (userSelectedField.closeHour ?? 22))}</span>
-                                <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${isSubActive ? 'bg-emerald-100 text-emerald-800' : 'bg-red-100 text-red-800'}`}>
-                                  {isSubActive ? 'Active' : 'Inactive'}
-                                </span>
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-
-                    <div className="bg-gray-50 p-3 rounded-xl border text-xs space-y-1">
-                      <p className="font-bold text-gray-800">💳 ငွေပေးချေရန် Account များ</p>
-                      <p>KPay: {userSelectedField.paymentInfo?.kpay || 'မထည့်ရသေးပါ'}</p>
-                      <p>Wave: {userSelectedField.paymentInfo?.wave || 'မထည့်ရသေးပါ'}</p>
-                    </div>
-                  </div>
-
-                  <div className="md:col-span-2 space-y-6">
-                    {selectedSubField ? (
-                      <div className="bg-gray-50 p-6 rounded-2xl border space-y-4">
-                        <div className="flex justify-between items-center border-b pb-3">
-                          <div>
-                            <h3 className="text-base font-bold text-gray-800">📅 Booking တင်ရန် ({selectedSubField.name})</h3>
-                            <p className="text-xs text-gray-500">ဈေးနှုန်း: {selectedSubField.price?.toLocaleString()} ကျပ် / နာရီ</p>
-                          </div>
-                          <div>
-                            <label className="block text-[10px] font-bold text-gray-600 mb-1">ရက်စွဲရွေးရန်</label>
-                            <input 
-                              type="date" 
-                              value={userCheckDate} 
-                              onChange={(e) => setUserCheckDate(e.target.value)}
-                              className="border rounded-lg p-2 text-xs font-bold bg-white"
-                            />
-                          </div>
-                        </div>
-
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          <div>
-                            <label className="block text-xs font-bold text-gray-700 mb-1">စတင်မည့်အချိန် (Start Slot)</label>
-                            <select 
-                              value={selectedStartSlot} 
-                              onChange={(e) => {
-                                setSelectedStartSlot(e.target.value);
-                                setSelectedEndSlot('');
-                              }}
-                              className="w-full border rounded-lg p-2.5 text-sm bg-white font-bold"
-                            >
-                              <option value="">-- Start Time --</option>
-                              {generateSingleTimeSlots(
-                                selectedSubField?.openHour !== undefined ? selectedSubField.openHour : (userSelectedField?.openHour ?? 8), 
-                                selectedSubField?.closeHour !== undefined ? selectedSubField.closeHour : (userSelectedField?.closeHour ?? 22)
-                              ).map(slot => {
-                                const isUnavail = isSlotUnavailable(slot.hour);
-                                return (
-                                  <option key={slot.hour} value={slot.hour} disabled={isUnavail}>
-                                    {format12Hour(slot.hour)} {isUnavail ? '(Booked / Expired)' : ''}
-                                  </option>
-                                );
-                              })}
-                            </select>
-                          </div>
-
-                          <div>
-                            <label className="block text-xs font-bold text-gray-700 mb-1">ပြီးဆုံးမည့်အချိန် (End Slot)</label>
-                            <select 
-                              value={selectedEndSlot} 
-                              onChange={(e) => setSelectedEndSlot(e.target.value)}
-                              className="w-full border rounded-lg p-2.5 text-sm bg-white font-bold"
-                            >
-                              <option value="">-- End Time --</option>
-                              {generateSingleTimeSlots(
-                                selectedSubField?.openHour !== undefined ? selectedSubField.openHour : (userSelectedField?.openHour ?? 8), 
-                                selectedSubField?.closeHour !== undefined ? selectedSubField.closeHour : (userSelectedField?.closeHour ?? 22)
-                              )
-                                .filter(slot => selectedStartSlot === '' || slot.hour > parseInt(selectedStartSlot))
-                                .map(slot => {
-                                  const startNum = parseInt(selectedStartSlot);
-                                  let hasConflictInRange = false;
-                                  for (let h = startNum; h < slot.hour; h++) {
-                                    if (isSlotUnavailable(h)) {
-                                      hasConflictInRange = true;
-                                      break;
-                                    }
-                                  }
-                                  return (
-                                    <option key={slot.hour} value={slot.hour} disabled={hasConflictInRange}>
-                                      {format12Hour(slot.hour)} {hasConflictInRange ? '(Unavailable)' : ''}
-                                    </option>
-                                  );
-                                })}
-                            </select>
-                          </div>
-                        </div>
-
-                        <div>
-                          <label className="block text-xs font-bold text-gray-700 mb-1">ငွေပေးချေမည့်နည်းလမ်း</label>
-                          <select 
-                            value={selectedPaymentMethod} 
-                            onChange={(e) => setSelectedPaymentMethod(e.target.value)}
-                            className="w-full border rounded-lg p-2.5 text-sm bg-white font-bold"
-                          >
-                            <option value="">-- နည်းလမ်းရွေးပါ --</option>
-                            <option value="KPay">KPay</option>
-                            <option value="Wave">Wave</option>
-                          </select>
-                        </div>
-
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          <div>
-                            <label className="block text-xs font-bold text-gray-700 mb-1">ငွေလွှဲ Transaction နံပါတ် နောက်ဆုံး ၅ လုံး</label>
-                            <input 
-                              type="text" 
-                              maxLength="5" 
-                              placeholder="ဥပမာ - 12345" 
-                              value={transactionLast5} 
-                              onChange={(e) => {
-                                const val = e.target.value.replace(/[^0-9]/g, '');
-                                setTransactionLast5(val);
-                              }} 
-                              className="w-full border rounded-lg p-2.5 text-sm bg-white font-mono" 
-                            />
-                          </div>
-
-                          <div>
-                            <label className="block text-xs font-bold text-gray-700 mb-1">ငွေလွှဲ Screenshot တင်ရန်</label>
-                            <input 
-                              type="file" 
-                              accept="image/*"
-                              onChange={(e) => setPaymentScreenshot(e.target.files[0])}
-                              className="w-full border rounded-lg p-1.5 text-xs bg-white file:mr-4 file:py-1 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-emerald-50 file:text-emerald-700 hover:file:bg-emerald-100" 
-                            />
-                          </div>
-                        </div>
-
-                        {calculatedDuration > 0 && (
-                          <div className="bg-emerald-100 border border-emerald-300 p-3 rounded-xl text-xs space-y-1 font-bold text-emerald-900">
-                            <p>⏱️ ကြာချိန်: {calculatedDuration} နာရီ ({format12Hour(parseInt(selectedStartSlot))} ~ {format12Hour(parseInt(selectedEndSlot))})</p>
-                            <p>💵 စုစုပေါင်း ကျသင့်ငွေ: {calculatedTotalPrice.toLocaleString()} ကျပ်</p>
-                          </div>
-                        )}
-
-                        <button 
-                          onClick={handleBookingSubmit}
-                          className="w-full bg-emerald-600 hover:bg-emerald-700 text-white py-3 rounded-xl text-sm font-bold shadow transition-colors"
-                        >
-                          Booking တင်မည် (Confirm Booking)
-                        </button>
-                      </div>
-                    ) : (
-                      <div className="bg-gray-50 border rounded-2xl p-12 text-center text-gray-500 text-sm">
-                        ဘယ်ဘက်ခြမ်းမှ ကွင်းခွဲ (Sub-Field) တစ်ခုကို ဦးစွာ ရွေးချယ်ပါ။
-                      </div>
-                    )}
-
-                    <div>
-                      <h3 className="text-sm font-bold text-gray-800 mb-3">🕒 ဤကွင်းခွဲ၏ အချိန်ဇယားနှင့် အခြေအနေများ</h3>
-                      {selectedSubField ? (
-                        <div className="bg-white border rounded-xl p-4 shadow-sm space-y-2">
-                          <p className="text-xs font-bold text-emerald-700 mb-3">📅 ရက်စွဲ: {userCheckDate} ({selectedSubField.name})</p>
-                          <div className="space-y-1.5 max-h-72 overflow-y-auto">
-                            {generateSingleTimeSlots(
-                              selectedSubField?.openHour !== undefined ? selectedSubField.openHour : (userSelectedField?.openHour ?? 8), 
-                              selectedSubField?.closeHour !== undefined ? selectedSubField.closeHour : (userSelectedField?.closeHour ?? 22)
-                            ).map(slot => {
-                              const stType = getSlotStatusType(slot.hour);
-                              return (
-                                <div key={slot.hour} className={`flex justify-between items-center p-2 rounded text-xs border ${
-                                  stType === 'booked' ? 'bg-red-50 border-red-200 text-red-700 font-bold' :
-                                  stType === 'pending' ? 'bg-amber-50 border-amber-200 text-amber-700 font-bold' :
-                                  stType === 'expired' ? 'bg-gray-100 text-gray-400' :
-                                  'bg-emerald-50 border-emerald-200 text-emerald-800'
-                                }`}>
-                                  <span>{slot.label}</span>
-                                  <span>
-                                    {stType === 'booked' ? '🔴 Booked (ပြီးပြီ)' :
-                                     stType === 'pending' ? '🟡 Pending (စောင့်ဆိုင်းဆဲ)' :
-                                     stType === 'expired' ? '⏰ Expired (အချိန်ကုန်ပြီး)' : '🟢 Available (ရနိုင်သည်)'}
-                                  </span>
-                                </div>
-                              );
-                            })}
-                          </div>
-                        </div>
-                      ) : (
-                        <p className="text-xs text-gray-400">အချိန်ဇယားကြည့်ရန် ကွင်းခွဲတစ်ခုကို ရွေးပါ။</p>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            ) : (
-              <div className="space-y-6">
-                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white p-4 rounded-xl shadow-sm">
+          /* ======================================================== */
+          /* 2. FIELD SELECTION & BOOKING FORM PAGE (သီးသန့်ခွဲထားသော Page) */
+          /* ======================================================== */
+          <div className="space-y-6">
+            {!userSelectedField ? (
+              <div className="bg-white rounded-2xl shadow-xl p-6 md:p-8">
+                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
                   <div>
-                    <h2 className="text-lg font-bold text-gray-800">ရနိုင်သော ဘောလုံးကွင်းများ</h2>
-                    <p className="text-xs text-gray-500">မြို့နယ်အလိုက် ရှာဖွေနိုင်ပြီး လိုချင်သည့်ကွင်းကို ရွေးချယ် Booking တင်နိုင်ပါသည်။</p>
+                    <h2 className="text-xl font-bold text-gray-800">🏟️ ဘောလုံးကွင်းများ ရွေးချယ်ရန်</h2>
+                    <p className="text-xs text-gray-500 mt-1">အောက်ပါ ကွင်းများထဲမှ သင်ကြိုက်နှစ်သက်ရာ ကွင်းကို ရွေးချယ်၍ Booking တင်နိုင်ပါသည်။</p>
                   </div>
-                  <div className="w-full md:w-72">
+                  <div className="flex items-center gap-2 w-full md:w-auto township-dropdown-container">
                     <input 
                       type="text" 
-                      placeholder="🔍 မြို့နယ်ဖြင့် ရှာရန် (ဥပမာ - လှိုင်)" 
-                      value={selectedTownship} 
+                      placeholder="မြို့နယ်ဖြင့် ရှာရန် (ဥပမာ - လှိုင်)" 
+                      value={selectedTownship}
                       onChange={(e) => setSelectedTownship(e.target.value)}
-                      className="w-full border rounded-lg p-2.5 text-sm bg-gray-50 focus:bg-white focus:outline-none focus:border-emerald-600 font-medium"
+                      className="border rounded-xl px-3 py-2 text-xs bg-gray-50 focus:bg-white focus:outline-none focus:border-emerald-600 w-full md:w-60"
                     />
+                    {selectedTownship && (
+                      <button onClick={() => setSelectedTownship('')} className="text-xs text-gray-500 hover:text-red-500 font-bold px-2">ဖျက်ရန်</button>
+                    )}
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                   {displayedFields.length > 0 ? (
-                    displayedFields.map(f => (
-                      <div key={f.id} className="bg-white border rounded-2xl p-5 shadow-sm hover:shadow-md transition-shadow flex flex-col justify-between">
+                    displayedFields.map(field => (
+                      <div key={field.id} className="bg-white border rounded-2xl p-5 shadow-sm hover:shadow-md transition-all flex flex-col justify-between border-t-4 border-t-emerald-600">
                         <div>
                           <div className="flex justify-between items-start mb-2">
-                            <h3 className="text-base font-bold text-gray-800">{f.name}</h3>
-                            <span className="text-xs bg-emerald-50 text-emerald-700 font-bold px-2.5 py-1 rounded-lg">{f.location}</span>
+                            <h3 className="font-bold text-lg text-gray-800">{field.name}</h3>
+                            <span className="text-xs bg-emerald-50 text-emerald-700 font-bold px-2.5 py-1 rounded-full">{field.location}</span>
                           </div>
-                          <p className="text-xs text-gray-500 mb-3">{f.address || f.location} | Tel: {f.phone}</p>
-                          <p className="text-xs text-emerald-700 font-bold mb-3">🕒 ဖွင့်ချိန်: {format12Hour(f.openHour ?? 8)} မှ {format12Hour(f.closeHour ?? 22)} ထိ</p>
+                          <p className="text-xs text-gray-500 mb-2">{field.address} | Tel: {field.phone}</p>
+                          <p className="text-xs text-emerald-800 font-bold mb-4 bg-emerald-50/50 p-2 rounded-lg">🕒 ဖွင့်ချိန်: {format12Hour(field.openHour ?? 8)} မှ {format12Hour(field.closeHour ?? 22)} ထိ</p>
                           
-                          <div className="space-y-1.5 mb-4">
-                            {f.subFields.map(sf => (
-                              <div key={sf.id} className="text-xs bg-gray-50 p-2 rounded-lg flex justify-between items-center">
-                                <span className="font-medium text-gray-700">{sf.name}</span>
-                                <span className="font-bold text-emerald-700">{sf.price?.toLocaleString()} ကျပ်</span>
+                          <div className="space-y-2 mb-4">
+                            <p className="text-xs font-bold text-gray-700">ကွင်းခွဲများ (Sub-Fields):</p>
+                            {field.subFields.map(sf => (
+                              <div key={sf.id} className="text-xs bg-gray-50 p-2.5 rounded-xl flex justify-between items-center border">
+                                <div>
+                                  <span className="font-bold text-gray-800">{sf.name}</span>
+                                  <span className="text-emerald-700 font-semibold block">{sf.price.toLocaleString()} ကျပ် / နာရီ</span>
+                                </div>
+                                <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${sf.status === 'Active' ? 'bg-emerald-100 text-emerald-800' : 'bg-red-100 text-red-800'}`}>
+                                  {sf.status}
+                                </span>
                               </div>
                             ))}
                           </div>
@@ -2387,80 +1441,215 @@ const [userCheckDate, setUserCheckDate] = useState(() => {
 
                         <button 
                           onClick={() => {
-                            setUserSelectedField(f);
-                            if (f.subFields.length > 0) setSelectedSubField(f.subFields[0]);
+                            setUserSelectedField(field);
+                            if (field.subFields.length > 0) {
+                              setSelectedSubField(field.subFields[0]);
+                            }
                           }}
                           className="w-full bg-emerald-600 hover:bg-emerald-700 text-white py-2.5 rounded-xl text-xs font-bold shadow transition-colors"
                         >
-                          ကွင်းရွေးမည် & Booking တင်မည် →
+                          ဤကွင်းကို ရွေးချယ်မည် (Select Field) →
                         </button>
                       </div>
                     ))
                   ) : (
-                    <div className="col-span-3 text-center py-16 bg-white rounded-xl shadow-sm text-gray-500 text-sm">
-                      ရှာဖွေထားသော မြို့နယ်နှင့် ကိုက်ညီသော ကွင်းများ မရှိသေးပါ။
+                    <div className="col-span-full text-center py-12 text-gray-500 text-sm">
+                      ရှာဖွေတွေ့ရှိသော ဘောလုံးကွင်းများ မရှိပါ။
                     </div>
                   )}
                 </div>
               </div>
-            )}
-
-            {activeTab === 'history' && currentUser.role === 'user' && (
-              <div className="bg-white rounded-xl shadow p-6 mt-6">
-                <div className="flex justify-between items-center mb-6 border-b pb-4">
-                  <h2 className="text-xl font-bold text-gray-800">📋 ကျွန်ုပ်၏ Booking မှတ်တမ်းများ</h2>
-                  <button onClick={() => setActiveTab('fields')} className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-bold">← ကွင်းများသို့ ပြန်ရန်</button>
+            ) : (
+              <div className="bg-white rounded-2xl shadow-xl p-6 md:p-8">
+                <div className="flex justify-between items-center border-b pb-4 mb-6">
+                  <div>
+                    <h2 className="text-xl font-bold text-gray-800">⚽ {userSelectedField.name} - Booking တင်ရန်</h2>
+                    <p className="text-xs text-gray-500 mt-1">အောက်ပါ ဖောင်တွင် လိုအပ်သော အချက်အလက်များနှင့် အချိန်ကို ရွေးချယ်ပါ။</p>
+                  </div>
+                  <button 
+                    onClick={() => {
+                      setUserSelectedField(null);
+                      setSelectedSubField(null);
+                      sessionStorage.removeItem('userSelectedField');
+                      sessionStorage.removeItem('selectedSubField');
+                    }}
+                    className="bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-xl text-xs font-bold transition-all"
+                  >
+                    ← ကွင်းများစာရင်းသို့ ပြန်သွားရန်
+                  </button>
                 </div>
 
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left border-collapse">
-                    <thead>
-                      <tr className="bg-gray-100 text-xs border-b">
-                        <th className="p-3">ကွင်း / ကွင်းခွဲ</th>
-                        <th className="p-3">တင်ချိန်</th>
-                        <th className="p-3">ကစားမည့်အချိန်</th>
-                        <th className="p-3">ကြာချိန်</th>
-                        <th className="p-3">သင့်ငွေ</th>
-                        <th className="p-3">ငွေပေးချေမှု / Txn</th>
-                        <th className="p-3">Status</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y text-sm">
-                      {sortedBookings.filter(b => b.userEmail === currentUser.email).length > 0 ? (
-                        sortedBookings
-                          .filter(b => b.userEmail === currentUser.email)
-                          .map(item => {
-                            const targetField = fields.find(f => f.id === item.fieldId);
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                  {/* Left Column: SubField & Date selection */}
+                  <div className="lg:col-span-1 space-y-6">
+                    <div>
+                      <label className="block text-xs font-bold text-gray-700 mb-2">ကွင်းခွဲ (Sub-Field) ရွေးရန်</label>
+                      <div className="space-y-2">
+                        {userSelectedField.subFields.map(sf => (
+                          <div 
+                            key={sf.id}
+                            onClick={() => setSelectedSubField(sf)}
+                            className={`p-3 rounded-xl border cursor-pointer transition-all flex justify-between items-center ${selectedSubField?.id === sf.id ? 'border-emerald-600 bg-emerald-50/50 shadow-sm' : 'border-gray-200 hover:bg-gray-50'}`}
+                          >
+                            <div>
+                              <div className="font-bold text-sm text-gray-800">{sf.name}</div>
+                              <div className="text-xs text-emerald-700 font-semibold">{sf.price.toLocaleString()} ကျပ် / နာရီ</div>
+                            </div>
+                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${sf.status === 'Active' ? 'bg-emerald-100 text-emerald-800' : 'bg-red-100 text-red-800'}`}>
+                              {sf.status}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-gray-700 mb-2">ကစားမည့်ရက်စွဲ (Date)</label>
+                      <input 
+                        type="date" 
+                        value={userCheckDate}
+                        min={new Date().toISOString().split('T')[0]}
+                        onChange={(e) => setUserCheckDate(e.target.value)}
+                        className="w-full border rounded-xl p-3 text-sm bg-gray-50 focus:bg-white focus:outline-none focus:border-emerald-600 font-bold"
+                      />
+                    </div>
+
+                    <div className="bg-emerald-50 border border-emerald-100 p-4 rounded-xl space-y-2 text-xs">
+                      <p className="font-bold text-emerald-900">💳 ငွေပေးချေရန် နံပါတ်များ:</p>
+                      <p className="text-emerald-800"><b>KPay:</b> {userSelectedField.paymentInfo?.kpay || 'မရှိပါ'}</p>
+                      <p className="text-emerald-800"><b>Wave:</b> {userSelectedField.paymentInfo?.wave || 'မရှိပါ'}</p>
+                    </div>
+                  </div>
+
+                  {/* Right Column: Time Slots & Booking Submission Form */}
+                  <div className="lg:col-span-2 space-y-6">
+                    {selectedSubField ? (
+                      <div>
+                        <div className="flex justify-between items-center mb-3">
+                          <h3 className="text-sm font-bold text-gray-800">🕒 အချိန်ရွေးချယ်ရန် ({selectedSubField.name})</h3>
+                          <span className="text-xs text-gray-500">စတင်ချိန်နှင့် ပြီးဆုံးမည့်အချိန်ကို ရွေးပါ</span>
+                        </div>
+
+                        {/* Slot Selection Grid */}
+                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mb-6">
+                          {generateSingleTimeSlots(
+                            selectedSubField.openHour !== undefined ? selectedSubField.openHour : (userSelectedField.openHour ?? 8), 
+                            selectedSubField.closeHour !== undefined ? selectedSubField.closeHour : (userSelectedField.closeHour ?? 22)
+                          ).map(slot => {
+                            const status = getSlotStatusType(slot.hour);
+                            const isStart = selectedStartSlot !== '' && parseInt(selectedStartSlot) === slot.hour;
+                            const isEnd = selectedEndSlot !== '' && parseInt(selectedEndSlot) === slot.hour + 1;
+                            const isInRange = selectedStartSlot !== '' && selectedEndSlot !== '' && slot.hour >= parseInt(selectedStartSlot) && slot.hour < parseInt(selectedEndSlot);
+
+                            let bgClass = 'bg-white border-gray-200 hover:border-emerald-500 text-gray-700';
+                            if (status === 'expired') bgClass = 'bg-gray-100 border-gray-200 text-gray-400 cursor-not-allowed opacity-60';
+                            else if (status === 'booked') bgClass = 'bg-red-50 border-red-200 text-red-600 cursor-not-allowed';
+                            else if (status === 'pending') bgClass = 'bg-amber-50 border-amber-200 text-amber-600 cursor-not-allowed';
+                            else if (isStart || isEnd || isInRange) bgClass = 'bg-emerald-600 border-emerald-600 text-white shadow-sm';
+
                             return (
-                              <tr key={item.id} className="hover:bg-gray-50">
-                                <td className="p-3">
-                                  <div className="font-bold text-gray-800">{targetField?.name || 'Unknown'}</div>
-                                  <div className="text-xs text-gray-500">{item.subFieldName}</div>
-                                </td>
-                                <td className="p-3 text-xs font-mono text-gray-500">{item.bookedAt || '-'}</td>
-                                <td className="p-3 text-xs">
-                                  <div className="font-bold">{item.date}</div>
-                                  <div className="text-emerald-600 font-bold">{item.fullTimeSlot || item.timeSlot}</div>
-                                </td>
-                                <td className="p-3 text-xs"><span className="bg-blue-50 text-blue-600 font-bold px-2 py-0.5 rounded">{item.duration}</span></td>
-                                <td className="p-3 text-xs font-bold text-emerald-700">{item.totalPrice?.toLocaleString()} ကျပ်</td>
-                                <td className="p-3 text-xs">
-                                  <div className="uppercase font-bold">{item.paymentMethod}</div>
-                                  <div className="font-mono text-gray-600">Txn: {item.transactionLast5}</div>
-                                </td>
-                                <td className="p-3 font-bold text-xs">
-                                  <span className={item.status === 'Approved' ? 'text-emerald-600' : item.status === 'Rejected' ? 'text-red-500' : 'text-amber-500'}>{item.status}</span>
-                                </td>
-                              </tr>
+                              <button
+                                key={slot.hour}
+                                type="button"
+                                disabled={status !== 'available'}
+                                onClick={() => {
+                                  if (selectedStartSlot === '' || (selectedStartSlot !== '' && selectedEndSlot !== '')) {
+                                    setSelectedStartSlot(slot.hour);
+                                    setSelectedEndSlot('');
+                                  } else {
+                                    if (slot.hour + 1 > parseInt(selectedStartSlot)) {
+                                      setSelectedEndSlot(slot.hour + 1);
+                                    } else {
+                                      setSelectedStartSlot(slot.hour);
+                                      setSelectedEndSlot('');
+                                    }
+                                  }
+                                }}
+                                className={`border rounded-xl p-2.5 text-xs font-bold transition-all flex flex-col items-center justify-center ${bgClass}`}
+                              >
+                                <span>{slot.label}</span>
+                                <span className="text-[10px] font-normal mt-0.5 opacity-80">
+                                  {status === 'expired' ? 'ကုန်ဆုံးပြီ' : status === 'booked' ? 'Bookပြီး' : status === 'pending' ? 'စောင့်ဆိုင်းဆဲ' : 'ရနိုင်သည်'}
+                                </span>
+                              </button>
                             );
-                          })
-                      ) : (
-                        <tr>
-                          <td colSpan="7" className="text-center py-8 text-gray-500 text-sm">သင်၏ Booking မှတ်တမ်းများ မရှိသေးပါ။</td>
-                        </tr>
-                      )}
-                    </tbody>
-                  </table>
+                          })}
+                        </div>
+
+                        {/* Booking Summary Box */}
+                        {calculatedDuration > 0 && (
+                          <div className="bg-emerald-50 border border-emerald-200 p-4 rounded-xl mb-6 flex justify-between items-center">
+                            <div>
+                              <p className="text-xs text-emerald-800 font-bold">ရွေးချယ်ထားသော ကြာချိန်: <span className="text-emerald-900 font-extrabold">{calculatedDuration} နာရီ</span></p>
+                              <p className="text-xs text-emerald-800 font-bold mt-1">ကျသင့်ငွေ စုစုပေါင်း: <span className="text-emerald-900 font-extrabold text-sm">{calculatedTotalPrice.toLocaleString()} ကျပ်</span></p>
+                            </div>
+                            <button 
+                              type="button" 
+                              onClick={() => { setSelectedStartSlot(''); setSelectedEndSlot(''); }}
+                              className="text-xs text-red-600 hover:underline font-bold"
+                            >
+                              အချိန်ပြန်ရွေးမည်
+                            </button>
+                          </div>
+                        )}
+
+                        {/* Booking Submit Form */}
+                        <form onSubmit={handleBookingSubmit} className="space-y-4 border-t pt-4">
+                          <h3 className="text-sm font-bold text-gray-800">ငွေပေးချေမှု အချက်အလက်များ ဖြည့်သွင်းရန်</h3>
+                          
+                          <div>
+                            <label className="block text-xs font-bold text-gray-700 mb-1">ငွေလွှဲမည့် နည်းလမ်း</label>
+                            <select 
+                              value={selectedPaymentMethod} 
+                              onChange={(e) => setSelectedPaymentMethod(e.target.value)}
+                              className="w-full border rounded-xl p-3 text-sm bg-gray-50 focus:bg-white focus:outline-none focus:border-emerald-600 font-bold"
+                              required
+                            >
+                              <option value="">ငွေပေးချေမည့် နည်းလမ်းကို ရွေးပါ</option>
+                              <option value="kpay">KPay (KBZ Pay)</option>
+                              <option value="wave">Wave Money</option>
+                            </select>
+                          </div>
+
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                              <label className="block text-xs font-bold text-gray-700 mb-1">ငွေလွှဲပြီး Transaction နံပါတ် နောက်ဆုံး ၅ လုံး</label>
+                              <input 
+                                type="text" 
+                                maxLength="5"
+                                placeholder="ဥပမာ - 12345" 
+                                value={transactionLast5}
+                                onChange={(e) => setTransactionLast5(e.target.value.replace(/[^0-9]/g, ''))}
+                                className="w-full border rounded-xl p-3 text-sm bg-gray-50 focus:bg-white focus:outline-none focus:border-emerald-600 font-mono font-bold"
+                                required
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-xs font-bold text-gray-700 mb-1">ငွေလွှဲ Screenshot တင်ရန်</label>
+                              <input 
+                                type="file" 
+                                accept="image/*"
+                                onChange={(e) => setPaymentScreenshot(e.target.files[0])}
+                                className="w-full border rounded-xl p-2 text-xs bg-gray-50 focus:bg-white focus:outline-none file:mr-4 file:py-1 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-emerald-50 file:text-emerald-700 hover:file:bg-emerald-100"
+                                required
+                              />
+                            </div>
+                          </div>
+
+                          <button 
+                            type="submit" 
+                            className="w-full bg-emerald-600 hover:bg-emerald-700 text-white py-3.5 rounded-xl text-sm font-bold shadow-lg transition-colors mt-2"
+                          >
+                            Booking တင်မည် (Submit Booking)
+                          </button>
+                        </form>
+                      </div>
+                    ) : (
+                      <div className="text-center py-20 text-gray-400 text-sm">
+                        ကျေးဇူးပြု၍ ဘယ်ဘက်မှ ကွင်းခွဲ (Sub-Field) တစ်ခုကို ရွေးချယ်ပါ။
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
             )}
