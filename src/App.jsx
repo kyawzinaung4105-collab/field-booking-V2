@@ -1215,6 +1215,13 @@ export default function FieldBookingApp() {
     const hourlyPrice = Number(subField?.price);
     return Number.isFinite(hourlyPrice) ? hourlyPrice * getBookingDurationHours(booking) : 0;
   };
+  const getPaymentMethodKey = (booking) => {
+    const method = String(booking?.paymentMethod || '').trim().toLowerCase().replace(/[\s_-]+/g, '');
+    if (method === 'kpay' || method === 'kpaypayment') return 'kpay';
+    if (method === 'wave' || method === 'wavepay') return 'wave';
+    if (method === 'cash' || method === 'ငွေသား') return 'cash';
+    return 'other';
+  };
   const createReportData = (reportBookings) => {
     const statusCounts = reportBookings.reduce((counts, booking) => {
       const key = getBookingStatusKey(booking);
@@ -1226,9 +1233,17 @@ export default function FieldBookingApp() {
 
     const approvedBookings = reportBookings.filter(booking => getBookingStatusKey(booking) === 'approved');
     const approvedHours = approvedBookings.reduce((sum, booking) => sum + getBookingDurationHours(booking), 0);
-    const revenue = approvedBookings.reduce((sum, booking) => {
-      return sum + getBookingRevenue(booking);
-    }, 0);
+    const paymentRevenue = approvedBookings.reduce((totals, booking) => {
+      const amount = getBookingRevenue(booking);
+      const methodKey = getPaymentMethodKey(booking);
+      totals.total += amount;
+      if (methodKey === 'kpay') totals.kpay += amount;
+      else if (methodKey === 'cash') totals.cash += amount;
+      else if (methodKey === 'wave') totals.wave += amount;
+      else totals.other += amount;
+      return totals;
+    }, { kpay: 0, cash: 0, wave: 0, other: 0, total: 0 });
+    const revenue = paymentRevenue.total;
 
     const fieldMap = new Map();
     reportBookings.forEach(booking => {
@@ -1260,6 +1275,7 @@ export default function FieldBookingApp() {
       statusCounts,
       approvedHours,
       revenue,
+      paymentRevenue,
       fieldBreakdown: [...fieldMap.values()].sort((a, b) => a.label.localeCompare(b.label))
     };
   };
@@ -1626,9 +1642,12 @@ export default function FieldBookingApp() {
                   <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4"><p className="text-[11px] font-bold text-slate-600">Total Bookings</p><p className="mt-1 text-2xl font-extrabold text-slate-800">{adminReport.total}</p></div>
                 </div>
 
-                <div className="grid gap-3 sm:grid-cols-2">
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                   <div className="rounded-2xl border border-blue-200 bg-blue-50 p-4"><p className="text-xs font-bold text-blue-700">Approved ငှားရမ်းနာရီ</p><p className="mt-1 text-2xl font-extrabold text-blue-900">{adminReport.approvedHours.toLocaleString()} နာရီ</p></div>
-                  <div className="rounded-2xl border border-violet-200 bg-violet-50 p-4"><p className="text-xs font-bold text-violet-700">Approved ဝင်ငွေ</p><p className="mt-1 text-2xl font-extrabold text-violet-900">{adminReport.revenue.toLocaleString()} ကျပ်</p></div>
+                  <div className="rounded-2xl border border-green-200 bg-green-50 p-4"><p className="text-xs font-bold text-green-700">Approved KPay</p><p className="mt-1 text-2xl font-extrabold text-green-900">{adminReport.paymentRevenue.kpay.toLocaleString()} ကျပ်</p></div>
+                  <div className="rounded-2xl border border-sky-200 bg-sky-50 p-4"><p className="text-xs font-bold text-sky-700">Approved Cash</p><p className="mt-1 text-2xl font-extrabold text-sky-900">{adminReport.paymentRevenue.cash.toLocaleString()} ကျပ်</p></div>
+                  <div className="rounded-2xl border border-indigo-200 bg-indigo-50 p-4"><p className="text-xs font-bold text-indigo-700">Approved Wave</p><p className="mt-1 text-2xl font-extrabold text-indigo-900">{adminReport.paymentRevenue.wave.toLocaleString()} ကျပ်</p></div>
+                  <div className="rounded-2xl border border-violet-200 bg-violet-50 p-4 sm:col-span-2 lg:col-span-2"><p className="text-xs font-bold text-violet-700">Approved ဝင်ငွေ Total</p><p className="mt-1 text-2xl font-extrabold text-violet-900">{adminReport.paymentRevenue.total.toLocaleString()} ကျပ်</p></div>
                 </div>
 
                 <div className="rounded-2xl border bg-white">
@@ -2187,7 +2206,7 @@ export default function FieldBookingApp() {
                 <div className="flex flex-col gap-4 rounded-2xl border bg-gray-50 p-4 sm:flex-row sm:items-end sm:justify-between">
                   <div>
                     <h3 className="text-base font-extrabold text-gray-800">📊 My Fields Booking Report</h3>
-                    <p className="mt-1 text-xs text-gray-500"></p>
+                    <p className="mt-1 text-xs text-gray-500">ကိုယ့် Owner Account နဲ့သက်ဆိုင်တဲ့ ကွင်းများအတွက်သာ Report ပြပါမယ်။</p>
                   </div>
                   <div className="flex flex-wrap items-end gap-2">
                     <label className="text-xs font-bold text-gray-700">
@@ -2199,7 +2218,7 @@ export default function FieldBookingApp() {
                 </div>
 
                 <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
-                  နာရီစုစုပေါင်းနှင့် ဝင်ငွေကို <strong>Approved Booking</strong> များအတွက်သာတွက်ထားပါသည်။
+                  နာရီစုစုပေါင်းနှင့် ဝင်ငွေကို <strong>Approved Booking</strong> များအတွက်သာတွက်ထားပါသည်။ Owner ပိုင်ကွင်းမဟုတ်သော Booking များကို မပြပါ။
                 </div>
 
                 <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
@@ -2209,9 +2228,12 @@ export default function FieldBookingApp() {
                   <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4"><p className="text-[11px] font-bold text-slate-600">Total Bookings</p><p className="mt-1 text-2xl font-extrabold text-slate-800">{ownerReport.total}</p></div>
                 </div>
 
-                <div className="grid gap-3 sm:grid-cols-2">
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                   <div className="rounded-2xl border border-blue-200 bg-blue-50 p-4"><p className="text-xs font-bold text-blue-700">Approved ငှားရမ်းနာရီ</p><p className="mt-1 text-2xl font-extrabold text-blue-900">{ownerReport.approvedHours.toLocaleString()} နာရီ</p></div>
-                  <div className="rounded-2xl border border-violet-200 bg-violet-50 p-4"><p className="text-xs font-bold text-violet-700">Approved ဝင်ငွေ</p><p className="mt-1 text-2xl font-extrabold text-violet-900">{ownerReport.revenue.toLocaleString()} ကျပ်</p></div>
+                  <div className="rounded-2xl border border-green-200 bg-green-50 p-4"><p className="text-xs font-bold text-green-700">Approved KPay</p><p className="mt-1 text-2xl font-extrabold text-green-900">{ownerReport.paymentRevenue.kpay.toLocaleString()} ကျပ်</p></div>
+                  <div className="rounded-2xl border border-sky-200 bg-sky-50 p-4"><p className="text-xs font-bold text-sky-700">Approved Cash</p><p className="mt-1 text-2xl font-extrabold text-sky-900">{ownerReport.paymentRevenue.cash.toLocaleString()} ကျပ်</p></div>
+                  <div className="rounded-2xl border border-indigo-200 bg-indigo-50 p-4"><p className="text-xs font-bold text-indigo-700">Approved Wave</p><p className="mt-1 text-2xl font-extrabold text-indigo-900">{ownerReport.paymentRevenue.wave.toLocaleString()} ကျပ်</p></div>
+                  <div className="rounded-2xl border border-violet-200 bg-violet-50 p-4 sm:col-span-2 lg:col-span-2"><p className="text-xs font-bold text-violet-700">Approved ဝင်ငွေ Total</p><p className="mt-1 text-2xl font-extrabold text-violet-900">{ownerReport.paymentRevenue.total.toLocaleString()} ကျပ်</p></div>
                 </div>
 
                 <div className="rounded-2xl border bg-white">
