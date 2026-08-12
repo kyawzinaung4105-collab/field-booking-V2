@@ -2187,7 +2187,7 @@ export default function FieldBookingApp() {
                 <div className="flex flex-col gap-4 rounded-2xl border bg-gray-50 p-4 sm:flex-row sm:items-end sm:justify-between">
                   <div>
                     <h3 className="text-base font-extrabold text-gray-800">📊 My Fields Booking Report</h3>
-                    <p className="mt-1 text-xs text-gray-500">ကိုယ့် Owner Account နဲ့သက်ဆိုင်တဲ့ ကွင်းများအတွက်သာ Report ပြပါမယ်။</p>
+                    <p className="mt-1 text-xs text-gray-500"></p>
                   </div>
                   <div className="flex flex-wrap items-end gap-2">
                     <label className="text-xs font-bold text-gray-700">
