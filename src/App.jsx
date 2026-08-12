@@ -2228,16 +2228,72 @@ export default function FieldBookingApp() {
                     </div>
 
                     <div className="bg-gray-50 p-3 rounded-xl border text-xs space-y-1">
-                      <p className="font-bold text-gray-800">💳 ငွေပေးချေရန် Account များ</p>
+                      <p className="font-bold text-gray-800 mb-1">💳 ငွေပေးချေရန် Account များ</p>
                       {selectedPaymentMethod === 'KPay' ? (
-                        <p className="text-emerald-700 font-bold text-sm">KPay No: {userSelectedField.paymentInfo?.kpay || 'မထည့်ရသေးပါ'}</p>
+                        <div className="flex items-center justify-between bg-emerald-50 border border-emerald-200 p-2 rounded-lg">
+                          <div>
+                            <span className="font-bold text-gray-700 text-xs">KPay No: </span>
+                            <span className="text-emerald-700 font-bold text-sm">{userSelectedField.paymentInfo?.kpay || '09795562378'}</span>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const num = userSelectedField.paymentInfo?.kpay || '09795562378';
+                              navigator.clipboard.writeText(num);
+                              alert('KPay နံပါတ် ကူးယူပြီးပါပြီ (Copied!)');
+                            }}
+                            className="bg-emerald-600 hover:bg-emerald-700 text-white px-2.5 py-1 rounded text-xs font-bold transition-colors"
+                          >
+                            📋 Copy
+                          </button>
+                        </div>
                       ) : selectedPaymentMethod === 'Wave' ? (
-                        <p className="text-blue-700 font-bold text-sm">Wave No: {userSelectedField.paymentInfo?.wave || 'မထည့်ရသေးပါ'}</p>
+                        <div className="flex items-center justify-between bg-blue-50 border border-blue-200 p-2 rounded-lg">
+                          <div>
+                            <span className="font-bold text-gray-700 text-xs">Wave No: </span>
+                            <span className="text-blue-700 font-bold text-sm">{userSelectedField.paymentInfo?.wave || '09795562378'}</span>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const num = userSelectedField.paymentInfo?.wave || '09795562378';
+                              navigator.clipboard.writeText(num);
+                              alert('Wave နံပါတ် ကူးယူပြီးပါပြီ (Copied!)');
+                            }}
+                            className="bg-blue-600 hover:bg-blue-700 text-white px-2.5 py-1 rounded text-xs font-bold transition-colors"
+                          >
+                            📋 Copy
+                          </button>
+                        </div>
                       ) : (
                         <>
-                          <p>KPay: {userSelectedField.paymentInfo?.kpay || 'မထည့်ရသေးပါ'}</p>
-                          <p>Wave: {userSelectedField.paymentInfo?.wave || 'မထည့်ရသေးပါ'}</p>
-                          <p className="text-gray-500 text-[11px] mt-1">*(ငွေပေးချေမည့်နည်းလမ်း KPay သို့မဟုတ် Wave ကို ရွေးချယ်ပါက သက်ဆိုင်ရာ ငွေလွှဲနံပါတ် သီးသန့်ပေါ်လာပါမည်)*</p>
+                          <div className="flex items-center justify-between py-1">
+                            <span>KPay: {userSelectedField.paymentInfo?.kpay || '09795562378'}</span>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                navigator.clipboard.writeText(userSelectedField.paymentInfo?.kpay || '09795562378');
+                                alert('KPay နံပါတ် ကူးယူပြီးပါပြီ (Copied!)');
+                              }}
+                              className="bg-gray-200 hover:bg-gray-300 text-gray-800 px-2 py-0.5 rounded text-[11px] font-bold"
+                            >
+                              Copy
+                            </button>
+                          </div>
+                          <div className="flex items-center justify-between py-1">
+                            <span>Wave: {userSelectedField.paymentInfo?.wave || '09795562378'}</span>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                navigator.clipboard.writeText(userSelectedField.paymentInfo?.wave || '09795562378');
+                                alert('Wave နံပါတ် ကူးယူပြီးပါပြီ (Copied!)');
+                              }}
+                              className="bg-gray-200 hover:bg-gray-300 text-gray-800 px-2 py-0.5 rounded text-[11px] font-bold"
+                            >
+                              Copy
+                            </button>
+                          </div>
+                          <p className="text-gray-500 text-[11px] mt-1">*(ငွေပေးချေမည့်နည်းလမ်း KPay သို့မဟုတ် Wave ကို ရွေးချယ်ပါက သက်ဆိုင်ရာ နံပါတ်နှင့် Copy ခလုတ် သီးသန့်ပေါ်လာပါမည်)*</p>
                         </>
                       )}
                     </div>
