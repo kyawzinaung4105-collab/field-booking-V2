@@ -992,15 +992,21 @@ export default function FieldBookingApp() {
     if (window.confirm(confirmMsg)) {
       const targetBooking = bookings.find(b => b.id === bookingId);
       if (targetBooking) {
+        const targetField = fields.find(f => f.id === targetBooking.fieldId);
+        const bookingFieldName = targetBooking.subFieldName || targetField?.name || 'Unknown Field';
+        const bookingDate = targetBooking.date || '-';
+        const bookingTimeRange = targetBooking.fullTimeSlot || targetBooking.timeSlot || '-';
+        const bookingUserName = targetBooking.userName || targetBooking.userEmail || 'User';
+        const bookingSummary = `${bookingFieldName} (${bookingDate} / ${bookingTimeRange}) ${bookingUserName}`;
         let notiMsg = '';
         if (desiredStatus === 'Rejected') {
-          notiMsg = `❌ [Booking Reject] ${targetBooking.subFieldName} (${targetBooking.date}) ၏ Booking ကို Reject လုပ်လိုက်ပါသည်။`;
+          notiMsg = `❌ [Booking Reject] ${bookingSummary} ၏ Booking ကို Reject လုပ်လိုက်ပါသည်။`;
         } else if (desiredStatus === 'Pending') {
-          notiMsg = `⏳ [Booking Pending] ${targetBooking.subFieldName} (${targetBooking.date}) ၏ Booking ကို Pending သို့ ပြောင်းလိုက်ပါသည်။`;
+          notiMsg = `⏳ [Booking Pending] ${bookingSummary} ၏ Booking ကို Pending သို့ ပြောင်းလိုက်ပါသည်။`;
         } else {
-          notiMsg = `✅ [Booking Approved] ${targetBooking.subFieldName} (${targetBooking.date}) ၏ Booking ကို Approve လုပ်လိုက်ပါသည်။`;
+          notiMsg = `✅ [Booking Approved] ${bookingSummary} ၏ Booking ကို Approve လုပ်လိုက်ပါသည်။`;
         }
-        await triggerSmsNotification(notiMsg, 'booking', subType, fieldId || targetBooking.fieldId);
+        await triggerSmsNotification(notiMsg, 'booking', subType, fieldId || targetBooking.fieldId, bookingId);
       }
       await updateDoc(doc(db, "bookings", bookingId), { status: desiredStatus });
     }
