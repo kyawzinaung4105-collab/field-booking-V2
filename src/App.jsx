@@ -594,6 +594,19 @@ export default function FieldBookingApp() {
     return Number.isFinite(endHour) && endHour <= now.getHours();
   };
 
+  const getConflictingBooking = (startHour, endHour) => {
+    return bookings.find(b => {
+      if (b.subFieldId !== selectedSubField?.id || b.date !== userCheckDate) return false;
+      if (b.status !== 'Approved' && b.status !== 'Pending') return false;
+
+      const existingStart = Number(b.startHour);
+      const existingEnd = Number(b.endHour);
+      if (!Number.isFinite(existingStart) || !Number.isFinite(existingEnd)) return false;
+
+      return Number(startHour) < existingEnd && Number(endHour) > existingStart;
+    }) || null;
+  };
+
   const isSlotUnavailable = (hour) => {
     if (checkIsExpired(hour)) return true;
     const slotLabelCheck = `${format12Hour(hour)} - ${format12Hour(hour + 1)}`;
@@ -679,11 +692,18 @@ export default function FieldBookingApp() {
       return;
     }
 
-    for (let h = startH; h < endH; h++) {
-      if (isSlotUnavailable(h)) {
-        alert('ရွေးချယ်ထားသော အချိန်အတွင်း Booking ရှိနေပါသည်။ အခြားအချိန်ကို ရွေးချယ်ပါ။');
-        return;
-      }
+    const expiredHour = Array.from({ length: endH - startH }, (_, index) => startH + index)
+      .find(hour => checkIsExpired(hour));
+    if (expiredHour !== undefined) {
+      alert(`ရွေးထားသော ${format12Hour(startH)} - ${format12Hour(endH)} အချိန်ထဲမှာ ${format12Hour(expiredHour)} နောက်ပိုင်းအချိန် ကျော်လွန်နေပါသည်။ အခြားရက် သို့မဟုတ် အချိန်ကို ရွေးချယ်ပါ။`);
+      return;
+    }
+
+    const conflictingBooking = getConflictingBooking(startH, endH);
+    if (conflictingBooking) {
+      const conflictRange = conflictingBooking.fullTimeSlot || conflictingBooking.timeSlot || 'ရွေးချယ်ထားသော အချိန်';
+      alert(`ဤအချိန်မှာ Booking ရှိပြီးသားဖြစ်ပါသည်။\n\n${conflictRange} (${conflictingBooking.status})\n\nအခြားအချိန်ကို ရွေးချယ်ပေးပါ။`);
+      return;
     }
 
     const totalDurationHours = endH - startH;
