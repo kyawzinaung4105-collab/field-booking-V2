@@ -1028,6 +1028,28 @@ export default function FieldBookingApp() {
     return String(b.id || '').localeCompare(String(a.id || ''));
   });
 
+  // Keep every notification newest-first at render time as a fallback for
+  // existing documents that were loaded before createdAtTime was added.
+  const sortedNotifications = [...smsNotifications].sort((a, b) => {
+    const getTime = (notification) => {
+      if (typeof notification.createdAtTime === 'number' && Number.isFinite(notification.createdAtTime)) {
+        return notification.createdAtTime;
+      }
+      if (notification.createdAt?.toMillis) {
+        return notification.createdAt.toMillis();
+      }
+      if (notification.createdAt?.seconds) {
+        return notification.createdAt.seconds * 1000;
+      }
+      const parsed = new Date(`${notification.date || ''} ${notification.time || ''}`).getTime();
+      return Number.isFinite(parsed) ? parsed : 0;
+    };
+    const timeDifference = getTime(b) - getTime(a);
+    return timeDifference !== 0
+      ? timeDifference
+      : String(b.id || '').localeCompare(String(a.id || ''));
+  });
+
   if (!currentUser) {
     return (
       <div className="min-h-screen bg-gray-100 flex items-center justify-center p-4 font-sans">
@@ -1227,16 +1249,19 @@ export default function FieldBookingApp() {
                       <span>💬 SMS & Booking Notifications</span>
                       <button onClick={() => setSmsNotifications([])} className="text-[10px] text-blue-600 hover:underline">Clear All</button>
                     </div>
-                    <div className="max-h-60 overflow-y-auto space-y-2">
-                      {smsNotifications.length === 0 ? (
+                    <div className="max-h-80 overflow-y-auto space-y-2">
+                      {sortedNotifications.length === 0 ? (
                         <p className="text-xs text-gray-500 text-center py-4">အကြောင်းကြားစာ မရှိသေးပါ။</p>
                       ) : (
-                        smsNotifications.map(n => (
-                          <div key={n.id} className="text-xs bg-gray-50 p-2.5 rounded-lg border-l-4 border-emerald-600 shadow-sm">
-                            <p className="text-gray-800">{n.message}</p>
-                            <span className="text-[10px] text-gray-400 mt-1 block">{n.date} {n.time}</span>
-                          </div>
-                        ))
+                        sortedNotifications.map(n => {
+                          const isRejected = n.subType === 'booking_reject' || /reject/i.test(n.message || '');
+                          return (
+                            <div key={n.id} className={`text-xs p-2.5 rounded-lg border-l-4 shadow-sm ${isRejected ? 'bg-red-50 border-red-500' : 'bg-gray-50 border-emerald-600'}`}>
+                              <p className={`${isRejected ? 'text-red-700 font-bold' : 'text-gray-800'}`}>{n.message}</p>
+                              <span className="text-[10px] text-gray-400 mt-1 block">{n.date} {n.time}</span>
+                            </div>
+                          );
+                        })
                       )}
                     </div>
                   </div>
@@ -1352,7 +1377,7 @@ export default function FieldBookingApp() {
                       return true;
                     })
                     .length > 0 ? (
-                      smsNotifications
+                      sortedNotifications
                         .filter(n => {
                           if (notiFilterType !== 'all' && n.type !== notiFilterType) return false;
                           if (adminNotiFieldId !== 'all' && n.fieldId && n.fieldId !== adminNotiFieldId) return false;
@@ -1864,7 +1889,7 @@ export default function FieldBookingApp() {
                       return n.subType === ownerNotiFilterType;
                     })
                     .length > 0 ? (
-                      smsNotifications
+                      sortedNotifications
                         .filter(n => {
                           const isBookingRelated = n.type === 'booking' || n.subType === 'new_booking' || n.subType === 'booking_pending' || n.subType === 'booking_reject';
                           if (!isBookingRelated) return false;
