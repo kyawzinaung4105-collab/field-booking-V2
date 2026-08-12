@@ -2116,8 +2116,11 @@ export default function FieldBookingApp() {
                       <tr className="bg-gray-100 text-xs border-b">
                         <th className="p-3">ဖောက်သည်</th>
                         <th className="p-3">ကွင်းခွဲ</th>
-                        <th className="p-3">ရက်စွဲနှင့် အချိန်</th>
-                        <th className="p-3">ကြာချိန်</th>
+                        <th className="p-3">ရက်စွဲ</th>
+                        <th className="p-3">စတင်အချိန်</th>
+                        <th className="p-3">အဆုံးအချိန်</th>
+                        <th className="p-3">အသုံးပြုချိန်</th>
+                        <th className="p-3">တင်ခဲ့သည့်အချိန်</th>
                         <th className="p-3">သင့်ငွေ</th>
                         <th className="p-3">ငွေပေးချေမှု</th>
                         <th className="p-3">Status</th>
@@ -2226,8 +2229,17 @@ export default function FieldBookingApp() {
 
                     <div className="bg-gray-50 p-3 rounded-xl border text-xs space-y-1">
                       <p className="font-bold text-gray-800">💳 ငွေပေးချေရန် Account များ</p>
-                      <p>KPay: {userSelectedField.paymentInfo?.kpay || 'မထည့်ရသေးပါ'}</p>
-                      <p>Wave: {userSelectedField.paymentInfo?.wave || 'မထည့်ရသေးပါ'}</p>
+                      {selectedPaymentMethod === 'KPay' ? (
+                        <p className="text-emerald-700 font-bold text-sm">KPay No: {userSelectedField.paymentInfo?.kpay || 'မထည့်ရသေးပါ'}</p>
+                      ) : selectedPaymentMethod === 'Wave' ? (
+                        <p className="text-blue-700 font-bold text-sm">Wave No: {userSelectedField.paymentInfo?.wave || 'မထည့်ရသေးပါ'}</p>
+                      ) : (
+                        <>
+                          <p>KPay: {userSelectedField.paymentInfo?.kpay || 'မထည့်ရသေးပါ'}</p>
+                          <p>Wave: {userSelectedField.paymentInfo?.wave || 'မထည့်ရသေးပါ'}</p>
+                          <p className="text-gray-500 text-[11px] mt-1">*(ငွေပေးချေမည့်နည်းလမ်း KPay သို့မဟုတ် Wave ကို ရွေးချယ်ပါက သက်ဆိုင်ရာ ငွေလွှဲနံပါတ် သီးသန့်ပေါ်လာပါမည်)*</p>
+                        </>
+                      )}
                     </div>
                   </div>
 
@@ -2477,9 +2489,11 @@ export default function FieldBookingApp() {
                     <thead>
                       <tr className="bg-gray-100 text-xs border-b">
                         <th className="p-3">ကွင်း / ကွင်းခွဲ</th>
-                        <th className="p-3">တင်ချိန်</th>
-                        <th className="p-3">ကစားမည့်အချိန်</th>
-                        <th className="p-3">ကြာချိန်</th>
+                        <th className="p-3">ရက်စွဲ</th>
+                        <th className="p-3">စတင်အချိန်</th>
+                        <th className="p-3">အဆုံးအချိန်</th>
+                        <th className="p-3">အသုံးပြုချိန်</th>
+                        <th className="p-3">တင်ခဲ့သည့်အချိန်</th>
                         <th className="p-3">သင့်ငွေ</th>
                         <th className="p-3">ငွေပေးချေမှု / Txn</th>
                         <th className="p-3">Status</th>
