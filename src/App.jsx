@@ -45,6 +45,32 @@ const generateSingleTimeSlots = (openHour, closeHour, includeClosingTime = false
 };
 
 export default function FieldBookingApp() {
+
+  // App Version & Update Check State
+  const CURRENT_APP_VERSION = 1; // Increase this when building new APK release
+  const [updateAvailable, setUpdateAvailable] = useState(false);
+  const [latestVersionName, setLatestVersionName] = useState('v1.0');
+
+  useEffect(() => {
+    // Check Firestore app config for latest version
+    const checkAppVersion = async () => {
+      try {
+        const configRef = doc(db, 'appConfig', 'settings');
+        const configSnap = await getDoc(configRef);
+        if (configSnap.exists()) {
+          const data = configSnap.data();
+          if (data.minVersion && data.minVersion > CURRENT_APP_VERSION) {
+            setUpdateAvailable(true);
+            setLatestVersionName(data.versionName || 'v1.1');
+          }
+        }
+      } catch (err) {
+        console.log('Version check offline or not set up yet', err);
+      }
+    };
+    checkAppVersion();
+  }, []);
+
   const [currentUser, setCurrentUser] = useState(() => {
     const savedUser = sessionStorage.getItem('currentUser');
     return savedUser ? JSON.parse(savedUser) : null;
@@ -1043,6 +1069,36 @@ export default function FieldBookingApp() {
   }
 
   return (
+    <>
+      {/* App Update Notification Modal */}
+      {updateAvailable && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border text-center space-y-4 animate-in fade-in zoom-in duration-200">
+            <div className="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto text-2xl font-bold shadow-inner">
+              🚀
+            </div>
+            <div className="space-y-1">
+              <h3 className="text-lg font-bold text-gray-900">ဗားရှင်းအသစ် ရောက်ရှိနေပါပြီ ({latestVersionName})</h3>
+              <p className="text-sm text-gray-600 leading-relaxed">
+                စနစ်တွင် လုပ်ဆောင်ချက်အသစ်များနှင့် Bug ပြင်ဆင်မှုများ ပါဝင်သော Update အသစ်ထွက်ရှိထားပါသည်။ ကျေးဇူးပြု၍ App အသစ်ကို ထပ်မံ Download ဆွဲပြီး Update လုပ်ပါ။
+              </p>
+            </div>
+            <div className="pt-2 flex gap-3">
+              <button
+                type="button"
+                onClick={() => {
+                  // Link to download new APK or web reload
+                  window.location.reload();
+                }}
+                className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 px-4 rounded-xl shadow-lg transition-all text-sm flex items-center justify-center gap-2"
+              >
+                📥 ယခုပင် Update လုပ်မည်
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
     <div className="min-h-screen bg-gray-50 font-sans pb-12">
       <header className="bg-emerald-700 text-white shadow-md sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 py-3 flex justify-between items-center">
@@ -1328,7 +1384,7 @@ export default function FieldBookingApp() {
                       <button onClick={() => setEditingFieldId(null)} className="text-xs text-red-600 font-bold hover:underline">ပယ်ဖျက်ရန် (Cancel)</button>
                     </div>
                     <div className="space-y-4">
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                         <div>
                           <label className="block text-xs font-bold text-gray-700 mb-1">ကွင်းအမည်</label>
                           <input type="text" value={editFieldName} onChange={(e) => setEditFieldName(e.target.value)} className="w-full border rounded-lg p-2.5 text-sm bg-white" />
@@ -1459,7 +1515,7 @@ export default function FieldBookingApp() {
                   <div className="bg-gray-50 border rounded-2xl p-6">
                     <h3 className="text-base font-bold mb-4 text-gray-800">🏟️ ကွင်းအသစ် ထည့်သွင်းရန်</h3>
                     <form onSubmit={handleCreateNewField} className="space-y-4">
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                         <div>
                           <label className="block text-xs font-bold text-gray-700 mb-1">ကွင်းအမည်</label>
                           <input type="text" placeholder="ဥပမာ - YUFC Football" value={newFieldName} onChange={(e) => setNewFieldName(e.target.value)} className="w-full border rounded-lg p-2.5 text-sm bg-white" required />
@@ -1552,7 +1608,7 @@ export default function FieldBookingApp() {
 
                 <div>
                   <h3 className="text-base font-bold mb-4 text-gray-800">လက်ရှိ ကွင်းများစာရင်း</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                     {fields.map(f => (
                       <div key={f.id} className="bg-white border rounded-xl p-4 shadow-sm flex flex-col justify-between">
                         <div>
@@ -2331,7 +2387,7 @@ export default function FieldBookingApp() {
                           </div>
                         </div>
 
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                           <div>
                             <label className="block text-xs font-bold text-gray-700 mb-1">စတင်မည့်အချိန် (Start Slot)</label>
                             <select 
@@ -2445,7 +2501,7 @@ export default function FieldBookingApp() {
                             )}
                           </div>
 
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                           <div>
                             <label className="block text-xs font-bold text-gray-700 mb-1">ငွေလွှဲ Transaction နံပါတ် နောက်ဆုံး ၅ လုံး</label>
                             <input 
@@ -2653,5 +2709,6 @@ export default function FieldBookingApp() {
         )}
       </main>
     </div>
+    </>
   );
 }
