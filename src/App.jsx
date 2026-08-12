@@ -318,7 +318,26 @@ export default function FieldBookingApp() {
         seen.add(key);
         return true;
       });
-      setSmsNotifications(uniqueNotis);
+      const getNotificationTime = (notification) => {
+        if (typeof notification.createdAtTime === 'number' && Number.isFinite(notification.createdAtTime)) {
+          return notification.createdAtTime;
+        }
+        if (notification.createdAt?.toMillis) {
+          return notification.createdAt.toMillis();
+        }
+        if (notification.createdAt?.seconds) {
+          return notification.createdAt.seconds * 1000;
+        }
+        const parsed = new Date(`${notification.date || ''} ${notification.time || ''}`).getTime();
+        return Number.isFinite(parsed) ? parsed : 0;
+      };
+      const sortedNotis = [...uniqueNotis].sort((a, b) => {
+        const timeDifference = getNotificationTime(b) - getNotificationTime(a);
+        return timeDifference !== 0
+          ? timeDifference
+          : String(b.id || '').localeCompare(String(a.id || ''));
+      });
+      setSmsNotifications(sortedNotis);
     });
 
     return () => {
@@ -362,7 +381,8 @@ export default function FieldBookingApp() {
       ...(bookingId ? { bookingId } : {}),
       time: now.toLocaleTimeString(),
       date: currentDateStr,
-      read: false
+      read: false,
+      createdAtTime: now.getTime()
     };
     try {
       // A booking can only create ONE notification for the same notification type.
