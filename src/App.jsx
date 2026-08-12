@@ -2352,7 +2352,7 @@ export default function FieldBookingApp() {
                 <div className="flex flex-col gap-4 rounded-2xl border bg-gray-50 p-4 sm:flex-row sm:items-end sm:justify-between">
                   <div>
                     <h3 className="text-base font-extrabold text-gray-800">📊 My Fields Booking Report</h3>
-                    <p className="mt-1 text-xs text-gray-500">ကိုယ့် Owner Account နဲ့သက်ဆိုင်တဲ့ ကွင်းများအတွက်သာ Report ပြပါမယ်။</p>
+                    <p className="mt-1 text-xs text-gray-500"></p>
                   </div>
                   <div className="flex flex-wrap items-end gap-2">
                     <label className="text-xs font-bold text-gray-700">
@@ -2364,7 +2364,7 @@ export default function FieldBookingApp() {
                 </div>
 
                 <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
-                  နာရီစုစုပေါင်းနှင့် ဝင်ငွေကို <strong>Approved Booking</strong> များအတွက်သာတွက်ထားပါသည်။ Owner ပိုင်ကွင်းမဟုတ်သော Booking များကို မပြပါ။
+                  နာရီစုစုပေါင်းနှင့် ဝင်ငွေကို <strong>Approved Booking</strong> များအတွက်သာတွက်ထားပါသည်။ 
                 </div>
 
                 <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
@@ -2413,7 +2413,7 @@ export default function FieldBookingApp() {
                         onChange={(e) => setOwnerNotiFieldId(e.target.value)}
                         className="border rounded-lg p-2 text-xs bg-white font-bold"
                       >
-                        <option value="all">ကိုယ့်ကွင်းများအားလုံး (All My Fields)</option>
+                        <option value="all">ကွင်းများအားလုံး (All My Fields)</option>
                         {fields.filter(f => f.ownerEmail === currentUser.email).map(f => (
                           <option key={f.id} value={f.id}>{f.name} ({f.location})</option>
                         ))}
@@ -2865,7 +2865,7 @@ export default function FieldBookingApp() {
                       className="rounded-lg bg-emerald-600 px-3 py-2 text-xs font-bold text-white shadow-sm transition hover:bg-emerald-700 active:scale-[0.98]"
                       title="Excel ဖြင့်ဖွင့်နိုင်သော CSV ဖိုင် ဒေါင်းလုဒ်ရန်"
                     >
-                      📊 Excel Export
+                      Excel Export
                     </button>
                   </div>
                 </div>
