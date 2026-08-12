@@ -46,6 +46,38 @@ const generateSingleTimeSlots = (openHour, closeHour, includeClosingTime = false
 
 export default function FieldBookingApp() {
 
+  // Forced Update Check State
+  const [currentAppVersion] = useState(1); // Increment this when new APK is released
+  const [forceUpdate, setForceUpdate] = useState(false);
+  const [latestVersionName, setLatestVersionName] = useState('v1.1');
+  const [downloadUrl, setDownloadUrl] = useState('#');
+
+  useEffect(() => {
+    const checkVersion = async () => {
+      try {
+        const docRef = doc(db, 'appConfig', 'settings');
+        const docSnap = await getDoc(docRef);
+        if (docSnap.exists()) {
+          const data = docSnap.data();
+          const minVersion = data.minVersion || 1;
+          const remoteVersionName = data.versionName || 'v1.1';
+          const apkUrl = data.apkUrl || '#';
+          
+          setLatestVersionName(remoteVersionName);
+          setDownloadUrl(apkUrl);
+
+          if (currentAppVersion < minVersion) {
+            setForceUpdate(true);
+          }
+        }
+      } catch (e) {
+        console.log('Version check offline or collection not created yet, defaulting to normal', e);
+      }
+    };
+    checkVersion();
+  }, []);
+
+
   // App Version & Update Check State
   const CURRENT_APP_VERSION = 1; // Increase this when building new APK release
   const [updateAvailable, setUpdateAvailable] = useState(false);
@@ -1063,6 +1095,38 @@ export default function FieldBookingApp() {
               <button type="submit" className="w-full bg-emerald-600 text-white py-2.5 rounded-lg text-sm font-bold shadow hover:bg-emerald-700 transition-colors">အကောင့်ဖန်တီးမည် (Sign Up)</button>
             </form>
           )}
+        </div>
+      </div>
+    );
+  }
+
+  // If forced update is required, block entire app usage with a non-dismissible screen
+  if (forceUpdate) {
+    return (
+      <div className="fixed inset-0 bg-gray-900 z-50 flex items-center justify-center p-4">
+        <div className="bg-white rounded-2xl max-w-md w-full p-8 shadow-2xl border text-center space-y-6 animate-in fade-in zoom-in duration-300">
+          <div className="w-20 h-20 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto text-3xl font-bold shadow-inner">
+            🚀
+          </div>
+          <div className="space-y-2">
+            <h2 className="text-xl font-bold text-gray-900">ဗားရှင်းအသစ် မဖြစ်မနေ Update လုပ်ရန် လိုအပ်ပါသည် ({latestVersionName})</h2>
+            <p className="text-sm text-gray-600 leading-relaxed">
+              စနစ်တွင် အရေးကြီးသော ပြင်ဆင်ချက်များနှင့် လုပ်ဆောင်ချက်အသစ်များ ပါဝင်လာပါပြီ။ ဆက်လက်အသုံးပြုနိုင်ရန် ကျေးဇူးပြု၍ App အသစ်ကို ဒေါင်းလုဒ်လုပ်ပြီး Update လုပ်ပါ။
+            </p>
+          </div>
+          <div className="pt-2">
+            <a
+              href={downloadUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3.5 px-4 rounded-xl shadow-lg transition-all text-sm flex items-center justify-center gap-2"
+            >
+              📥 ယခုပင် Update လုပ်ရန် (Download APK)
+            </a>
+          </div>
+          <p className="text-xs text-gray-400">
+            * Update မလုပ်မချင်း အက်ပ်ကို ဆက်လက်အသုံးပြု၍မရပါ။
+          </p>
         </div>
       </div>
     );
