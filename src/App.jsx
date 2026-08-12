@@ -44,6 +44,60 @@ const generateSingleTimeSlots = (openHour, closeHour, includeClosingTime = false
   return slots;
 };
 
+// Payment screenshots must be available to the Owner on another device, so keep an
+// optimized image data URL in the booking document instead of only keeping the
+// temporary File object from the browser input.
+const preparePaymentScreenshot = (file) => new Promise((resolve, reject) => {
+  if (!file) {
+    resolve(null);
+    return;
+  }
+  if (!file.type || !file.type.startsWith('image/')) {
+    reject(new Error('PAYMENT_SCREENSHOT_MUST_BE_IMAGE'));
+    return;
+  }
+  if (file.size > 10 * 1024 * 1024) {
+    reject(new Error('PAYMENT_SCREENSHOT_TOO_LARGE'));
+    return;
+  }
+
+  const reader = new FileReader();
+  reader.onerror = () => reject(new Error('PAYMENT_SCREENSHOT_READ_FAILED'));
+  reader.onload = () => {
+    const image = new Image();
+    image.onerror = () => reject(new Error('PAYMENT_SCREENSHOT_READ_FAILED'));
+    image.onload = () => {
+      const maxSide = 1600;
+      const scale = Math.min(1, maxSide / image.width, maxSide / image.height);
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.max(1, Math.round(image.width * scale));
+      canvas.height = Math.max(1, Math.round(image.height * scale));
+      const context = canvas.getContext('2d');
+      if (!context) {
+        reject(new Error('PAYMENT_SCREENSHOT_READ_FAILED'));
+        return;
+      }
+      context.fillStyle = '#ffffff';
+      context.fillRect(0, 0, canvas.width, canvas.height);
+      context.drawImage(image, 0, 0, canvas.width, canvas.height);
+
+      let quality = 0.82;
+      let dataUrl = canvas.toDataURL('image/jpeg', quality);
+      while (dataUrl.length > 750000 && quality > 0.5) {
+        quality -= 0.08;
+        dataUrl = canvas.toDataURL('image/jpeg', quality);
+      }
+      if (dataUrl.length > 750000) {
+        reject(new Error('PAYMENT_SCREENSHOT_TOO_LARGE'));
+        return;
+      }
+      resolve(dataUrl);
+    };
+    image.src = reader.result;
+  };
+  reader.readAsDataURL(file);
+});
+
 export default function FieldBookingApp() {
 
   // Forced Update Check State
@@ -686,6 +740,22 @@ export default function FieldBookingApp() {
       }
     }
 
+    let paymentScreenshotDataUrl = null;
+    if (currentUser.role !== 'owner') {
+      try {
+        paymentScreenshotDataUrl = await preparePaymentScreenshot(paymentScreenshot);
+      } catch (error) {
+        if (error.message === 'PAYMENT_SCREENSHOT_TOO_LARGE') {
+          alert('Screenshot ဖိုင်အရွယ်အစား ကြီးလွန်းပါသည်။ ပိုမိုသေးငယ်သော Screenshot တစ်ခုကို ရွေးပါ။');
+        } else if (error.message === 'PAYMENT_SCREENSHOT_MUST_BE_IMAGE') {
+          alert('ကျေးဇူးပြု၍ Image Screenshot ဖိုင်ကိုသာ ရွေးချယ်ပါ။');
+        } else {
+          alert('Screenshot ဖတ်၍ မရပါ။ ထပ်မံရွေးချယ်ပြီး ကြိုးစားပါ။');
+        }
+        return;
+      }
+    }
+
     const startH = parseInt(selectedStartSlot);
     const endH = parseInt(selectedEndSlot);
 
@@ -781,6 +851,7 @@ export default function FieldBookingApp() {
           paymentMethod: selectedPaymentMethod,
           transactionLast5: currentUser.role === 'owner' ? 'OWNER' : transactionLast5,
           screenshotName: currentUser.role === 'owner' ? 'Direct Manual Booking' : paymentScreenshot?.name,
+          ...(currentUser.role === 'owner' ? {} : { paymentScreenshot: paymentScreenshotDataUrl }),
           status: currentUser.role === 'owner' ? 'Approved' : 'Pending',
           bookedBy: currentUser.role === 'owner' ? 'Owner' : 'User'
         };
@@ -2350,7 +2421,7 @@ export default function FieldBookingApp() {
                         <th className="p-3 min-w-[95px] align-top">အသုံးပြုချိန်</th>
                         <th className="p-3 min-w-[155px] align-top">တင်ခဲ့သည့်အချိန်</th>
                         <th className="p-3 min-w-[125px] align-top">သင့်ငွေ</th>
-                        <th className="p-3 min-w-[150px] align-top">ငွေပေးချေမှု</th>
+                        <th className="p-3 min-w-[220px] align-top">ငွေပေးချေမှု / Screenshot</th>
                         <th className="p-3 min-w-[105px] align-top">Status</th>
                         <th className="p-3 min-w-[155px] text-center align-top">လုပ်ဆောင်ချက်</th>
                       </tr>
@@ -2364,6 +2435,7 @@ export default function FieldBookingApp() {
                             const timeRange = item.fullTimeSlot || item.timeSlot || '';
                             const [startTime, endTime] = timeRange.split(/\s*-\s*/);
                             const displayTimeRange = startTime && endTime ? `${startTime} - ${endTime}` : timeRange || '-';
+                            const screenshotSrc = item.paymentScreenshot || item.paymentScreenshotUrl || item.screenshotDataUrl;
                             return (
                               <tr key={item.id} className="hover:bg-gray-50 align-top">
                                 <td className="p-3 font-medium break-words">{item.userName || '-'}</td>
@@ -2373,7 +2445,25 @@ export default function FieldBookingApp() {
                                 <td className="p-3 text-xs whitespace-nowrap"><span className="bg-blue-50 text-blue-600 font-bold px-2 py-0.5 rounded">{item.duration || '-'}</span></td>
                                 <td className="p-3 text-xs font-mono text-gray-500 whitespace-nowrap">{item.bookedAt || '-'}</td>
                                 <td className="p-3 text-xs font-bold text-emerald-700 whitespace-nowrap">{item.totalPrice?.toLocaleString() || '-'} ကျပ်</td>
-                                <td className="p-3 text-xs uppercase font-bold whitespace-nowrap">{item.paymentMethod || '-'}</td>
+                                <td className="p-3 text-xs font-bold align-top">
+                                  <div className="space-y-2">
+                                    <div className="uppercase whitespace-nowrap">{item.paymentMethod || '-'}</div>
+                                    {screenshotSrc ? (
+                                      <a
+                                        href={screenshotSrc}
+                                        target="_blank"
+                                        rel="noreferrer"
+                                        className="inline-flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 p-1.5 text-emerald-700 hover:bg-emerald-100"
+                                        title="Payment Screenshot ကြည့်ရန်"
+                                      >
+                                        <img src={screenshotSrc} alt="Payment screenshot" className="h-14 w-20 rounded object-cover" />
+                                        <span className="text-[10px] font-bold whitespace-nowrap">ကြည့်ရန် ↗</span>
+                                      </a>
+                                    ) : (
+                                      <span className="inline-block rounded bg-gray-100 px-2 py-1 text-[10px] font-medium text-gray-500">Screenshot မတင်ထားပါ</span>
+                                    )}
+                                  </div>
+                                </td>
                                 <td className="p-3 font-bold text-xs whitespace-nowrap">
                                   <span className={item.status === 'Approved' ? 'text-emerald-600' : item.status === 'Rejected' ? 'text-red-500' : 'text-amber-500'}>{item.status || '-'}</span>
                                 </td>
