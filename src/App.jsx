@@ -27,19 +27,7 @@ const defaultFields = [
     paymentInfo: { kpay: '09-791234567 (KPay)', wave: '09-421234567 (Wave)' }
   }
 ];
-{/* ငွေပေးချေမှု နည်းလမ်း ရွေးချယ်သည့် Select Box ၏ အောက်နားတွင် ထည့်ရန် */}
-<div style={{ marginTop: '8px' }}>
-  {paymentMethod === 'KPay' && (
-    <p style={{ color: '#0066cc', fontWeight: 'bold' }}>
-      KPay ဖုန်းနံပါတ်: 09-791234567
-    </p>
-  )}
-  {paymentMethod === 'Wave' && (
-    <p style={{ color: '#ff6600', fontWeight: 'bold' }}>
-      Wave Money ဖုန်းနံပါတ်: 09-421234567
-    </p>
-  )}
-</div>
+
 const generateSingleTimeSlots = (openHour, closeHour) => {
   const slots = [];
   const start = openHour !== undefined && !isNaN(openHour) ? parseInt(openHour) : 8;
@@ -644,7 +632,7 @@ const [userCheckDate, setUserCheckDate] = useState(() => {
           'new_booking',
           userSelectedField.id
         );
-        alert('Booking တင်ခြင်း အောင်မြင်ပါသည်။ Admin အတည်ပြုရန် စောင့်ဆိုင်းပါ။');
+        alert('Booking တင်ခြင်း အောင်မြင်ပါသည်။ ');
         setActiveTab('history');
       }
 
@@ -817,7 +805,7 @@ const [userCheckDate, setUserCheckDate] = useState(() => {
         editingOwnerFieldId
       );
 
-      alert('ကွင်းအချက်အလက် ပြင်ဆင်မှု အောင်မြင်ပါသည်။ Admin ထံသို့ အကြောင်းကြားပြီးပါပြီ။');
+      alert('ကွင်းအချက်အလက် ပြင်ဆင်မှု အောင်မြင်ပါသည်။ ');
       setEditingOwnerFieldId(null);
     } catch (error) {
       console.error("Error updating owner field: ", error);
