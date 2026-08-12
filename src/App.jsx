@@ -106,7 +106,10 @@ export default function FieldBookingApp() {
     return saved ? JSON.parse(saved) : null;
   });
   
-const [userCheckDate, setUserCheckDate] = useState(() => {
+  const [userCheckDate, setUserCheckDate] = useState(() => {
+    const savedDate = sessionStorage.getItem('userCheckDate');
+    if (savedDate) return savedDate;
+
     const today = new Date();
     const yyyy = today.getFullYear();
     const mm = String(today.getMonth() + 1).padStart(2, '0');
@@ -632,7 +635,7 @@ const [userCheckDate, setUserCheckDate] = useState(() => {
           'new_booking',
           userSelectedField.id
         );
-        alert('Booking တင်ခြင်း အောင်မြင်ပါသည်။ ');
+        alert('Booking တင်ခြင်း အောင်မြင်ပါသည်။ Admin အတည်ပြုရန် စောင့်ဆိုင်းပါ။');
         setActiveTab('history');
       }
 
