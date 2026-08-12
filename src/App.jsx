@@ -241,6 +241,7 @@ export default function FieldBookingApp() {
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState('');
   const [paymentScreenshot, setPaymentScreenshot] = useState(null);
   const [transactionLast5, setTransactionLast5] = useState('');
+  const [selectedPaymentReview, setSelectedPaymentReview] = useState(null);
 
   const [ownerCustomerName, setOwnerCustomerName] = useState('');
   const [ownerCustomerPhone, setOwnerCustomerPhone] = useState('');
@@ -2449,16 +2450,25 @@ export default function FieldBookingApp() {
                                   <div className="space-y-2">
                                     <div className="uppercase whitespace-nowrap">{item.paymentMethod || '-'}</div>
                                     {screenshotSrc ? (
-                                      <a
-                                        href={screenshotSrc}
-                                        target="_blank"
-                                        rel="noreferrer"
-                                        className="inline-flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 p-1.5 text-emerald-700 hover:bg-emerald-100"
-                                        title="Payment Screenshot ကြည့်ရန်"
+                                      <button
+                                        type="button"
+                                        onClick={() => setSelectedPaymentReview({
+                                          screenshotSrc,
+                                          paymentMethod: item.paymentMethod,
+                                          transactionLast5: item.transactionLast5,
+                                          userName: item.userName,
+                                          subFieldName: item.subFieldName,
+                                          date: item.date,
+                                          timeRange: displayTimeRange,
+                                          totalPrice: item.totalPrice,
+                                          status: item.status
+                                        })}
+                                        className="inline-flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 p-1.5 text-left text-emerald-700 hover:bg-emerald-100 active:scale-[0.98]"
+                                        title="Payment Screenshot နှင့် Transaction တိုက်စစ်ရန်"
                                       >
                                         <img src={screenshotSrc} alt="Payment screenshot" className="h-14 w-20 rounded object-cover" />
-                                        <span className="text-[10px] font-bold whitespace-nowrap">ကြည့်ရန် ↗</span>
-                                      </a>
+                                        <span className="text-[10px] font-bold whitespace-nowrap">တိုက်စစ်ရန်</span>
+                                      </button>
                                     ) : (
                                       <span className="inline-block rounded bg-gray-100 px-2 py-1 text-[10px] font-medium text-gray-500">Screenshot မတင်ထားပါ</span>
                                     )}
@@ -2981,6 +2991,66 @@ export default function FieldBookingApp() {
                 </div>
               </div>
             )}
+          </div>
+        )}
+        {selectedPaymentReview && (
+          <div
+            className="fixed inset-0 z-[90] flex items-center justify-center bg-black/80 p-3 sm:p-6"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="payment-review-title"
+            onClick={(event) => {
+              if (event.target === event.currentTarget) setSelectedPaymentReview(null);
+            }}
+          >
+            <div className="flex max-h-[94vh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">
+              <div className="flex items-center justify-between gap-3 border-b px-4 py-3 sm:px-5">
+                <div className="min-w-0">
+                  <h2 id="payment-review-title" className="truncate text-sm font-bold text-gray-900 sm:text-base">Payment နှင့် Transaction တိုက်စစ်ရန်</h2>
+                  <p className="mt-0.5 text-[11px] text-gray-500">Screenshot ကို app အတွင်းမှာပဲ ကြည့်နေပါသည်။</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setSelectedPaymentReview(null)}
+                  className="shrink-0 rounded-lg bg-gray-100 px-3 py-2 text-xs font-bold text-gray-700 hover:bg-gray-200 active:scale-[0.98]"
+                  aria-label="Close payment review"
+                >
+                  ပိတ်မည် ✕
+                </button>
+              </div>
+
+              <div className="min-h-0 overflow-y-auto">
+                <div className="bg-slate-950 p-3 sm:p-5">
+                  <img
+                    src={selectedPaymentReview.screenshotSrc}
+                    alt="Uploaded payment screenshot for transaction verification"
+                    className="mx-auto max-h-[58vh] w-auto max-w-full rounded-lg object-contain shadow-lg"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-3 p-4 sm:grid-cols-3 sm:p-5">
+                  <div className="col-span-2 rounded-xl border border-emerald-200 bg-emerald-50 p-3 sm:col-span-1">
+                    <p className="text-[10px] font-bold uppercase tracking-wide text-emerald-700">Transaction နောက်ဆုံး ၅ လုံး</p>
+                    <p className="mt-1 break-all font-mono text-xl font-extrabold tracking-[0.18em] text-emerald-950">{selectedPaymentReview.transactionLast5 || '-'}</p>
+                  </div>
+                  <div className="rounded-xl border bg-gray-50 p-3">
+                    <p className="text-[10px] font-bold uppercase tracking-wide text-gray-500">Payment Method</p>
+                    <p className="mt-1 text-sm font-extrabold text-gray-900">{selectedPaymentReview.paymentMethod || '-'}</p>
+                  </div>
+                  <div className="rounded-xl border bg-gray-50 p-3">
+                    <p className="text-[10px] font-bold uppercase tracking-wide text-gray-500">Status</p>
+                    <p className={`mt-1 text-sm font-extrabold ${selectedPaymentReview.status === 'Approved' ? 'text-emerald-600' : selectedPaymentReview.status === 'Rejected' ? 'text-red-600' : 'text-amber-600'}`}>{selectedPaymentReview.status || '-'}</p>
+                  </div>
+                  <div className="col-span-2 rounded-xl border bg-gray-50 p-3 sm:col-span-3">
+                    <div className="grid grid-cols-1 gap-2 text-xs sm:grid-cols-3">
+                      <p><span className="font-bold text-gray-500">ဖောက်သည်:</span> <span className="font-semibold text-gray-900">{selectedPaymentReview.userName || '-'}</span></p>
+                      <p><span className="font-bold text-gray-500">ရက်စွဲ:</span> <span className="font-semibold text-gray-900">{selectedPaymentReview.date || '-'}</span></p>
+                      <p><span className="font-bold text-gray-500">အချိန်:</span> <span className="font-semibold text-gray-900">{selectedPaymentReview.timeRange || '-'}</span></p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         )}
       </main>
