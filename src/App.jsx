@@ -27,7 +27,19 @@ const defaultFields = [
     paymentInfo: { kpay: '09-791234567 (KPay)', wave: '09-421234567 (Wave)' }
   }
 ];
-
+{/* ငွေပေးချေမှု နည်းလမ်း ရွေးချယ်သည့် Select Box ၏ အောက်နားတွင် ထည့်ရန် */}
+<div style={{ marginTop: '8px' }}>
+  {paymentMethod === 'KPay' && (
+    <p style={{ color: '#0066cc', fontWeight: 'bold' }}>
+      KPay ဖုန်းနံပါတ်: 09-791234567
+    </p>
+  )}
+  {paymentMethod === 'Wave' && (
+    <p style={{ color: '#ff6600', fontWeight: 'bold' }}>
+      Wave Money ဖုန်းနံပါတ်: 09-421234567
+    </p>
+  )}
+</div>
 const generateSingleTimeSlots = (openHour, closeHour) => {
   const slots = [];
   const start = openHour !== undefined && !isNaN(openHour) ? parseInt(openHour) : 8;
