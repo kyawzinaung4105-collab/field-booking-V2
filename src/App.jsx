@@ -28,12 +28,12 @@ const defaultFields = [
   }
 ];
 
-const generateSingleTimeSlots = (openHour, closeHour) => {
+const generateSingleTimeSlots = (openHour, closeHour, includeClosingTime = false) => {
   const slots = [];
   const start = openHour !== undefined && !isNaN(openHour) ? parseInt(openHour) : 8;
   const end = closeHour !== undefined && !isNaN(closeHour) ? parseInt(closeHour) : 22;
   
-  for (let i = start; i < end; i++) {
+  for (let i = start; i <= (includeClosingTime ? end : end - 1); i++) {
     const format12Hour = (h24) => {
       const period = h24 >= 12 ? 'PM' : 'AM';
       const h12 = h24 % 12 === 0 ? 12 : h24 % 12;
@@ -2006,7 +2006,8 @@ export default function FieldBookingApp() {
                           <option value="">-- End --</option>
                           {generateSingleTimeSlots(
                             selectedSubField?.openHour !== undefined ? selectedSubField.openHour : (userSelectedField?.openHour ?? 8), 
-                            selectedSubField?.closeHour !== undefined ? selectedSubField.closeHour : (userSelectedField?.closeHour ?? 22)
+                            selectedSubField?.closeHour !== undefined ? selectedSubField.closeHour : (userSelectedField?.closeHour ?? 22),
+                            true
                           )
                             .filter(slot => selectedStartSlot === '' || slot.hour > parseInt(selectedStartSlot))
                             .map(slot => (
@@ -2285,7 +2286,8 @@ export default function FieldBookingApp() {
                               <option value="">-- End Time --</option>
                               {generateSingleTimeSlots(
                                 selectedSubField?.openHour !== undefined ? selectedSubField.openHour : (userSelectedField?.openHour ?? 8), 
-                                selectedSubField?.closeHour !== undefined ? selectedSubField.closeHour : (userSelectedField?.closeHour ?? 22)
+                                selectedSubField?.closeHour !== undefined ? selectedSubField.closeHour : (userSelectedField?.closeHour ?? 22),
+                                true
                               )
                                 .filter(slot => selectedStartSlot === '' || slot.hour > parseInt(selectedStartSlot))
                                 .map(slot => {
