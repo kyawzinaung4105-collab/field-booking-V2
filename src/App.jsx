@@ -81,7 +81,7 @@ export default function FieldBookingApp() {
   // App Version & Update Check State
   const CURRENT_APP_VERSION = 1; // Increase this when building new APK release
   const [updateAvailable, setUpdateAvailable] = useState(false);
-  const [latestVersionName, setLatestVersionName] = useState('v1.0');
+  // latestVersionName is shared with the forced-update state above.
 
   useEffect(() => {
     // Check Firestore app config for latest version
@@ -2297,7 +2297,9 @@ export default function FieldBookingApp() {
           </div>
         ) : (
           <div>
-            {userSelectedField ? (
+            {activeTab !== 'history' && (
+              <>
+                {userSelectedField ? (
               <div className="bg-white rounded-xl shadow p-6">
                 <button onClick={() => { setUserSelectedField(null); setSelectedSubField(null); sessionStorage.removeItem('userSelectedField'); sessionStorage.removeItem('selectedSubField'); }} className="text-xs text-blue-600 font-bold hover:underline mb-4 inline-block">← ကွင်းစာရင်းသို့ ပြန်သွားရန်</button>
                 
@@ -2706,6 +2708,8 @@ export default function FieldBookingApp() {
                   )}
                 </div>
               </div>
+                )}
+              </>
             )}
 
             {activeTab === 'history' && currentUser.role === 'user' && (
