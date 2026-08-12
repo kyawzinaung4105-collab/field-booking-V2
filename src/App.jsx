@@ -805,7 +805,7 @@ const [userCheckDate, setUserCheckDate] = useState(() => {
         editingOwnerFieldId
       );
 
-      alert('ကွင်းအချက်အလက် ပြင်ဆင်မှု အောင်မြင်ပါသည်။ ');
+      alert('ကွင်းအချက်အလက် ပြင်ဆင်မှု အောင်မြင်ပါသည်။ Admin ထံသို့ အကြောင်းကြားပြီးပါပြီ။');
       setEditingOwnerFieldId(null);
     } catch (error) {
       console.error("Error updating owner field: ", error);
