@@ -701,15 +701,14 @@ export default function FieldBookingApp() {
 
     try {
       const result = await runTransaction(db, async (transaction) => {
-        // Read bookings through the transaction so two users cannot both pass the
-        // availability check at the same time.
-        // Query only by fieldId (single-field index is enough), then filter
-        // sub-field/date inside the transaction to avoid requiring a composite index.
+        // Firestore Web transactions support document reads, but not query reads.
+        // Refresh the booking list with a normal query, then use the transaction
+        // below for the deterministic exact-booking document lock.
         const bookingsQuery = query(
           collection(db, "bookings"),
           where("fieldId", "==", userSelectedField.id)
         );
-        const bookingsSnap = await transaction.get(bookingsQuery);
+        const bookingsSnap = await getDocs(bookingsQuery);
         const existingBookings = bookingsSnap.docs.map(d => ({
           id: d.id,
           ...d.data()
