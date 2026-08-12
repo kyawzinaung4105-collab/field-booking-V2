@@ -290,6 +290,9 @@ export default function FieldBookingApp() {
 
   const [adminTab, setAdminTab] = useState('pending');
   const [ownerActiveTab, setOwnerActiveTab] = useState('pending');
+  const [mobileHeaderMenuOpen, setMobileHeaderMenuOpen] = useState(false);
+  const [adminMobileMenuOpen, setAdminMobileMenuOpen] = useState(false);
+  const [ownerMobileMenuOpen, setOwnerMobileMenuOpen] = useState(false);
 
   useEffect(() => {
     if (currentUser) {
@@ -1335,21 +1338,21 @@ export default function FieldBookingApp() {
       )}
 
     <div className="min-h-screen bg-gray-50 font-sans pb-12">
-      <header className="bg-emerald-700 text-white shadow-md sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-4 py-3 flex justify-between items-center">
-          <div className="flex items-center space-x-2 cursor-pointer" onClick={() => { setActiveTab('fields'); setUserSelectedField(null); setSelectedSubField(null); sessionStorage.removeItem('userSelectedField'); sessionStorage.removeItem('selectedSubField'); }}>
-            <span className="text-2xl">⚽</span>
-            <h1 className="text-xl font-bold">Field Booking App</h1>
+      <header className="relative bg-emerald-700 text-white shadow-md sticky top-0 z-50">
+        <div className="max-w-7xl mx-auto px-3 py-2.5 sm:px-4 sm:py-3 flex justify-between items-center gap-2">
+          <div className="min-w-0 flex items-center gap-1.5 cursor-pointer" onClick={() => { setActiveTab('fields'); setUserSelectedField(null); setSelectedSubField(null); setMobileHeaderMenuOpen(false); sessionStorage.removeItem('userSelectedField'); sessionStorage.removeItem('selectedSubField'); }}>
+            <span className="text-xl sm:text-2xl">⚽</span>
+            <h1 className="truncate text-base sm:text-xl font-bold">Field Booking App</h1>
           </div>
-          <div className="flex items-center space-x-3">
+          <div className="flex shrink-0 items-center gap-2 sm:gap-3">
             {currentUser.role === 'user' && (
-              <button onClick={() => setActiveTab('history')} className="text-xs px-3 py-1.5 rounded bg-emerald-800 text-white font-bold hover:bg-emerald-900">📋 History</button>
+              <button onClick={() => { setActiveTab('history'); setMobileHeaderMenuOpen(false); }} className="hidden sm:inline-flex text-xs px-3 py-1.5 rounded bg-emerald-800 text-white font-bold hover:bg-emerald-900">📋 History</button>
             )}
             {currentUser.role === 'admin' && (
-              <button onClick={() => setActiveTab('dashboard')} className="text-xs px-3 py-1.5 rounded bg-emerald-800 text-white font-bold hover:bg-emerald-900">⚙️ Admin Dashboard</button>
+              <button onClick={() => { setActiveTab('dashboard'); setMobileHeaderMenuOpen(false); }} className="hidden sm:inline-flex text-xs px-3 py-1.5 rounded bg-emerald-800 text-white font-bold hover:bg-emerald-900">⚙️ Admin Dashboard</button>
             )}
             {currentUser.role === 'owner' && (
-              <button onClick={() => setActiveTab('owner_manage')} className="text-xs px-3 py-1.5 rounded bg-emerald-800 text-white font-bold hover:bg-emerald-900">🏟️ Manage Fields & History</button>
+              <button onClick={() => { setActiveTab('owner_manage'); setMobileHeaderMenuOpen(false); }} className="hidden sm:inline-flex text-xs px-3 py-1.5 rounded bg-emerald-800 text-white font-bold hover:bg-emerald-900">🏟️ Manage Fields & History</button>
             )}
             
             {(currentUser.role === 'owner' || currentUser.role === 'admin') && (
@@ -1363,6 +1366,7 @@ export default function FieldBookingApp() {
                     }
                   }}
                   className="p-1.5 bg-emerald-800 hover:bg-emerald-900 rounded-full relative text-sm"
+                  aria-label="Notifications"
                 >
                   🔔
                   {smsNotifications.filter(n => !n.read).length > 0 && (
@@ -1373,7 +1377,7 @@ export default function FieldBookingApp() {
                 </button>
 
                 {showNotiDropdown && (
-                  <div className="absolute right-0 mt-2 w-80 bg-white border text-gray-800 rounded-xl shadow-2xl z-50 p-3">
+                  <div className="absolute right-0 mt-2 w-[min(20rem,calc(100vw-1.5rem))] bg-white border text-gray-800 rounded-xl shadow-2xl z-50 p-3">
                     <div className="font-bold text-xs border-b pb-2 mb-2 flex justify-between items-center">
                       <span>💬 SMS & Booking Notifications</span>
                       <button onClick={() => setSmsNotifications([])} className="text-[10px] text-blue-600 hover:underline">Clear All</button>
@@ -1398,21 +1402,52 @@ export default function FieldBookingApp() {
               </div>
             )}
 
-            <span className="text-xs bg-emerald-800 px-3 py-1 rounded font-medium">{currentUser.name} ({currentUser.role})</span>
-            <button onClick={handleLogout} className="bg-red-500 hover:bg-red-600 text-white text-xs px-3 py-1.5 rounded font-bold">Logout</button>
+            <span className="hidden sm:inline-flex text-xs bg-emerald-800 px-3 py-1 rounded font-medium">{currentUser.name} ({currentUser.role})</span>
+            <button onClick={handleLogout} className="hidden sm:inline-flex bg-red-500 hover:bg-red-600 text-white text-xs px-3 py-1.5 rounded font-bold">Logout</button>
+            <button
+              type="button"
+              onClick={() => setMobileHeaderMenuOpen(prev => !prev)}
+              className="inline-flex sm:hidden items-center gap-1 rounded-lg bg-emerald-800 px-2.5 py-2 text-xs font-bold hover:bg-emerald-900 active:scale-[0.98]"
+              aria-expanded={mobileHeaderMenuOpen}
+              aria-label="Open menu"
+            >
+              ☰ Menu
+            </button>
           </div>
         </div>
+
+        {mobileHeaderMenuOpen && (
+          <div className="absolute right-3 top-full mt-2 w-[min(19rem,calc(100vw-1.5rem))] rounded-2xl border border-emerald-900/20 bg-white p-3 text-gray-800 shadow-2xl sm:hidden">
+            <div className="mb-2 rounded-xl bg-emerald-50 px-3 py-2">
+              <p className="text-sm font-bold text-emerald-900">{currentUser.name}</p>
+              <p className="text-[11px] font-semibold uppercase text-emerald-700">{currentUser.role}</p>
+            </div>
+            <div className="space-y-2">
+              {currentUser.role === 'user' && (
+                <button type="button" onClick={() => { setActiveTab('history'); setMobileHeaderMenuOpen(false); }} className="w-full rounded-xl bg-gray-100 px-3 py-2.5 text-left text-xs font-bold hover:bg-emerald-50">📋 Booking History</button>
+              )}
+              {currentUser.role === 'admin' && (
+                <button type="button" onClick={() => { setActiveTab('dashboard'); setMobileHeaderMenuOpen(false); }} className="w-full rounded-xl bg-gray-100 px-3 py-2.5 text-left text-xs font-bold hover:bg-emerald-50">⚙️ Admin Dashboard</button>
+              )}
+              {currentUser.role === 'owner' && (
+                <button type="button" onClick={() => { setActiveTab('owner_manage'); setMobileHeaderMenuOpen(false); }} className="w-full rounded-xl bg-gray-100 px-3 py-2.5 text-left text-xs font-bold hover:bg-emerald-50">🏟️ Manage Fields & History</button>
+              )}
+              <button type="button" onClick={() => { setActiveTab('fields'); setUserSelectedField(null); setSelectedSubField(null); setMobileHeaderMenuOpen(false); }} className="w-full rounded-xl bg-gray-100 px-3 py-2.5 text-left text-xs font-bold hover:bg-emerald-50">🏟️ ကွင်းများသို့ ပြန်ရန်</button>
+              <button type="button" onClick={() => { handleLogout(); setMobileHeaderMenuOpen(false); }} className="w-full rounded-xl bg-red-50 px-3 py-2.5 text-left text-xs font-bold text-red-700 hover:bg-red-100">Logout</button>
+            </div>
+          </div>
+        )}
       </header>
 
       <main className="max-w-7xl mx-auto px-4 mt-6">
         {currentUser.role === 'admin' && activeTab === 'dashboard' ? (
-          <div className="bg-white rounded-xl shadow p-6">
-            <div className="flex justify-between items-center mb-6 border-b pb-4">
-              <h2 className="text-xl font-bold text-gray-800">Admin Management Dashboard</h2>
-              <button onClick={() => setActiveTab('fields')} className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-bold">← ကွင်းများသို့ ပြန်ရန်</button>
+          <div className="bg-white rounded-xl shadow p-4 sm:p-6">
+            <div className="flex flex-col items-start gap-3 mb-6 border-b pb-4 sm:flex-row sm:justify-between sm:items-center">
+              <h2 className="text-lg sm:text-xl font-bold text-gray-800">Admin Management Dashboard</h2>
+              <button onClick={() => { setActiveTab('fields'); setAdminMobileMenuOpen(false); }} className="w-full sm:w-auto bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-bold">← ကွင်းများသို့ ပြန်ရန်</button>
             </div>
 
-            <div className="flex flex-wrap gap-2 mb-6">
+            <div className="hidden sm:flex flex-wrap gap-2 mb-6">
               <button onClick={() => setAdminTab('pending')} className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${adminTab === 'pending' ? 'bg-emerald-600 text-white shadow' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}>
                 Bookings အားလုံး ({sortedBookings.length})
               </button>
@@ -1428,6 +1463,28 @@ export default function FieldBookingApp() {
               <button onClick={() => setAdminTab('change_password')} className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${adminTab === 'change_password' ? 'bg-emerald-600 text-white shadow' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}>
                 🔒 ကိုယ်ပိုင် Password ပြောင်းရန်
               </button>
+            </div>
+            <div className="mb-6 sm:hidden">
+              <button
+                type="button"
+                onClick={() => setAdminMobileMenuOpen(prev => !prev)}
+                className="flex w-full items-center justify-between rounded-xl bg-emerald-600 px-4 py-3 text-left text-xs font-bold text-white shadow"
+                aria-expanded={adminMobileMenuOpen}
+              >
+                <span>☰ Admin Menu</span>
+                <span className="max-w-[62%] truncate text-right text-[11px] font-semibold">
+                  {adminTab === 'pending' ? `Bookings အားလုံး (${sortedBookings.length})` : adminTab === 'manage_fields' ? 'Manage Fields & Add Field' : adminTab === 'manage_owners' ? 'Manage Owners & Passwords' : adminTab === 'notifications_page' ? 'Notifications & Filter Page' : 'ကိုယ်ပိုင် Password ပြောင်းရန်'}
+                </span>
+              </button>
+              {adminMobileMenuOpen && (
+                <div className="mt-2 grid gap-2 rounded-xl border border-emerald-100 bg-emerald-50 p-2">
+                  <button type="button" onClick={() => { setAdminTab('pending'); setAdminMobileMenuOpen(false); }} className={`w-full rounded-lg px-3 py-2.5 text-left text-xs font-bold ${adminTab === 'pending' ? 'bg-emerald-600 text-white' : 'bg-white text-gray-700'}`}>Bookings အားလုံး ({sortedBookings.length})</button>
+                  <button type="button" onClick={() => { setAdminTab('manage_fields'); setAdminMobileMenuOpen(false); }} className={`w-full rounded-lg px-3 py-2.5 text-left text-xs font-bold ${adminTab === 'manage_fields' ? 'bg-emerald-600 text-white' : 'bg-white text-gray-700'}`}>Manage Fields & Add Field</button>
+                  <button type="button" onClick={() => { setAdminTab('manage_owners'); setAdminMobileMenuOpen(false); }} className={`w-full rounded-lg px-3 py-2.5 text-left text-xs font-bold ${adminTab === 'manage_owners' ? 'bg-emerald-600 text-white' : 'bg-white text-gray-700'}`}>🔑 Manage Owners & Passwords</button>
+                  <button type="button" onClick={() => { setAdminTab('notifications_page'); setAdminMobileMenuOpen(false); }} className={`w-full rounded-lg px-3 py-2.5 text-left text-xs font-bold ${adminTab === 'notifications_page' ? 'bg-emerald-600 text-white' : 'bg-white text-gray-700'}`}>🔔 Notifications & Filter Page</button>
+                  <button type="button" onClick={() => { setAdminTab('change_password'); setAdminMobileMenuOpen(false); }} className={`w-full rounded-lg px-3 py-2.5 text-left text-xs font-bold ${adminTab === 'change_password' ? 'bg-emerald-600 text-white' : 'bg-white text-gray-700'}`}>🔒 ကိုယ်ပိုင် Password ပြောင်းရန်</button>
+                </div>
+              )}
             </div>
 
             {adminTab === 'change_password' && (
@@ -1935,13 +1992,13 @@ export default function FieldBookingApp() {
             )}
           </div>
         ) : currentUser.role === 'owner' && activeTab === 'owner_manage' ? (
-          <div className="bg-white rounded-xl shadow p-6">
-            <div className="flex justify-between items-center mb-6 border-b pb-4">
-              <h2 className="text-xl font-bold text-gray-800">🏟️ Owner Dashboard & Direct Booking</h2>
-              <button onClick={() => setActiveTab('fields')} className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-bold">← ကွင်းများသို့ ပြန်ရန်</button>
+          <div className="bg-white rounded-xl shadow p-4 sm:p-6">
+            <div className="flex flex-col items-start gap-3 mb-6 border-b pb-4 sm:flex-row sm:justify-between sm:items-center">
+              <h2 className="text-lg sm:text-xl font-bold text-gray-800">🏟️ Owner Dashboard & Direct Booking</h2>
+              <button onClick={() => { setActiveTab('fields'); setOwnerMobileMenuOpen(false); }} className="w-full sm:w-auto bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-bold">← ကွင်းများသို့ ပြန်ရန်</button>
             </div>
 
-            <div className="flex flex-wrap gap-2 mb-6">
+            <div className="hidden sm:flex flex-wrap gap-2 mb-6">
               <button onClick={() => setOwnerActiveTab('pending')} className={`px-4 py-2 rounded-lg text-xs font-bold ${ownerActiveTab === 'pending' ? 'bg-emerald-600 text-white' : 'bg-gray-100 text-gray-700'}`}>
                 Booking တင်ရန် (Direct Booking)
               </button>
@@ -1957,6 +2014,28 @@ export default function FieldBookingApp() {
               <button onClick={() => setOwnerActiveTab('fields_edit')} className={`px-4 py-2 rounded-lg text-xs font-bold ${ownerActiveTab === 'fields_edit' ? 'bg-emerald-600 text-white' : 'bg-gray-100 text-gray-700'}`}>
                 🏟️ ကွင်းအချိန်များနှင့် KPay/Wave နံပါတ်များ ပြင်ဆင်ရန်
               </button>
+            </div>
+            <div className="mb-6 sm:hidden">
+              <button
+                type="button"
+                onClick={() => setOwnerMobileMenuOpen(prev => !prev)}
+                className="flex w-full items-center justify-between rounded-xl bg-emerald-600 px-4 py-3 text-left text-xs font-bold text-white shadow"
+                aria-expanded={ownerMobileMenuOpen}
+              >
+                <span>☰ Owner Menu</span>
+                <span className="max-w-[62%] truncate text-right text-[11px] font-semibold">
+                  {ownerActiveTab === 'pending' ? 'Booking တင်ရန် (Direct Booking)' : ownerActiveTab === 'history' ? 'Booking မှတ်တမ်းများ' : ownerActiveTab === 'notifications_page' ? 'Notifications Page' : ownerActiveTab === 'password' ? 'Password ချိန်းရန်' : 'ကွင်းအချိန်နှင့် KPay/Wave ပြင်ရန်'}
+                </span>
+              </button>
+              {ownerMobileMenuOpen && (
+                <div className="mt-2 grid gap-2 rounded-xl border border-emerald-100 bg-emerald-50 p-2">
+                  <button type="button" onClick={() => { setOwnerActiveTab('pending'); setOwnerMobileMenuOpen(false); }} className={`w-full rounded-lg px-3 py-2.5 text-left text-xs font-bold ${ownerActiveTab === 'pending' ? 'bg-emerald-600 text-white' : 'bg-white text-gray-700'}`}>Booking တင်ရန် (Direct Booking)</button>
+                  <button type="button" onClick={() => { setOwnerActiveTab('history'); setOwnerMobileMenuOpen(false); }} className={`w-full rounded-lg px-3 py-2.5 text-left text-xs font-bold ${ownerActiveTab === 'history' ? 'bg-emerald-600 text-white' : 'bg-white text-gray-700'}`}>Booking မှတ်တမ်းများ</button>
+                  <button type="button" onClick={() => { setOwnerActiveTab('notifications_page'); setOwnerMobileMenuOpen(false); }} className={`w-full rounded-lg px-3 py-2.5 text-left text-xs font-bold ${ownerActiveTab === 'notifications_page' ? 'bg-emerald-600 text-white' : 'bg-white text-gray-700'}`}>🔔 Notifications Page (Pending/New/Reject)</button>
+                  <button type="button" onClick={() => { setOwnerActiveTab('password'); setOwnerMobileMenuOpen(false); }} className={`w-full rounded-lg px-3 py-2.5 text-left text-xs font-bold ${ownerActiveTab === 'password' ? 'bg-emerald-600 text-white' : 'bg-white text-gray-700'}`}>🔒 Password ချိန်းရန်</button>
+                  <button type="button" onClick={() => { setOwnerActiveTab('fields_edit'); setOwnerMobileMenuOpen(false); }} className={`w-full rounded-lg px-3 py-2.5 text-left text-xs font-bold ${ownerActiveTab === 'fields_edit' ? 'bg-emerald-600 text-white' : 'bg-white text-gray-700'}`}>🏟️ ကွင်းအချိန်များနှင့် KPay/Wave နံပါတ်များ ပြင်ဆင်ရန်</button>
+                </div>
+              )}
             </div>
 
             {ownerActiveTab === 'notifications_page' && (
