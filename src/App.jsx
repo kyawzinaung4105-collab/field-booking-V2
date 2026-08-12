@@ -1567,7 +1567,7 @@ export default function FieldBookingApp() {
       )}
 
     <div className="min-h-screen bg-gray-50 font-sans pb-12">
-      <header className="relative bg-emerald-700 text-white shadow-md sticky top-0 z-50">
+      <header className="bg-emerald-700 text-white shadow-md sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-3 py-2.5 sm:px-4 sm:py-3 flex justify-between items-center gap-2">
           <div className="min-w-0 flex items-center gap-1.5 cursor-pointer" onClick={() => { setActiveTab('fields'); setUserSelectedField(null); setSelectedSubField(null); setMobileHeaderMenuOpen(false); sessionStorage.removeItem('userSelectedField'); sessionStorage.removeItem('selectedSubField'); }}>
             <span className="text-xl sm:text-2xl">⚽</span>
@@ -2865,7 +2865,7 @@ export default function FieldBookingApp() {
                       className="rounded-lg bg-emerald-600 px-3 py-2 text-xs font-bold text-white shadow-sm transition hover:bg-emerald-700 active:scale-[0.98]"
                       title="Excel ဖြင့်ဖွင့်နိုင်သော CSV ဖိုင် ဒေါင်းလုဒ်ရန်"
                     >
-                    Excel Export
+                      📊 Excel Export
                     </button>
                   </div>
                 </div>
