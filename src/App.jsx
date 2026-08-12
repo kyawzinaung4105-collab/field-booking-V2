@@ -2199,7 +2199,7 @@ export default function FieldBookingApp() {
                 </div>
 
                 <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
-                  နာရီစုစုပေါင်းနှင့် ဝင်ငွေကို <strong>Approved Booking</strong> များအတွက်သာတွက်ထားပါသည်။ Owner ပိုင်ကွင်းမဟုတ်သော Booking များကို မပြပါ။
+                  နာရီစုစုပေါင်းနှင့် ဝင်ငွေကို <strong>Approved Booking</strong> များအတွက်သာတွက်ထားပါသည်။
                 </div>
 
                 <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
