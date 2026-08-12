@@ -569,6 +569,31 @@ export default function FieldBookingApp() {
     return isPastDate || (isToday && hour <= today.getHours());
   };
 
+  // A booking expires when its play date has passed or today's end time has passed.
+  // This is shared by Admin/Owner action buttons and the status-change safety guard.
+  const isBookingExpired = (booking) => {
+    if (!booking?.date) return false;
+    const [year, month, day] = String(booking.date).split('-').map(Number);
+    if (![year, month, day].every(Number.isFinite)) return false;
+
+    const now = new Date();
+    const bookingDay = new Date(year, month - 1, day);
+    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    if (bookingDay < todayStart) return true;
+    if (bookingDay > todayStart) return false;
+
+    let endHour = Number(booking.endHour);
+    if (!Number.isFinite(endHour)) {
+      const timeRange = booking.fullTimeSlot || booking.timeSlot || '';
+      const endPart = String(timeRange).split(/\s*-\s*/).pop() || '';
+      const match = endPart.match(/(\d{1,2}):\d{2}\s*(AM|PM)/i);
+      if (match) {
+        endHour = Number(match[1]) % 12 + (match[2].toUpperCase() === 'PM' ? 12 : 0);
+      }
+    }
+    return Number.isFinite(endHour) && endHour <= now.getHours();
+  };
+
   const isSlotUnavailable = (hour) => {
     if (checkIsExpired(hour)) return true;
     const slotLabelCheck = `${format12Hour(hour)} - ${format12Hour(hour + 1)}`;
@@ -989,8 +1014,13 @@ export default function FieldBookingApp() {
       subType = desiredStatus === 'Rejected' ? 'booking_reject' : 'new_booking';
     }
 
+    const targetBooking = bookings.find(b => b.id === bookingId);
+    if (targetBooking && isBookingExpired(targetBooking)) {
+      alert('ဤ Booking ၏ ရက်စွဲ သို့မဟုတ် ကစားချိန်သည် ကျော်လွန်သွားပါပြီ။ Approve / Reject လုပ်၍ မရတော့ပါ။');
+      return;
+    }
+
     if (window.confirm(confirmMsg)) {
-      const targetBooking = bookings.find(b => b.id === bookingId);
       if (targetBooking) {
         const targetField = fields.find(f => f.id === targetBooking.fieldId);
         const bookingFieldName = targetBooking.subFieldName || targetField?.name || 'Unknown Field';
@@ -1435,6 +1465,7 @@ export default function FieldBookingApp() {
                       {sortedBookings.length > 0 ? (
                         sortedBookings.map(item => {
                           const targetField = fields.find(f => f.id === item.fieldId);
+                          const bookingExpired = isBookingExpired(item);
                           return (
                             <tr key={item.id} className="hover:bg-gray-50">
                               <td className="p-3 font-medium">{item.userName}</td>
@@ -1464,14 +1495,20 @@ export default function FieldBookingApp() {
                               </td>
                               <td className="p-3 text-center space-x-1">
                                 <button 
+                                  type="button"
+                                  disabled={bookingExpired}
+                                  title={bookingExpired ? 'ဤ Booking အချိန်ကျော်လွန်သွားပါပြီ' : 'Approve'}
                                   onClick={() => handleStatusChangeWithConfirm(item.id, item.status, 'Approved', item.fieldId)} 
-                                  className="bg-emerald-600 text-white px-2.5 py-1 rounded text-[11px] font-bold hover:bg-emerald-700"
+                                  className={`px-2.5 py-1 rounded text-[11px] font-bold ${bookingExpired ? 'bg-gray-300 text-gray-500 cursor-not-allowed opacity-60' : 'bg-emerald-600 text-white hover:bg-emerald-700'}`}
                                 >
                                   Approve
                                 </button>
                                 <button 
+                                  type="button"
+                                  disabled={bookingExpired}
+                                  title={bookingExpired ? 'ဤ Booking အချိန်ကျော်လွန်သွားပါပြီ' : 'Reject'}
                                   onClick={() => handleStatusChangeWithConfirm(item.id, item.status, 'Rejected', item.fieldId)} 
-                                  className="bg-red-500 text-white px-2.5 py-1 rounded text-[11px] font-bold hover:bg-red-600"
+                                  className={`px-2.5 py-1 rounded text-[11px] font-bold ${bookingExpired ? 'bg-gray-300 text-gray-500 cursor-not-allowed opacity-60' : 'bg-red-500 text-white hover:bg-red-600'}`}
                                 >
                                   Reject
                                 </button>
@@ -2302,6 +2339,7 @@ export default function FieldBookingApp() {
                         sortedBookings
                           .filter(b => ownerFieldIds.includes(b.fieldId))
                           .map(item => {
+                            const bookingExpired = isBookingExpired(item);
                             const timeRange = item.fullTimeSlot || item.timeSlot || '';
                             const [startTime, endTime] = timeRange.split(/\s*-\s*/);
                             const displayTimeRange = startTime && endTime ? `${startTime} - ${endTime}` : timeRange || '-';
@@ -2321,14 +2359,20 @@ export default function FieldBookingApp() {
                                 <td className="p-3 text-center align-top">
                                   <div className="flex flex-col items-center gap-1">
                                     <button
+                                      type="button"
+                                      disabled={bookingExpired}
+                                      title={bookingExpired ? 'ဤ Booking အချိန်ကျော်လွန်သွားပါပြီ' : 'Approve'}
                                       onClick={() => handleStatusChangeWithConfirm(item.id, item.status, 'Approved', item.fieldId)}
-                                      className="w-[64px] bg-emerald-600 text-white px-2 py-1 rounded text-[10px] font-bold"
+                                      className={`w-[64px] px-2 py-1 rounded text-[10px] font-bold ${bookingExpired ? 'bg-gray-300 text-gray-500 cursor-not-allowed opacity-60' : 'bg-emerald-600 text-white'}`}
                                     >
                                       Approve
                                     </button>
                                     <button
+                                      type="button"
+                                      disabled={bookingExpired}
+                                      title={bookingExpired ? 'ဤ Booking အချိန်ကျော်လွန်သွားပါပြီ' : 'Reject'}
                                       onClick={() => handleStatusChangeWithConfirm(item.id, item.status, 'Rejected', item.fieldId)}
-                                      className="w-[64px] bg-red-500 text-white px-2 py-1 rounded text-[10px] font-bold"
+                                      className={`w-[64px] px-2 py-1 rounded text-[10px] font-bold ${bookingExpired ? 'bg-gray-300 text-gray-500 cursor-not-allowed opacity-60' : 'bg-red-500 text-white'}`}
                                     >
                                       Reject
                                     </button>
