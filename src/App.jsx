@@ -251,6 +251,8 @@ export default function FieldBookingApp() {
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState('');
   const [paymentScreenshot, setPaymentScreenshot] = useState(null);
   const [transactionLast5, setTransactionLast5] = useState('');
+  const [customerName, setCustomerName] = useState('');
+  const [customerPhone, setCustomerPhone] = useState('');
   const [selectedPaymentReview, setSelectedPaymentReview] = useState(null);
 
   const [ownerCustomerName, setOwnerCustomerName] = useState('');
@@ -648,6 +650,20 @@ export default function FieldBookingApp() {
     return `${h12 < 10 ? `0${h12}` : h12}:00 ${period}`;
   };
 
+  const getBookingCustomerName = (booking) => {
+    if (booking?.customerName) return booking.customerName;
+    const legacyUserName = String(booking?.userName || '').replace(/\s*\[Owner Direct Booked\]\s*$/, '').trim();
+    const ownerMatch = legacyUserName.match(/^(.*?)\s*\(([^)]+)\)\s*$/);
+    return ownerMatch ? ownerMatch[1].trim() || '-' : legacyUserName || '-';
+  };
+
+  const getBookingCustomerPhone = (booking) => {
+    if (booking?.customerPhone) return booking.customerPhone;
+    const legacyUserName = String(booking?.userName || '').replace(/\s*\[Owner Direct Booked\]\s*$/, '').trim();
+    const ownerMatch = legacyUserName.match(/^(.*?)\s*\(([^)]+)\)\s*$/);
+    return ownerMatch ? ownerMatch[2].trim() || '-' : '-';
+  };
+
   const checkIsExpired = (hour) => {
     const today = new Date();
     const selectedDate = new Date(userCheckDate);
@@ -741,6 +757,8 @@ export default function FieldBookingApp() {
         selectedStartSlot === '' ||
         selectedEndSlot === '' ||
         !selectedPaymentMethod ||
+        !customerName.trim() ||
+        !customerPhone.trim() ||
         !transactionLast5 ||
         !paymentScreenshot
       ) {
@@ -861,7 +879,9 @@ export default function FieldBookingApp() {
           bookedAt: bookedTimeFormatted,
           createdAtTime: timestampMillis,
           userEmail: currentUser.email,
-          userName: currentUser.role === 'owner' ? `${ownerCustomerName} (${ownerCustomerPhone}) [Owner Direct Booked]` : currentUser.name,
+          customerName: currentUser.role === 'owner' ? ownerCustomerName.trim() : customerName.trim(),
+          customerPhone: currentUser.role === 'owner' ? ownerCustomerPhone.trim() : customerPhone.trim(),
+          userName: currentUser.role === 'owner' ? `${ownerCustomerName.trim()} (${ownerCustomerPhone.trim()}) [Owner Direct Booked]` : currentUser.name,
           paymentMethod: selectedPaymentMethod,
           transactionLast5: currentUser.role === 'owner' ? 'OWNER' : transactionLast5,
           screenshotName: currentUser.role === 'owner' ? 'Direct Manual Booking' : paymentScreenshot?.name,
@@ -908,6 +928,8 @@ export default function FieldBookingApp() {
       setSelectedPaymentMethod('');
       setPaymentScreenshot(null);
       setTransactionLast5('');
+      setCustomerName('');
+      setCustomerPhone('');
 
     } catch (error) {
       if (error.message === 'SLOT_ALREADY_BOOKED') {
@@ -1759,7 +1781,8 @@ export default function FieldBookingApp() {
                   <table className="w-full text-left border-collapse">
                     <thead>
                       <tr className="bg-gray-100 text-xs border-b">
-                        <th className="p-3">အသုံးပြုသူ</th>
+                        <th className="p-3 min-w-[170px]">ဖောက်သည်အမည် (Name)</th>
+                        <th className="p-3 min-w-[135px]">Ph No</th>
                         <th className="p-3">ကွင်း / ကွင်းခွဲ</th>
                         <th className="p-3">တင်ချိန် (Booking Time)</th>
                         <th className="p-3">ကစားမည့်အချိန် (Play Time)</th>
@@ -1777,7 +1800,8 @@ export default function FieldBookingApp() {
                           const bookingExpired = isBookingExpired(item);
                           return (
                             <tr key={item.id} className="hover:bg-gray-50">
-                              <td className="p-3 font-medium">{item.userName}</td>
+                              <td className="p-3 font-medium break-words">{getBookingCustomerName(item)}</td>
+                              <td className="p-3 text-xs font-mono whitespace-nowrap">{getBookingCustomerPhone(item)}</td>
                               <td className="p-3">
                                 <div className="font-bold">{targetField?.name || 'Unknown'}</div>
                                 <div className="text-xs text-gray-500">{item.subFieldName}</div>
@@ -1827,7 +1851,7 @@ export default function FieldBookingApp() {
                         })
                       ) : (
                         <tr>
-                          <td colSpan="9" className="text-center py-8 text-gray-500 text-sm">Booking များ မရှိသေးပါ။</td>
+                          <td colSpan="10" className="text-center py-8 text-gray-500 text-sm">Booking များ မရှိသေးပါ။</td>
                         </tr>
                       )}
                     </tbody>
@@ -2206,7 +2230,7 @@ export default function FieldBookingApp() {
                 <div className="flex flex-col gap-4 rounded-2xl border bg-gray-50 p-4 sm:flex-row sm:items-end sm:justify-between">
                   <div>
                     <h3 className="text-base font-extrabold text-gray-800">📊 My Fields Booking Report</h3>
-                    <p className="mt-1 text-xs text-gray-500"></p>
+                    <p className="mt-1 text-xs text-gray-500">ကိုယ့် Owner Account နဲ့သက်ဆိုင်တဲ့ ကွင်းများအတွက်သာ Report ပြပါမယ်။</p>
                   </div>
                   <div className="flex flex-wrap items-end gap-2">
                     <label className="text-xs font-bold text-gray-700">
@@ -2218,7 +2242,7 @@ export default function FieldBookingApp() {
                 </div>
 
                 <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
-                  နာရီစုစုပေါင်းနှင့် ဝင်ငွေကို <strong>Approved Booking</strong> များအတွက်သာတွက်ထားပါသည်။ 
+                  နာရီစုစုပေါင်းနှင့် ဝင်ငွေကို <strong>Approved Booking</strong> များအတွက်သာတွက်ထားပါသည်။ Owner ပိုင်ကွင်းမဟုတ်သော Booking များကို မပြပါ။
                 </div>
 
                 <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
@@ -2267,7 +2291,7 @@ export default function FieldBookingApp() {
                         onChange={(e) => setOwnerNotiFieldId(e.target.value)}
                         className="border rounded-lg p-2 text-xs bg-white font-bold"
                       >
-                        <option value="all">ကွင်းများအားလုံး (All My Fields)</option>
+                        <option value="all">ကိုယ့်ကွင်းများအားလုံး (All My Fields)</option>
                         {fields.filter(f => f.ownerEmail === currentUser.email).map(f => (
                           <option key={f.id} value={f.id}>{f.name} ({f.location})</option>
                         ))}
@@ -2705,10 +2729,11 @@ export default function FieldBookingApp() {
               <div>
                 <h3 className="text-base font-bold mb-4 text-gray-800">Booking မှတ်တမ်းများ (Owner Fields)</h3>
                 <div className="overflow-x-auto rounded-lg">
-                  <table className="w-full min-w-[1150px] table-fixed text-left border-collapse">
+                  <table className="w-full min-w-[1350px] table-fixed text-left border-collapse">
                     <thead>
                       <tr className="bg-gray-100 text-xs border-b">
-                        <th className="p-3 min-w-[210px] align-top">ဖောက်သည်</th>
+                        <th className="p-3 min-w-[170px] align-top">ဖောက်သည်အမည် (Name)</th>
+                        <th className="p-3 min-w-[135px] align-top">Ph No</th>
                         <th className="p-3 min-w-[125px] align-top">ကွင်းခွဲ</th>
                         <th className="p-3 min-w-[115px] align-top">ရက်စွဲ</th>
                         <th className="p-3 min-w-[230px] align-top">စတင်ချိန် / အဆုံးချိန်</th>
@@ -2732,7 +2757,8 @@ export default function FieldBookingApp() {
                             const screenshotSrc = item.paymentScreenshot || item.paymentScreenshotUrl || item.screenshotDataUrl;
                             return (
                               <tr key={item.id} className="hover:bg-gray-50 align-top">
-                                <td className="p-3 font-medium break-words">{item.userName || '-'}</td>
+                                <td className="p-3 font-medium break-words">{getBookingCustomerName(item)}</td>
+                                <td className="p-3 text-xs font-mono whitespace-nowrap">{getBookingCustomerPhone(item)}</td>
                                 <td className="p-3 font-bold text-xs break-words">{item.subFieldName || '-'}</td>
                                 <td className="p-3 text-xs font-mono whitespace-nowrap">{item.date || '-'}</td>
                                 <td className="p-3 text-xs font-bold text-emerald-700 whitespace-nowrap">{displayTimeRange}</td>
@@ -2749,7 +2775,8 @@ export default function FieldBookingApp() {
                                           screenshotSrc,
                                           paymentMethod: item.paymentMethod,
                                           transactionLast5: item.transactionLast5,
-                                          userName: item.userName,
+                                          userName: getBookingCustomerName(item),
+                                          customerPhone: getBookingCustomerPhone(item),
                                           subFieldName: item.subFieldName,
                                           date: item.date,
                                           timeRange: displayTimeRange,
@@ -2797,7 +2824,7 @@ export default function FieldBookingApp() {
                           })
                       ) : (
                         <tr>
-                          <td colSpan="10" className="text-center py-8 text-gray-500 text-sm">Booking များ မရှိသေးပါ။</td>
+                          <td colSpan="11" className="text-center py-8 text-gray-500 text-sm">Booking များ မရှိသေးပါ။</td>
                         </tr>
                       )}
                     </tbody>
@@ -3023,7 +3050,32 @@ export default function FieldBookingApp() {
                           </div>
                         </div>
 
-                                                  <div>
+                        {currentUser.role !== 'owner' && (
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+                            <div>
+                              <label className="block text-xs font-bold text-gray-700 mb-1">ဖောက်သည်အမည် (Customer Name)</label>
+                              <input
+                                type="text"
+                                value={customerName}
+                                onChange={(e) => setCustomerName(e.target.value)}
+                                placeholder="ဥပမာ - ကိုအောင်အောင်"
+                                className="w-full border rounded-lg p-2.5 text-sm bg-white"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-xs font-bold text-gray-700 mb-1">ဖောက်သည် ဖုန်းနံပါတ် (Customer Phone)</label>
+                              <input
+                                type="tel"
+                                value={customerPhone}
+                                onChange={(e) => setCustomerPhone(e.target.value.replace(/[^0-9+ -]/g, ''))}
+                                placeholder="ဥပမာ - 09791234567"
+                                className="w-full border rounded-lg p-2.5 text-sm bg-white"
+                              />
+                            </div>
+                          </div>
+                        )}
+
+                        <div>
                             <label className="block text-xs font-bold text-gray-700 mb-1">ငွေပေးချေမည့်နည်းလမ်း</label>
                             <select 
                               value={selectedPaymentMethod} 
