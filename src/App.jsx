@@ -2230,21 +2230,21 @@ export default function FieldBookingApp() {
             {ownerActiveTab === 'history' && (
               <div>
                 <h3 className="text-base font-bold mb-4 text-gray-800">Booking မှတ်တမ်းများ (Owner Fields)</h3>
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left border-collapse">
+                <div className="overflow-x-auto rounded-lg">
+                  <table className="w-full min-w-[1280px] table-fixed text-left border-collapse">
                     <thead>
                       <tr className="bg-gray-100 text-xs border-b">
-                        <th className="p-3">ဖောက်သည်</th>
-                        <th className="p-3">ကွင်းခွဲ</th>
-                        <th className="p-3">ရက်စွဲ</th>
-                        <th className="p-3">စတင်အချိန်</th>
-                        <th className="p-3">အဆုံးအချိန်</th>
-                        <th className="p-3">အသုံးပြုချိန်</th>
-                        <th className="p-3">တင်ခဲ့သည့်အချိန်</th>
-                        <th className="p-3">သင့်ငွေ</th>
-                        <th className="p-3">ငွေပေးချေမှု</th>
-                        <th className="p-3">Status</th>
-                        <th className="p-3 text-center">လုပ်ဆောင်ချက်</th>
+                        <th className="p-3 min-w-[210px] align-top">ဖောက်သည်</th>
+                        <th className="p-3 min-w-[125px] align-top">ကွင်းခွဲ</th>
+                        <th className="p-3 min-w-[115px] align-top">ရက်စွဲ</th>
+                        <th className="p-3 min-w-[125px] align-top">စတင်အချိန်</th>
+                        <th className="p-3 min-w-[125px] align-top">အဆုံးအချိန်</th>
+                        <th className="p-3 min-w-[95px] align-top">အသုံးပြုချိန်</th>
+                        <th className="p-3 min-w-[155px] align-top">တင်ခဲ့သည့်အချိန်</th>
+                        <th className="p-3 min-w-[125px] align-top">သင့်ငွေ</th>
+                        <th className="p-3 min-w-[150px] align-top">ငွေပေးချေမှု</th>
+                        <th className="p-3 min-w-[105px] align-top">Status</th>
+                        <th className="p-3 min-w-[155px] text-center align-top">လုပ်ဆောင်ချက်</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y text-sm">
@@ -2252,41 +2252,44 @@ export default function FieldBookingApp() {
                         sortedBookings
                           .filter(b => ownerFieldIds.includes(b.fieldId))
                           .map(item => {
-                            const targetField = fields.find(f => f.id === item.fieldId);
+                            const timeRange = item.fullTimeSlot || item.timeSlot || '';
+                            const [startTime, endTime] = timeRange.split(/\s*-\s*/);
                             return (
-                              <tr key={item.id} className="hover:bg-gray-50">
-                                <td className="p-3 font-medium">{item.userName}</td>
-                                <td className="p-3 font-bold text-xs">{item.subFieldName}</td>
-                                <td className="p-3 text-xs">
-                                  <div>{item.date}</div>
-                                  <div className="text-emerald-600 font-bold">{item.fullTimeSlot || item.timeSlot}</div>
+                              <tr key={item.id} className="hover:bg-gray-50 align-top">
+                                <td className="p-3 font-medium break-words">{item.userName || '-'}</td>
+                                <td className="p-3 font-bold text-xs break-words">{item.subFieldName || '-'}</td>
+                                <td className="p-3 text-xs font-mono whitespace-nowrap">{item.date || '-'}</td>
+                                <td className="p-3 text-xs font-bold text-emerald-700 whitespace-nowrap">{startTime || '-'}</td>
+                                <td className="p-3 text-xs font-bold text-emerald-700 whitespace-nowrap">{endTime || '-'}</td>
+                                <td className="p-3 text-xs whitespace-nowrap"><span className="bg-blue-50 text-blue-600 font-bold px-2 py-0.5 rounded">{item.duration || '-'}</span></td>
+                                <td className="p-3 text-xs font-mono text-gray-500 whitespace-nowrap">{item.bookedAt || '-'}</td>
+                                <td className="p-3 text-xs font-bold text-emerald-700 whitespace-nowrap">{item.totalPrice?.toLocaleString() || '-'} ကျပ်</td>
+                                <td className="p-3 text-xs uppercase font-bold whitespace-nowrap">{item.paymentMethod || '-'}</td>
+                                <td className="p-3 font-bold text-xs whitespace-nowrap">
+                                  <span className={item.status === 'Approved' ? 'text-emerald-600' : item.status === 'Rejected' ? 'text-red-500' : 'text-amber-500'}>{item.status || '-'}</span>
                                 </td>
-                                <td className="p-3 text-xs"><span className="bg-blue-50 text-blue-600 font-bold px-2 py-0.5 rounded">{item.duration}</span></td>
-                                <td className="p-3 text-xs font-bold text-emerald-700">{item.totalPrice?.toLocaleString()} ကျပ်</td>
-                                <td className="p-3 text-xs uppercase font-bold">{item.paymentMethod}</td>
-                                <td className="p-3 font-bold text-xs">
-                                  <span className={item.status === 'Approved' ? 'text-emerald-600' : item.status === 'Rejected' ? 'text-red-500' : 'text-amber-500'}>{item.status}</span>
-                                </td>
-                                <td className="p-3 text-center space-x-1">
-                                  <button 
-                                    onClick={() => handleStatusChangeWithConfirm(item.id, item.status, 'Approved', item.fieldId)} 
-                                    className="bg-emerald-600 text-white px-2 py-1 rounded text-[10px] font-bold"
-                                  >
-                                    Approve
-                                  </button>
-                                  <button 
-                                    onClick={() => handleStatusChangeWithConfirm(item.id, item.status, 'Rejected', item.fieldId)} 
-                                    className="bg-red-500 text-white px-2 py-1 rounded text-[10px] font-bold"
-                                  >
-                                    Reject
-                                  </button>
+                                <td className="p-3 text-center align-top">
+                                  <div className="flex flex-col items-center gap-1">
+                                    <button
+                                      onClick={() => handleStatusChangeWithConfirm(item.id, item.status, 'Approved', item.fieldId)}
+                                      className="w-[64px] bg-emerald-600 text-white px-2 py-1 rounded text-[10px] font-bold"
+                                    >
+                                      Approve
+                                    </button>
+                                    <button
+                                      onClick={() => handleStatusChangeWithConfirm(item.id, item.status, 'Rejected', item.fieldId)}
+                                      className="w-[64px] bg-red-500 text-white px-2 py-1 rounded text-[10px] font-bold"
+                                    >
+                                      Reject
+                                    </button>
+                                  </div>
                                 </td>
                               </tr>
                             );
                           })
                       ) : (
                         <tr>
-                          <td colSpan="8" className="text-center py-8 text-gray-500 text-sm">Booking များ မရှိသေးပါ။</td>
+                          <td colSpan="11" className="text-center py-8 text-gray-500 text-sm">Booking များ မရှိသေးပါ။</td>
                         </tr>
                       )}
                     </tbody>
@@ -2719,19 +2722,19 @@ export default function FieldBookingApp() {
                   <button onClick={() => setActiveTab('fields')} className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-bold">← ကွင်းများသို့ ပြန်ရန်</button>
                 </div>
 
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left border-collapse">
+                <div className="overflow-x-auto rounded-lg">
+                  <table className="w-full min-w-[1100px] table-fixed text-left border-collapse">
                     <thead>
                       <tr className="bg-gray-100 text-xs border-b">
-                        <th className="p-3">ကွင်း / ကွင်းခွဲ</th>
-                        <th className="p-3">ရက်စွဲ</th>
-                        <th className="p-3">စတင်အချိန်</th>
-                        <th className="p-3">အဆုံးအချိန်</th>
-                        <th className="p-3">အသုံးပြုချိန်</th>
-                        <th className="p-3">တင်ခဲ့သည့်အချိန်</th>
-                        <th className="p-3">သင့်ငွေ</th>
-                        <th className="p-3">ငွေပေးချေမှု / Txn</th>
-                        <th className="p-3">Status</th>
+                        <th className="p-3 min-w-[190px] align-top">ကွင်း / ကွင်းခွဲ</th>
+                        <th className="p-3 min-w-[115px] align-top">ရက်စွဲ</th>
+                        <th className="p-3 min-w-[125px] align-top">စတင်အချိန်</th>
+                        <th className="p-3 min-w-[125px] align-top">အဆုံးအချိန်</th>
+                        <th className="p-3 min-w-[95px] align-top">အသုံးပြုချိန်</th>
+                        <th className="p-3 min-w-[155px] align-top">တင်ခဲ့သည့်အချိန်</th>
+                        <th className="p-3 min-w-[125px] align-top">သင့်ငွေ</th>
+                        <th className="p-3 min-w-[160px] align-top">ငွေပေးချေမှု / Txn</th>
+                        <th className="p-3 min-w-[105px] align-top">Status</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y text-sm">
@@ -2740,32 +2743,33 @@ export default function FieldBookingApp() {
                           .filter(b => b.userEmail === currentUser.email)
                           .map(item => {
                             const targetField = fields.find(f => f.id === item.fieldId);
+                            const timeRange = item.fullTimeSlot || item.timeSlot || '';
+                            const [startTime, endTime] = timeRange.split(/\s*-\s*/);
                             return (
-                              <tr key={item.id} className="hover:bg-gray-50">
+                              <tr key={item.id} className="hover:bg-gray-50 align-top">
                                 <td className="p-3">
-                                  <div className="font-bold text-gray-800">{targetField?.name || 'Unknown'}</div>
-                                  <div className="text-xs text-gray-500">{item.subFieldName}</div>
+                                  <div className="font-bold text-gray-800 break-words">{targetField?.name || 'Unknown'}</div>
+                                  <div className="text-xs text-gray-500 break-words">{item.subFieldName || '-'}</div>
                                 </td>
-                                <td className="p-3 text-xs font-mono text-gray-500">{item.bookedAt || '-'}</td>
-                                <td className="p-3 text-xs">
-                                  <div className="font-bold">{item.date}</div>
-                                  <div className="text-emerald-600 font-bold">{item.fullTimeSlot || item.timeSlot}</div>
+                                <td className="p-3 text-xs font-mono text-gray-500 whitespace-nowrap">{item.date || '-'}</td>
+                                <td className="p-3 text-xs font-bold text-emerald-700 whitespace-nowrap">{startTime || '-'}</td>
+                                <td className="p-3 text-xs font-bold text-emerald-700 whitespace-nowrap">{endTime || '-'}</td>
+                                <td className="p-3 text-xs whitespace-nowrap"><span className="bg-blue-50 text-blue-600 font-bold px-2 py-0.5 rounded">{item.duration || '-'}</span></td>
+                                <td className="p-3 text-xs font-mono text-gray-500 whitespace-nowrap">{item.bookedAt || '-'}</td>
+                                <td className="p-3 text-xs font-bold text-emerald-700 whitespace-nowrap">{item.totalPrice?.toLocaleString() || '-'} ကျပ်</td>
+                                <td className="p-3 text-xs whitespace-nowrap">
+                                  <div className="uppercase font-bold">{item.paymentMethod || '-'}</div>
+                                  <div className="font-mono text-gray-600">Txn: {item.transactionLast5 || '-'}</div>
                                 </td>
-                                <td className="p-3 text-xs"><span className="bg-blue-50 text-blue-600 font-bold px-2 py-0.5 rounded">{item.duration}</span></td>
-                                <td className="p-3 text-xs font-bold text-emerald-700">{item.totalPrice?.toLocaleString()} ကျပ်</td>
-                                <td className="p-3 text-xs">
-                                  <div className="uppercase font-bold">{item.paymentMethod}</div>
-                                  <div className="font-mono text-gray-600">Txn: {item.transactionLast5}</div>
-                                </td>
-                                <td className="p-3 font-bold text-xs">
-                                  <span className={item.status === 'Approved' ? 'text-emerald-600' : item.status === 'Rejected' ? 'text-red-500' : 'text-amber-500'}>{item.status}</span>
+                                <td className="p-3 font-bold text-xs whitespace-nowrap">
+                                  <span className={item.status === 'Approved' ? 'text-emerald-600' : item.status === 'Rejected' ? 'text-red-500' : 'text-amber-500'}>{item.status || '-'}</span>
                                 </td>
                               </tr>
                             );
                           })
                       ) : (
                         <tr>
-                          <td colSpan="7" className="text-center py-8 text-gray-500 text-sm">သင်၏ Booking မှတ်တမ်းများ မရှိသေးပါ။</td>
+                          <td colSpan="9" className="text-center py-8 text-gray-500 text-sm">သင်၏ Booking မှတ်တမ်းများ မရှိသေးပါ။</td>
                         </tr>
                       )}
                     </tbody>
