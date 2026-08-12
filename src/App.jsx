@@ -2231,14 +2231,13 @@ export default function FieldBookingApp() {
               <div>
                 <h3 className="text-base font-bold mb-4 text-gray-800">Booking မှတ်တမ်းများ (Owner Fields)</h3>
                 <div className="overflow-x-auto rounded-lg">
-                  <table className="w-full min-w-[1280px] table-fixed text-left border-collapse">
+                  <table className="w-full min-w-[1150px] table-fixed text-left border-collapse">
                     <thead>
                       <tr className="bg-gray-100 text-xs border-b">
                         <th className="p-3 min-w-[210px] align-top">ဖောက်သည်</th>
                         <th className="p-3 min-w-[125px] align-top">ကွင်းခွဲ</th>
                         <th className="p-3 min-w-[115px] align-top">ရက်စွဲ</th>
-                        <th className="p-3 min-w-[125px] align-top">စတင်အချိန်</th>
-                        <th className="p-3 min-w-[125px] align-top">အဆုံးအချိန်</th>
+                        <th className="p-3 min-w-[230px] align-top">စတင်ချိန် / အဆုံးချိန်</th>
                         <th className="p-3 min-w-[95px] align-top">အသုံးပြုချိန်</th>
                         <th className="p-3 min-w-[155px] align-top">တင်ခဲ့သည့်အချိန်</th>
                         <th className="p-3 min-w-[125px] align-top">သင့်ငွေ</th>
@@ -2254,13 +2253,13 @@ export default function FieldBookingApp() {
                           .map(item => {
                             const timeRange = item.fullTimeSlot || item.timeSlot || '';
                             const [startTime, endTime] = timeRange.split(/\s*-\s*/);
+                            const displayTimeRange = startTime && endTime ? `${startTime} - ${endTime}` : timeRange || '-';
                             return (
                               <tr key={item.id} className="hover:bg-gray-50 align-top">
                                 <td className="p-3 font-medium break-words">{item.userName || '-'}</td>
                                 <td className="p-3 font-bold text-xs break-words">{item.subFieldName || '-'}</td>
                                 <td className="p-3 text-xs font-mono whitespace-nowrap">{item.date || '-'}</td>
-                                <td className="p-3 text-xs font-bold text-emerald-700 whitespace-nowrap">{startTime || '-'}</td>
-                                <td className="p-3 text-xs font-bold text-emerald-700 whitespace-nowrap">{endTime || '-'}</td>
+                                <td className="p-3 text-xs font-bold text-emerald-700 whitespace-nowrap">{displayTimeRange}</td>
                                 <td className="p-3 text-xs whitespace-nowrap"><span className="bg-blue-50 text-blue-600 font-bold px-2 py-0.5 rounded">{item.duration || '-'}</span></td>
                                 <td className="p-3 text-xs font-mono text-gray-500 whitespace-nowrap">{item.bookedAt || '-'}</td>
                                 <td className="p-3 text-xs font-bold text-emerald-700 whitespace-nowrap">{item.totalPrice?.toLocaleString() || '-'} ကျပ်</td>
@@ -2289,7 +2288,7 @@ export default function FieldBookingApp() {
                           })
                       ) : (
                         <tr>
-                          <td colSpan="11" className="text-center py-8 text-gray-500 text-sm">Booking များ မရှိသေးပါ။</td>
+                          <td colSpan="10" className="text-center py-8 text-gray-500 text-sm">Booking များ မရှိသေးပါ။</td>
                         </tr>
                       )}
                     </tbody>
@@ -2723,13 +2722,12 @@ export default function FieldBookingApp() {
                 </div>
 
                 <div className="overflow-x-auto rounded-lg">
-                  <table className="w-full min-w-[1100px] table-fixed text-left border-collapse">
+                  <table className="w-full min-w-[1000px] table-fixed text-left border-collapse">
                     <thead>
                       <tr className="bg-gray-100 text-xs border-b">
                         <th className="p-3 min-w-[190px] align-top">ကွင်း / ကွင်းခွဲ</th>
                         <th className="p-3 min-w-[115px] align-top">ရက်စွဲ</th>
-                        <th className="p-3 min-w-[125px] align-top">စတင်အချိန်</th>
-                        <th className="p-3 min-w-[125px] align-top">အဆုံးအချိန်</th>
+                        <th className="p-3 min-w-[230px] align-top">စတင်ချိန် / အဆုံးချိန်</th>
                         <th className="p-3 min-w-[95px] align-top">အသုံးပြုချိန်</th>
                         <th className="p-3 min-w-[155px] align-top">တင်ခဲ့သည့်အချိန်</th>
                         <th className="p-3 min-w-[125px] align-top">သင့်ငွေ</th>
@@ -2745,6 +2743,7 @@ export default function FieldBookingApp() {
                             const targetField = fields.find(f => f.id === item.fieldId);
                             const timeRange = item.fullTimeSlot || item.timeSlot || '';
                             const [startTime, endTime] = timeRange.split(/\s*-\s*/);
+                            const displayTimeRange = startTime && endTime ? `${startTime} - ${endTime}` : timeRange || '-';
                             return (
                               <tr key={item.id} className="hover:bg-gray-50 align-top">
                                 <td className="p-3">
@@ -2752,8 +2751,7 @@ export default function FieldBookingApp() {
                                   <div className="text-xs text-gray-500 break-words">{item.subFieldName || '-'}</div>
                                 </td>
                                 <td className="p-3 text-xs font-mono text-gray-500 whitespace-nowrap">{item.date || '-'}</td>
-                                <td className="p-3 text-xs font-bold text-emerald-700 whitespace-nowrap">{startTime || '-'}</td>
-                                <td className="p-3 text-xs font-bold text-emerald-700 whitespace-nowrap">{endTime || '-'}</td>
+                                <td className="p-3 text-xs font-bold text-emerald-700 whitespace-nowrap">{displayTimeRange}</td>
                                 <td className="p-3 text-xs whitespace-nowrap"><span className="bg-blue-50 text-blue-600 font-bold px-2 py-0.5 rounded">{item.duration || '-'}</span></td>
                                 <td className="p-3 text-xs font-mono text-gray-500 whitespace-nowrap">{item.bookedAt || '-'}</td>
                                 <td className="p-3 text-xs font-bold text-emerald-700 whitespace-nowrap">{item.totalPrice?.toLocaleString() || '-'} ကျပ်</td>
@@ -2769,7 +2767,7 @@ export default function FieldBookingApp() {
                           })
                       ) : (
                         <tr>
-                          <td colSpan="9" className="text-center py-8 text-gray-500 text-sm">သင်၏ Booking မှတ်တမ်းများ မရှိသေးပါ။</td>
+                          <td colSpan="8" className="text-center py-8 text-gray-500 text-sm">သင်၏ Booking မှတ်တမ်းများ မရှိသေးပါ။</td>
                         </tr>
                       )}
                     </tbody>
