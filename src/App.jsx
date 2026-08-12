@@ -211,6 +211,16 @@ export default function FieldBookingApp() {
   // Owner Notification Field Filter
   const [ownerNotiFieldId, setOwnerNotiFieldId] = useState('all');
 
+  // Date filters for the Admin overall report and the Owner-owned-fields report.
+  const [adminReportDate, setAdminReportDate] = useState(() => {
+    const today = new Date();
+    return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+  });
+  const [ownerReportDate, setOwnerReportDate] = useState(() => {
+    const today = new Date();
+    return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+  });
+
   const [activeTab, setActiveTab] = useState(() => {
     return sessionStorage.getItem('activeTab') || 'fields';
   }); 
@@ -1182,6 +1192,84 @@ export default function FieldBookingApp() {
       : String(b.id || '').localeCompare(String(a.id || ''));
   });
 
+  const getBookingStatusKey = (booking) => String(booking?.status || 'Pending').trim().toLowerCase();
+  const getBookingDurationHours = (booking) => {
+    const start = Number(booking?.startHour);
+    const end = Number(booking?.endHour);
+    if (Number.isFinite(start) && Number.isFinite(end) && end > start) return end - start;
+    const durationMatch = String(booking?.duration || '').match(/[0-9]+(?:\.[0-9]+)?/);
+    const duration = durationMatch ? Number(durationMatch[0]) : 0;
+    return Number.isFinite(duration) ? duration : 0;
+  };
+  const getBookingFieldLabel = (booking) => {
+    const field = fields.find(f => f.id === booking?.fieldId);
+    const parentName = field?.name || booking?.fieldName || 'ကွင်းမသတ်မှတ်ရသေးပါ';
+    const subFieldName = booking?.subFieldName || 'ကွင်းခွဲမသတ်မှတ်ရသေးပါ';
+    return `${parentName} / ${subFieldName}`;
+  };
+  const getBookingRevenue = (booking) => {
+    const storedAmount = Number(booking?.totalPrice);
+    if (Number.isFinite(storedAmount)) return storedAmount;
+    const field = fields.find(f => f.id === booking?.fieldId);
+    const subField = field?.subFields?.find(sf => sf.id === booking?.subFieldId);
+    const hourlyPrice = Number(subField?.price);
+    return Number.isFinite(hourlyPrice) ? hourlyPrice * getBookingDurationHours(booking) : 0;
+  };
+  const createReportData = (reportBookings) => {
+    const statusCounts = reportBookings.reduce((counts, booking) => {
+      const key = getBookingStatusKey(booking);
+      if (key === 'approved') counts.approved += 1;
+      else if (key === 'rejected') counts.rejected += 1;
+      else counts.pending += 1;
+      return counts;
+    }, { pending: 0, approved: 0, rejected: 0 });
+
+    const approvedBookings = reportBookings.filter(booking => getBookingStatusKey(booking) === 'approved');
+    const approvedHours = approvedBookings.reduce((sum, booking) => sum + getBookingDurationHours(booking), 0);
+    const revenue = approvedBookings.reduce((sum, booking) => {
+      return sum + getBookingRevenue(booking);
+    }, 0);
+
+    const fieldMap = new Map();
+    reportBookings.forEach(booking => {
+      const key = `${booking?.fieldId || 'unknown'}|${booking?.subFieldId || booking?.subFieldName || 'unknown'}`;
+      const statusKey = getBookingStatusKey(booking);
+      const existing = fieldMap.get(key) || {
+        key,
+        label: getBookingFieldLabel(booking),
+        pending: 0,
+        approved: 0,
+        rejected: 0,
+        approvedHours: 0,
+        revenue: 0
+      };
+      if (statusKey === 'approved') {
+        existing.approved += 1;
+        existing.approvedHours += getBookingDurationHours(booking);
+        existing.revenue += getBookingRevenue(booking);
+      } else if (statusKey === 'rejected') {
+        existing.rejected += 1;
+      } else {
+        existing.pending += 1;
+      }
+      fieldMap.set(key, existing);
+    });
+
+    return {
+      total: reportBookings.length,
+      statusCounts,
+      approvedHours,
+      revenue,
+      fieldBreakdown: [...fieldMap.values()].sort((a, b) => a.label.localeCompare(b.label))
+    };
+  };
+
+  const adminReportBookings = sortedBookings.filter(booking => booking.date === adminReportDate);
+  const ownerReportFieldIds = new Set(fields.filter(field => field.ownerEmail === currentUser?.email).map(field => field.id));
+  const ownerReportBookings = sortedBookings.filter(booking => booking.date === ownerReportDate && ownerReportFieldIds.has(booking.fieldId));
+  const adminReport = createReportData(adminReportBookings);
+  const ownerReport = createReportData(ownerReportBookings);
+
   if (!currentUser) {
     return (
       <div className="min-h-screen bg-gray-100 flex items-center justify-center p-4 font-sans">
@@ -1454,6 +1542,9 @@ export default function FieldBookingApp() {
               <button onClick={() => setAdminTab('manage_fields')} className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${adminTab === 'manage_fields' ? 'bg-emerald-600 text-white shadow' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}>
                 Manage Fields & Add Field
               </button>
+              <button onClick={() => setAdminTab('report')} className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${adminTab === 'report' ? 'bg-emerald-600 text-white shadow' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}>
+                📊 Booking Report
+              </button>
               <button onClick={() => setAdminTab('manage_owners')} className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${adminTab === 'manage_owners' ? 'bg-emerald-600 text-white shadow' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}>
                 🔑 Manage Owners & Passwords
               </button>
@@ -1473,13 +1564,14 @@ export default function FieldBookingApp() {
               >
                 <span>☰ Admin Menu</span>
                 <span className="max-w-[62%] truncate text-right text-[11px] font-semibold">
-                  {adminTab === 'pending' ? `Bookings အားလုံး (${sortedBookings.length})` : adminTab === 'manage_fields' ? 'Manage Fields & Add Field' : adminTab === 'manage_owners' ? 'Manage Owners & Passwords' : adminTab === 'notifications_page' ? 'Notifications & Filter Page' : 'ကိုယ်ပိုင် Password ပြောင်းရန်'}
+                  {adminTab === 'pending' ? `Bookings အားလုံး (${sortedBookings.length})` : adminTab === 'manage_fields' ? 'Manage Fields & Add Field' : adminTab === 'report' ? '📊 Booking Report' : adminTab === 'manage_owners' ? 'Manage Owners & Passwords' : adminTab === 'notifications_page' ? 'Notifications & Filter Page' : 'ကိုယ်ပိုင် Password ပြောင်းရန်'}
                 </span>
               </button>
               {adminMobileMenuOpen && (
                 <div className="mt-2 grid gap-2 rounded-xl border border-emerald-100 bg-emerald-50 p-2">
                   <button type="button" onClick={() => { setAdminTab('pending'); setAdminMobileMenuOpen(false); }} className={`w-full rounded-lg px-3 py-2.5 text-left text-xs font-bold ${adminTab === 'pending' ? 'bg-emerald-600 text-white' : 'bg-white text-gray-700'}`}>Bookings အားလုံး ({sortedBookings.length})</button>
                   <button type="button" onClick={() => { setAdminTab('manage_fields'); setAdminMobileMenuOpen(false); }} className={`w-full rounded-lg px-3 py-2.5 text-left text-xs font-bold ${adminTab === 'manage_fields' ? 'bg-emerald-600 text-white' : 'bg-white text-gray-700'}`}>Manage Fields & Add Field</button>
+                  <button type="button" onClick={() => { setAdminTab('report'); setAdminMobileMenuOpen(false); }} className={`w-full rounded-lg px-3 py-2.5 text-left text-xs font-bold ${adminTab === 'report' ? 'bg-emerald-600 text-white' : 'bg-white text-gray-700'}`}>📊 Booking Report</button>
                   <button type="button" onClick={() => { setAdminTab('manage_owners'); setAdminMobileMenuOpen(false); }} className={`w-full rounded-lg px-3 py-2.5 text-left text-xs font-bold ${adminTab === 'manage_owners' ? 'bg-emerald-600 text-white' : 'bg-white text-gray-700'}`}>🔑 Manage Owners & Passwords</button>
                   <button type="button" onClick={() => { setAdminTab('notifications_page'); setAdminMobileMenuOpen(false); }} className={`w-full rounded-lg px-3 py-2.5 text-left text-xs font-bold ${adminTab === 'notifications_page' ? 'bg-emerald-600 text-white' : 'bg-white text-gray-700'}`}>🔔 Notifications & Filter Page</button>
                   <button type="button" onClick={() => { setAdminTab('change_password'); setAdminMobileMenuOpen(false); }} className={`w-full rounded-lg px-3 py-2.5 text-left text-xs font-bold ${adminTab === 'change_password' ? 'bg-emerald-600 text-white' : 'bg-white text-gray-700'}`}>🔒 ကိုယ်ပိုင် Password ပြောင်းရန်</button>
@@ -1504,6 +1596,54 @@ export default function FieldBookingApp() {
                   </div>
                   <button type="submit" className="bg-emerald-600 text-white px-4 py-2.5 rounded-lg text-xs font-bold shadow hover:bg-emerald-700">Password ပြောင်းမည်</button>
                 </form>
+              </div>
+            )}
+
+            {adminTab === 'report' && (
+              <div className="space-y-5">
+                <div className="flex flex-col gap-4 rounded-2xl border bg-gray-50 p-4 sm:flex-row sm:items-end sm:justify-between">
+                  <div>
+                    <h3 className="text-base font-extrabold text-gray-800">📊 Admin Booking Report</h3>
+                    <p className="mt-1 text-xs text-gray-500">ရက်စွဲတစ်ရက်ရွေးပြီး Booking အားလုံး၏ Overall ကိုကြည့်ပါ။</p>
+                  </div>
+                  <div className="flex flex-wrap items-end gap-2">
+                    <label className="text-xs font-bold text-gray-700">
+                      Date
+                      <input type="date" value={adminReportDate} onChange={(e) => setAdminReportDate(e.target.value)} className="mt-1 block rounded-lg border bg-white p-2 text-xs font-bold" />
+                    </label>
+                    <button type="button" onClick={() => setAdminReportDate(new Date().toISOString().slice(0, 10))} className="rounded-lg bg-blue-600 px-3 py-2 text-xs font-bold text-white hover:bg-blue-700">ယနေ့</button>
+                  </div>
+                </div>
+
+                <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
+                  နာရီစုစုပေါင်းနှင့် ဝင်ငွေကို <strong>Approved Booking</strong> များအတွက်သာတွက်ထားပါသည်။ Pending များကို ဝင်ငွေထဲမထည့်သေးပါ။
+                </div>
+
+                <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+                  <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4"><p className="text-[11px] font-bold text-amber-700">Pending</p><p className="mt-1 text-2xl font-extrabold text-amber-800">{adminReport.statusCounts.pending}</p></div>
+                  <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4"><p className="text-[11px] font-bold text-emerald-700">Approved</p><p className="mt-1 text-2xl font-extrabold text-emerald-800">{adminReport.statusCounts.approved}</p></div>
+                  <div className="rounded-2xl border border-red-200 bg-red-50 p-4"><p className="text-[11px] font-bold text-red-700">Rejected</p><p className="mt-1 text-2xl font-extrabold text-red-800">{adminReport.statusCounts.rejected}</p></div>
+                  <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4"><p className="text-[11px] font-bold text-slate-600">Total Bookings</p><p className="mt-1 text-2xl font-extrabold text-slate-800">{adminReport.total}</p></div>
+                </div>
+
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div className="rounded-2xl border border-blue-200 bg-blue-50 p-4"><p className="text-xs font-bold text-blue-700">Approved ငှားရမ်းနာရီ</p><p className="mt-1 text-2xl font-extrabold text-blue-900">{adminReport.approvedHours.toLocaleString()} နာရီ</p></div>
+                  <div className="rounded-2xl border border-violet-200 bg-violet-50 p-4"><p className="text-xs font-bold text-violet-700">Approved ဝင်ငွေ</p><p className="mt-1 text-2xl font-extrabold text-violet-900">{adminReport.revenue.toLocaleString()} ကျပ်</p></div>
+                </div>
+
+                <div className="rounded-2xl border bg-white">
+                  <div className="border-b bg-gray-50 p-4"><h4 className="text-sm font-extrabold text-gray-800">ကွင်း / ကွင်းခွဲအလိုက် Overall</h4><p className="mt-1 text-xs text-gray-500">{adminReportDate} တွင် ပါဝင်သော Booking များ</p></div>
+                  {adminReport.fieldBreakdown.length > 0 ? (
+                    <div className="overflow-x-auto">
+                      <table className="min-w-[720px] w-full text-left text-xs">
+                        <thead className="bg-gray-100 text-gray-700"><tr><th className="p-3">ကွင်း / ကွင်းခွဲ</th><th className="p-3 text-center">Pending</th><th className="p-3 text-center">Approved</th><th className="p-3 text-center">Rejected</th><th className="p-3 text-right">နာရီ</th><th className="p-3 text-right">ဝင်ငွေ</th></tr></thead>
+                        <tbody>{adminReport.fieldBreakdown.map(row => <tr key={row.key} className="border-t"><td className="p-3 font-bold text-gray-800">{row.label}</td><td className="p-3 text-center font-bold text-amber-700">{row.pending}</td><td className="p-3 text-center font-bold text-emerald-700">{row.approved}</td><td className="p-3 text-center font-bold text-red-600">{row.rejected}</td><td className="p-3 text-right font-bold text-blue-700">{row.approvedHours.toLocaleString()}</td><td className="p-3 text-right font-bold text-violet-700">{row.revenue.toLocaleString()} ကျပ်</td></tr>)}</tbody>
+                      </table>
+                    </div>
+                  ) : (
+                    <p className="p-8 text-center text-sm text-gray-500">ရွေးထားသောရက်တွင် Booking မရှိသေးပါ။</p>
+                  )}
+                </div>
               </div>
             )}
 
@@ -2005,6 +2145,9 @@ export default function FieldBookingApp() {
               <button onClick={() => setOwnerActiveTab('history')} className={`px-4 py-2 rounded-lg text-xs font-bold ${ownerActiveTab === 'history' ? 'bg-emerald-600 text-white' : 'bg-gray-100 text-gray-700'}`}>
                 Booking မှတ်တမ်းများ
               </button>
+              <button onClick={() => setOwnerActiveTab('report')} className={`px-4 py-2 rounded-lg text-xs font-bold ${ownerActiveTab === 'report' ? 'bg-emerald-600 text-white' : 'bg-gray-100 text-gray-700'}`}>
+                📊 My Fields Report
+              </button>
               <button onClick={() => setOwnerActiveTab('notifications_page')} className={`px-4 py-2 rounded-lg text-xs font-bold ${ownerActiveTab === 'notifications_page' ? 'bg-emerald-600 text-white' : 'bg-gray-100 text-gray-700'}`}>
                 🔔 Notifications Page (Pending/New/Reject)
               </button>
@@ -2024,19 +2167,68 @@ export default function FieldBookingApp() {
               >
                 <span>☰ Owner Menu</span>
                 <span className="max-w-[62%] truncate text-right text-[11px] font-semibold">
-                  {ownerActiveTab === 'pending' ? 'Booking တင်ရန် (Direct Booking)' : ownerActiveTab === 'history' ? 'Booking မှတ်တမ်းများ' : ownerActiveTab === 'notifications_page' ? 'Notifications Page' : ownerActiveTab === 'password' ? 'Password ချိန်းရန်' : 'ကွင်းအချိန်နှင့် KPay/Wave ပြင်ရန်'}
+                  {ownerActiveTab === 'pending' ? 'Booking တင်ရန် (Direct Booking)' : ownerActiveTab === 'history' ? 'Booking မှတ်တမ်းများ' : ownerActiveTab === 'report' ? '📊 My Fields Report' : ownerActiveTab === 'notifications_page' ? 'Notifications Page' : ownerActiveTab === 'password' ? 'Password ချိန်းရန်' : 'ကွင်းအချိန်နှင့် KPay/Wave ပြင်ရန်'}
                 </span>
               </button>
               {ownerMobileMenuOpen && (
                 <div className="mt-2 grid gap-2 rounded-xl border border-emerald-100 bg-emerald-50 p-2">
                   <button type="button" onClick={() => { setOwnerActiveTab('pending'); setOwnerMobileMenuOpen(false); }} className={`w-full rounded-lg px-3 py-2.5 text-left text-xs font-bold ${ownerActiveTab === 'pending' ? 'bg-emerald-600 text-white' : 'bg-white text-gray-700'}`}>Booking တင်ရန် (Direct Booking)</button>
                   <button type="button" onClick={() => { setOwnerActiveTab('history'); setOwnerMobileMenuOpen(false); }} className={`w-full rounded-lg px-3 py-2.5 text-left text-xs font-bold ${ownerActiveTab === 'history' ? 'bg-emerald-600 text-white' : 'bg-white text-gray-700'}`}>Booking မှတ်တမ်းများ</button>
+                  <button type="button" onClick={() => { setOwnerActiveTab('report'); setOwnerMobileMenuOpen(false); }} className={`w-full rounded-lg px-3 py-2.5 text-left text-xs font-bold ${ownerActiveTab === 'report' ? 'bg-emerald-600 text-white' : 'bg-white text-gray-700'}`}>📊 My Fields Report</button>
                   <button type="button" onClick={() => { setOwnerActiveTab('notifications_page'); setOwnerMobileMenuOpen(false); }} className={`w-full rounded-lg px-3 py-2.5 text-left text-xs font-bold ${ownerActiveTab === 'notifications_page' ? 'bg-emerald-600 text-white' : 'bg-white text-gray-700'}`}>🔔 Notifications Page (Pending/New/Reject)</button>
                   <button type="button" onClick={() => { setOwnerActiveTab('password'); setOwnerMobileMenuOpen(false); }} className={`w-full rounded-lg px-3 py-2.5 text-left text-xs font-bold ${ownerActiveTab === 'password' ? 'bg-emerald-600 text-white' : 'bg-white text-gray-700'}`}>🔒 Password ချိန်းရန်</button>
                   <button type="button" onClick={() => { setOwnerActiveTab('fields_edit'); setOwnerMobileMenuOpen(false); }} className={`w-full rounded-lg px-3 py-2.5 text-left text-xs font-bold ${ownerActiveTab === 'fields_edit' ? 'bg-emerald-600 text-white' : 'bg-white text-gray-700'}`}>🏟️ ကွင်းအချိန်များနှင့် KPay/Wave နံပါတ်များ ပြင်ဆင်ရန်</button>
                 </div>
               )}
             </div>
+
+            {ownerActiveTab === 'report' && (
+              <div className="space-y-5">
+                <div className="flex flex-col gap-4 rounded-2xl border bg-gray-50 p-4 sm:flex-row sm:items-end sm:justify-between">
+                  <div>
+                    <h3 className="text-base font-extrabold text-gray-800">📊 My Fields Booking Report</h3>
+                    <p className="mt-1 text-xs text-gray-500">ကိုယ့် Owner Account နဲ့သက်ဆိုင်တဲ့ ကွင်းများအတွက်သာ Report ပြပါမယ်။</p>
+                  </div>
+                  <div className="flex flex-wrap items-end gap-2">
+                    <label className="text-xs font-bold text-gray-700">
+                      Date
+                      <input type="date" value={ownerReportDate} onChange={(e) => setOwnerReportDate(e.target.value)} className="mt-1 block rounded-lg border bg-white p-2 text-xs font-bold" />
+                    </label>
+                    <button type="button" onClick={() => setOwnerReportDate(new Date().toISOString().slice(0, 10))} className="rounded-lg bg-blue-600 px-3 py-2 text-xs font-bold text-white hover:bg-blue-700">ယနေ့</button>
+                  </div>
+                </div>
+
+                <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
+                  နာရီစုစုပေါင်းနှင့် ဝင်ငွေကို <strong>Approved Booking</strong> များအတွက်သာတွက်ထားပါသည်။ Owner ပိုင်ကွင်းမဟုတ်သော Booking များကို မပြပါ။
+                </div>
+
+                <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+                  <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4"><p className="text-[11px] font-bold text-amber-700">Pending</p><p className="mt-1 text-2xl font-extrabold text-amber-800">{ownerReport.statusCounts.pending}</p></div>
+                  <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4"><p className="text-[11px] font-bold text-emerald-700">Approved</p><p className="mt-1 text-2xl font-extrabold text-emerald-800">{ownerReport.statusCounts.approved}</p></div>
+                  <div className="rounded-2xl border border-red-200 bg-red-50 p-4"><p className="text-[11px] font-bold text-red-700">Rejected</p><p className="mt-1 text-2xl font-extrabold text-red-800">{ownerReport.statusCounts.rejected}</p></div>
+                  <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4"><p className="text-[11px] font-bold text-slate-600">Total Bookings</p><p className="mt-1 text-2xl font-extrabold text-slate-800">{ownerReport.total}</p></div>
+                </div>
+
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div className="rounded-2xl border border-blue-200 bg-blue-50 p-4"><p className="text-xs font-bold text-blue-700">Approved ငှားရမ်းနာရီ</p><p className="mt-1 text-2xl font-extrabold text-blue-900">{ownerReport.approvedHours.toLocaleString()} နာရီ</p></div>
+                  <div className="rounded-2xl border border-violet-200 bg-violet-50 p-4"><p className="text-xs font-bold text-violet-700">Approved ဝင်ငွေ</p><p className="mt-1 text-2xl font-extrabold text-violet-900">{ownerReport.revenue.toLocaleString()} ကျပ်</p></div>
+                </div>
+
+                <div className="rounded-2xl border bg-white">
+                  <div className="border-b bg-gray-50 p-4"><h4 className="text-sm font-extrabold text-gray-800">ကိုယ့်ကွင်း / ကွင်းခွဲအလိုက် Overall</h4><p className="mt-1 text-xs text-gray-500">{ownerReportDate} တွင် ပါဝင်သော Owner Fields Booking များ</p></div>
+                  {ownerReport.fieldBreakdown.length > 0 ? (
+                    <div className="overflow-x-auto">
+                      <table className="min-w-[720px] w-full text-left text-xs">
+                        <thead className="bg-gray-100 text-gray-700"><tr><th className="p-3">ကွင်း / ကွင်းခွဲ</th><th className="p-3 text-center">Pending</th><th className="p-3 text-center">Approved</th><th className="p-3 text-center">Rejected</th><th className="p-3 text-right">နာရီ</th><th className="p-3 text-right">ဝင်ငွေ</th></tr></thead>
+                        <tbody>{ownerReport.fieldBreakdown.map(row => <tr key={row.key} className="border-t"><td className="p-3 font-bold text-gray-800">{row.label}</td><td className="p-3 text-center font-bold text-amber-700">{row.pending}</td><td className="p-3 text-center font-bold text-emerald-700">{row.approved}</td><td className="p-3 text-center font-bold text-red-600">{row.rejected}</td><td className="p-3 text-right font-bold text-blue-700">{row.approvedHours.toLocaleString()}</td><td className="p-3 text-right font-bold text-violet-700">{row.revenue.toLocaleString()} ကျပ်</td></tr>)}</tbody>
+                      </table>
+                    </div>
+                  ) : (
+                    <p className="p-8 text-center text-sm text-gray-500">ရွေးထားသောရက်တွင် ကိုယ့်ကွင်းများအတွက် Booking မရှိသေးပါ။</p>
+                  )}
+                </div>
+              </div>
+            )}
 
             {ownerActiveTab === 'notifications_page' && (
               <div className="space-y-4">
