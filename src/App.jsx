@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { db } from './firebase'; 
-import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, setDoc, runTransaction, onSnapshot } from 'firebase/firestore';
+import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, setDoc, runTransaction, onSnapshot, query, where } from 'firebase/firestore';
 
 const defaultUsers = [
   { email: 'admin@gmail.com', password: 'admin123', name: 'System Admin', role: 'admin' }
@@ -221,11 +221,46 @@ export default function FieldBookingApp() {
     });
 
     const unsubBookings = onSnapshot(collection(db, "bookings"), (snapshot) => {
-      setBookings(snapshot.docs.map(d => ({ id: d.id, ...d.data() })));
+      const rawBookings = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+      // Hide legacy duplicate booking documents in the UI. New bookings are also
+      // protected transactionally below, so duplicate history cannot be created.
+      const seen = new Set();
+      const uniqueBookings = rawBookings.filter(b => {
+        const key = [
+          b.fieldId || '',
+          b.subFieldId || '',
+          b.date || '',
+          Number(b.startHour),
+          Number(b.endHour),
+          b.userEmail || '',
+          b.bookedBy || ''
+        ].join('|');
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+      setBookings(uniqueBookings);
     });
 
     const unsubNoti = onSnapshot(collection(db, "notifications"), (snapshot) => {
-      setSmsNotifications(snapshot.docs.map(d => ({ id: d.id, ...d.data() })));
+      const rawNotis = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+      // Hide exact legacy duplicate notifications in the UI.
+      const seen = new Set();
+      const uniqueNotis = rawNotis.filter(n => {
+        const key = [
+          n.bookingId || '',
+          n.type || '',
+          n.subType || '',
+          n.fieldId || '',
+          n.date || '',
+          n.time || '',
+          n.message || ''
+        ].join('|');
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+      setSmsNotifications(uniqueNotis);
     });
 
     return () => {
@@ -254,7 +289,7 @@ export default function FieldBookingApp() {
     }
   }, [fields]);
 
-  const triggerSmsNotification = async (message, type = 'general', subType = '', fieldId = '') => {
+  const triggerSmsNotification = async (message, type = 'general', subType = '', fieldId = '', bookingId = '') => {
     const now = new Date();
     const yyyy = now.getFullYear();
     const mm = String(now.getMonth() + 1).padStart(2, '0');
@@ -266,13 +301,26 @@ export default function FieldBookingApp() {
       type: type, 
       subType: subType, 
       fieldId: fieldId,
+      ...(bookingId ? { bookingId } : {}),
       time: now.toLocaleTimeString(),
       date: currentDateStr,
       read: false
     };
     try {
-      const docRef = await addDoc(collection(db, "notifications"), newNoti);
-      setSmsNotifications(prev => [{ id: docRef.id, ...newNoti }, ...prev]);
+      // A booking can only create ONE notification for the same notification type.
+      // Using a deterministic document ID makes the operation idempotent, so
+      // double-clicks/rerenders cannot create duplicate notification documents.
+      const notificationDocId = bookingId
+        ? `booking_${bookingId}_${subType || type || 'general'}`
+        : null;
+
+      if (notificationDocId) {
+        await setDoc(doc(db, "notifications", notificationDocId), newNoti, { merge: false });
+      } else {
+        await addDoc(collection(db, "notifications"), newNoti);
+      }
+      // Do not manually update local state here. onSnapshot is the single source
+      // of truth and prevents the local-state + Firestore listener double-render.
     } catch (e) {
       console.error("Error adding notification: ", e);
     }
@@ -547,44 +595,49 @@ export default function FieldBookingApp() {
 
     try {
       const result = await runTransaction(db, async (transaction) => {
-        const bookingsRef = collection(db, "bookings");
-        const bookingsSnap = await getDocs(bookingsRef);
+        // Read bookings through the transaction so two users cannot both pass the
+        // availability check at the same time.
+        // Query only by fieldId (single-field index is enough), then filter
+        // sub-field/date inside the transaction to avoid requiring a composite index.
+        const bookingsQuery = query(
+          collection(db, "bookings"),
+          where("fieldId", "==", userSelectedField.id)
+        );
+        const bookingsSnap = await transaction.get(bookingsQuery);
         const existingBookings = bookingsSnap.docs.map(d => ({
           id: d.id,
           ...d.data()
         }));
 
         const conflictingBooking = existingBookings.find(b => {
-          if (
-            b.fieldId !== userSelectedField.id ||
-            b.subFieldId !== selectedSubField.id ||
-            b.date !== userCheckDate
-          ) {
-            return false;
-          }
-
-          if (b.status !== 'Pending' && b.status !== 'Approved') {
-            return false;
-          }
+          if (b.subFieldId !== selectedSubField.id || b.date !== userCheckDate) return false;
+          if (b.status !== 'Pending' && b.status !== 'Approved') return false;
 
           const existingStart = Number(b.startHour);
           const existingEnd = Number(b.endHour);
+          if (Number.isNaN(existingStart) || Number.isNaN(existingEnd)) return false;
 
-          if (Number.isNaN(existingStart) || Number.isNaN(existingEnd)) {
-            return false;
-          }
-
-          return (
-            startH < existingEnd &&
-            endH > existingStart
-          );
+          return startH < existingEnd && endH > existingStart;
         });
 
         if (conflictingBooking) {
           throw new Error('SLOT_ALREADY_BOOKED');
         }
 
-        const newBookingRef = doc(collection(db, "bookings"));
+        // Deterministic ID prevents the same exact booking from being created twice.
+        const bookingKey = [
+          userSelectedField.id,
+          selectedSubField.id,
+          userCheckDate,
+          startH,
+          endH
+        ].join('_').replace(/[^A-Za-z0-9_-]/g, '-');
+        const newBookingRef = doc(db, "bookings", `booking_${bookingKey}`);
+
+        const existingExactSnap = await transaction.get(newBookingRef);
+        if (existingExactSnap.exists()) {
+          throw new Error('SLOT_ALREADY_BOOKED');
+        }
 
         const newBookingObj = {
           fieldId: userSelectedField.id,
@@ -622,7 +675,8 @@ export default function FieldBookingApp() {
           `🔔 [Direct Booking] Owner မှ ${targetFieldObj?.name} (${selectedSubField.name}) အတွက် Direct Booking တင်ပြီးပါပြီ။`,
           'booking',
           'new_booking',
-          userSelectedField.id
+          userSelectedField.id,
+          result.id
         );
         alert('Owner ၏ Manual Booking တင်ခြင်း အောင်မြင်ပြီး အတည်ပြုပြီးသား ဖြစ်သွားပါပြီ။');
         setOwnerCustomerName('');
@@ -633,7 +687,8 @@ export default function FieldBookingApp() {
           `🔔 [New Booking] ${currentUser.name} ထံမှ ${targetFieldObj?.name} (${selectedSubField.name}) အတွက် Booking အသစ် ဝင်ရောက်လာပါသည်။`,
           'booking',
           'new_booking',
-          userSelectedField.id
+          userSelectedField.id,
+          result.id
         );
         alert('Booking တင်ခြင်း အောင်မြင်ပါသည်။ Admin အတည်ပြုရန် စောင့်ဆိုင်းပါ။');
         setActiveTab('history');
