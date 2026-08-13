@@ -48,6 +48,23 @@ const generateSingleTimeSlots = (openHour, closeHour, includeClosingTime = false
 // optimized image data URL in the booking document instead of only keeping the
 // temporary File object from the browser input.
 const HISTORY_PAGE_SIZE = 50;
+const REMEMBERED_LOGIN_STORAGE_KEY = 'fieldBookingRememberedLogin';
+
+const readRememberedLogin = () => {
+  try {
+    const saved = localStorage.getItem(REMEMBERED_LOGIN_STORAGE_KEY);
+    if (!saved) return { email: '', password: '', remember: false };
+    const parsed = JSON.parse(saved);
+    if (typeof parsed?.email !== 'string' || typeof parsed?.password !== 'string') {
+      localStorage.removeItem(REMEMBERED_LOGIN_STORAGE_KEY);
+      return { email: '', password: '', remember: false };
+    }
+    return { email: parsed.email, password: parsed.password, remember: true };
+  } catch (error) {
+    console.warn('Remembered login data is unavailable on this device.', error);
+    return { email: '', password: '', remember: false };
+  }
+};
 
 const getBookingSlotLockId = (fieldId, subFieldId, date, hour) => [
   fieldId || 'unknown-field',
@@ -206,8 +223,9 @@ export default function FieldBookingApp() {
     return savedUser ? JSON.parse(savedUser) : null;
   }); 
 
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [email, setEmail] = useState(() => readRememberedLogin().email);
+  const [password, setPassword] = useState(() => readRememberedLogin().password);
+  const [rememberLogin, setRememberLogin] = useState(() => readRememberedLogin().remember);
   
   const [authMode, setAuthMode] = useState('login'); 
   const [signupName, setSignupName] = useState('');
@@ -685,12 +703,36 @@ export default function FieldBookingApp() {
     loadReport();
   }, [currentUser?.role, adminTab, ownerActiveTab, adminReportDate, ownerReportDate, ownerFieldQueryIds.join('|')]);
 
-    const handleLogin = (e) => {
+    const saveRememberedLogin = () => {
+    try {
+      if (rememberLogin) {
+        localStorage.setItem(REMEMBERED_LOGIN_STORAGE_KEY, JSON.stringify({
+          email: email.trim(),
+          password
+        }));
+      } else {
+        localStorage.removeItem(REMEMBERED_LOGIN_STORAGE_KEY);
+      }
+    } catch (error) {
+      console.warn('Unable to save remembered login on this device.', error);
+    }
+  };
+
+  const clearRememberedLogin = () => {
+    try {
+      localStorage.removeItem(REMEMBERED_LOGIN_STORAGE_KEY);
+    } catch (error) {
+      console.warn('Unable to clear remembered login on this device.', error);
+    }
+  };
+
+  const handleLogin = (e) => {
     e.preventDefault();
     const loginIdentifier = email.trim().toLowerCase();
     if (loginIdentifier === 'admin@gmail.com') {
       if (password === adminPassword) {
         setCurrentUser({ name: 'System Admin', role: 'admin', email: 'admin@gmail.com' });
+        saveRememberedLogin();
         setActiveTab('fields');
         setEmail('');
         setPassword('');
@@ -716,6 +758,7 @@ export default function FieldBookingApp() {
 
     if (foundUser) {
       setCurrentUser({ name: foundUser.name, role: foundUser.role, email: foundUser.email || foundUser.name });
+      saveRememberedLogin();
       setActiveTab('fields');
     } else {
       alert('Username သို့မဟုတ် Password မှားယွင်းနေပါသည်။');
@@ -1675,6 +1718,7 @@ export default function FieldBookingApp() {
                 <input 
                   type="text" 
                   placeholder="admin@gmail.com သို့မဟုတ် ကိုယ့် Username" 
+                  autoComplete="username"
                   value={email} 
                   onChange={(e) => setEmail(e.target.value)} 
                   className="w-full border rounded-lg p-2.5 text-sm bg-gray-50 focus:bg-white focus:outline-none focus:border-emerald-600" 
@@ -1686,12 +1730,26 @@ export default function FieldBookingApp() {
                 <input 
                   type="password" 
                   placeholder="••••••" 
+                  autoComplete="current-password"
                   value={password} 
                   onChange={(e) => setPassword(e.target.value)} 
                   className="w-full border rounded-lg p-2.5 text-sm bg-gray-50 focus:bg-white focus:outline-none focus:border-emerald-600" 
                   required 
                 />
               </div>
+              <label className="flex cursor-pointer items-center gap-2 text-xs font-semibold text-gray-600 select-none">
+                <input
+                  type="checkbox"
+                  checked={rememberLogin}
+                  onChange={(e) => {
+                    const checked = e.target.checked;
+                    setRememberLogin(checked);
+                    if (!checked) clearRememberedLogin();
+                  }}
+                  className="h-4 w-4 rounded border-gray-300 text-emerald-600 accent-emerald-600 focus:ring-emerald-500"
+                />
+                <span>Remember me (ဒီစက်မှာ မှတ်ထားမည်)</span>
+              </label>
               <button type="submit" className="w-full bg-emerald-600 text-white py-2.5 rounded-lg text-sm font-bold shadow hover:bg-emerald-700 transition-colors">Login ဝင်မည်</button>
             </form>
           ) : (
