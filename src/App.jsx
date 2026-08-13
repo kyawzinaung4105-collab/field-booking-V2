@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { db } from './firebase'; 
-import { collection, getDoc, getDocs, addDoc, updateDoc, deleteDoc, doc, setDoc, runTransaction, onSnapshot, query, where } from 'firebase/firestore';
+import { collection, getDoc, getDocs, addDoc, updateDoc, deleteDoc, doc, setDoc, runTransaction, onSnapshot, query, where, limit, startAfter, orderBy } from 'firebase/firestore';
 
 const defaultUsers = [
   { email: 'admin@gmail.com', password: 'admin123', name: 'System Admin', role: 'admin' }
@@ -47,6 +47,46 @@ const generateSingleTimeSlots = (openHour, closeHour, includeClosingTime = false
 // Payment screenshots must be available to the Owner on another device, so keep an
 // optimized image data URL in the booking document instead of only keeping the
 // temporary File object from the browser input.
+const HISTORY_PAGE_SIZE = 50;
+
+const getBookingSlotLockId = (fieldId, subFieldId, date, hour) => [
+  fieldId || 'unknown-field',
+  subFieldId || 'unknown-sub-field',
+  date || 'unknown-date',
+  Number(hour)
+].join('__').replace(/[^A-Za-z0-9_-]/g, '-');
+
+const getBookingSlotLockRefs = (booking) => {
+  const startHour = Number(booking?.startHour);
+  const endHour = Number(booking?.endHour);
+  if (!booking?.fieldId || !booking?.subFieldId || !booking?.date || !Number.isFinite(startHour) || !Number.isFinite(endHour) || endHour <= startHour) {
+    return [];
+  }
+  return Array.from({ length: endHour - startHour }, (_, index) => doc(
+    db,
+    'bookingSlotLocks',
+    getBookingSlotLockId(booking.fieldId, booking.subFieldId, booking.date, startHour + index)
+  ));
+};
+
+const dedupeBookingRecords = (records) => {
+  const seen = new Set();
+  return records.filter((booking) => {
+    const key = [
+      booking.fieldId || '',
+      booking.subFieldId || '',
+      booking.date || '',
+      Number(booking.startHour),
+      Number(booking.endHour),
+      booking.userEmail || '',
+      booking.bookedBy || ''
+    ].join('|');
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+};
+
 const preparePaymentScreenshot = (file) => new Promise((resolve, reject) => {
   if (!file) {
     resolve(null);
@@ -182,6 +222,16 @@ export default function FieldBookingApp() {
   const [usersList, setUsersList] = useState(defaultUsers);
   const [fields, setFields] = useState(defaultFields);
   const [bookings, setBookings] = useState([]);
+  // `bookings` is reserved for the small real-time availability window only.
+  // History and reports use bounded server queries below instead of loading every booking.
+  const [historyBookings, setHistoryBookings] = useState([]);
+  const [historyDate, setHistoryDate] = useState('');
+  const [historyPage, setHistoryPage] = useState(0);
+  const [historyCursorStack, setHistoryCursorStack] = useState([]);
+  const [historyHasMore, setHistoryHasMore] = useState(false);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyRefreshToken, setHistoryRefreshToken] = useState(0);
+  const [reportBookings, setReportBookings] = useState([]);
   const [smsNotifications, setSmsNotifications] = useState([]);
   const [showNotiDropdown, setShowNotiDropdown] = useState(false);
 
@@ -305,6 +355,7 @@ export default function FieldBookingApp() {
   const [mobileHeaderMenuOpen, setMobileHeaderMenuOpen] = useState(false);
   const [adminMobileMenuOpen, setAdminMobileMenuOpen] = useState(false);
   const [ownerMobileMenuOpen, setOwnerMobileMenuOpen] = useState(false);
+  const historyRequestRef = useRef(0);
 
   useEffect(() => {
     if (currentUser) {
@@ -355,29 +406,12 @@ export default function FieldBookingApp() {
       }
     });
 
-    const unsubBookings = onSnapshot(collection(db, "bookings"), (snapshot) => {
-      const rawBookings = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
-      // Hide legacy duplicate booking documents in the UI. New bookings are also
-      // protected transactionally below, so duplicate history cannot be created.
-      const seen = new Set();
-      const uniqueBookings = rawBookings.filter(b => {
-        const key = [
-          b.fieldId || '',
-          b.subFieldId || '',
-          b.date || '',
-          Number(b.startHour),
-          Number(b.endHour),
-          b.userEmail || '',
-          b.bookedBy || ''
-        ].join('|');
-        if (seen.has(key)) return false;
-        seen.add(key);
-        return true;
-      });
-      setBookings(uniqueBookings);
-    });
-
-    const unsubNoti = onSnapshot(collection(db, "notifications"), (snapshot) => {
+    const recentNotificationsQuery = query(
+      collection(db, 'notifications'),
+      orderBy('createdAtTime', 'desc'),
+      limit(500)
+    );
+    const unsubNoti = onSnapshot(recentNotificationsQuery, (snapshot) => {
       const rawNotis = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
       // Hide exact legacy duplicate notifications in the UI.
       const seen = new Set();
@@ -420,10 +454,33 @@ export default function FieldBookingApp() {
     return () => {
       unsubUsers();
       unsubFields();
-      unsubBookings();
       unsubNoti();
     };
   }, []);
+
+  // Availability only needs bookings for the selected field and selected date.
+  // This keeps the real-time listener bounded even when the historical collection is large.
+  useEffect(() => {
+    const activeFieldId = userSelectedField?.id;
+    if (!currentUser || !activeFieldId || !userCheckDate) {
+      setBookings([]);
+      return undefined;
+    }
+
+    const availabilityQuery = query(
+      collection(db, 'bookings'),
+      where('fieldId', '==', activeFieldId),
+      where('date', '==', userCheckDate)
+    );
+    const unsubscribe = onSnapshot(availabilityQuery, (snapshot) => {
+      setBookings(dedupeBookingRecords(snapshot.docs.map(d => ({ id: d.id, ...d.data() }))));
+    }, (error) => {
+      console.error('Availability listener error:', error);
+      setBookings([]);
+    });
+
+    return unsubscribe;
+  }, [currentUser?.email, userSelectedField?.id, userCheckDate]);
 
   useEffect(() => {
     if (userSelectedField) {
@@ -509,6 +566,108 @@ export default function FieldBookingApp() {
   }, []);
 
   const ownerFieldIds = fields.filter(f => f.ownerEmail === currentUser?.email).map(f => f.id);
+  const ownerFieldQueryIds = ownerFieldIds.slice(0, 30);
+
+  const sortBookingRecords = (records) => [...records].sort((a, b) => {
+    const timeA = a.createdAtTime || (a.bookedAt ? new Date(a.bookedAt).getTime() : 0);
+    const timeB = b.createdAtTime || (b.bookedAt ? new Date(b.bookedAt).getTime() : 0);
+    if (timeA !== timeB) return timeB - timeA;
+    return String(b.id || '').localeCompare(String(a.id || ''));
+  });
+
+  // History is deliberately paginated. A 50-row page keeps render cost and reads bounded,
+  // while the optional date filter lets Admin/Owner narrow the query to one operating day.
+  useEffect(() => {
+    setHistoryPage(0);
+    setHistoryCursorStack([]);
+    setHistoryBookings([]);
+  }, [currentUser?.role, currentUser?.email, historyDate]);
+
+  useEffect(() => {
+    const requestId = ++historyRequestRef.current;
+    let cancelled = false;
+
+    const loadHistoryPage = async () => {
+      if (!currentUser) {
+        setHistoryBookings([]);
+        setHistoryHasMore(false);
+        return;
+      }
+
+      const constraints = [];
+      if (currentUser.role === 'user') {
+        constraints.push(where('userEmail', '==', currentUser.email));
+      } else if (currentUser.role === 'owner') {
+        if (ownerFieldQueryIds.length === 0) {
+          setHistoryBookings([]);
+          setHistoryHasMore(false);
+          return;
+        }
+        constraints.push(where('fieldId', 'in', ownerFieldQueryIds));
+      }
+      if (historyDate) constraints.push(where('date', '==', historyDate));
+      constraints.push(orderBy('createdAtTime', 'desc'));
+
+      const cursor = historyPage > 0 ? historyCursorStack[historyPage - 1] : null;
+      if (cursor) constraints.push(startAfter(cursor));
+      constraints.push(limit(HISTORY_PAGE_SIZE));
+
+      setHistoryLoading(true);
+      try {
+        const snapshot = await getDocs(query(collection(db, 'bookings'), ...constraints));
+        if (cancelled || requestId !== historyRequestRef.current) return;
+
+        const records = sortBookingRecords(dedupeBookingRecords(snapshot.docs.map(d => ({ id: d.id, ...d.data() }))));
+        setHistoryBookings(records);
+        setHistoryHasMore(snapshot.docs.length === HISTORY_PAGE_SIZE);
+        if (snapshot.docs.length > 0) {
+          setHistoryCursorStack((previous) => {
+            const next = [...previous];
+            next[historyPage] = snapshot.docs[snapshot.docs.length - 1];
+            return next;
+          });
+        }
+      } catch (error) {
+        if (!cancelled && requestId === historyRequestRef.current) {
+          console.error('History query error:', error);
+          setHistoryBookings([]);
+          setHistoryHasMore(false);
+        }
+      } finally {
+        if (!cancelled && requestId === historyRequestRef.current) setHistoryLoading(false);
+      }
+    };
+
+    loadHistoryPage();
+    return () => { cancelled = true; };
+  }, [currentUser?.role, currentUser?.email, historyDate, historyPage, historyRefreshToken, ownerFieldQueryIds.join('|')]);
+
+  useEffect(() => {
+    const loadReport = async () => {
+      const isAdminReport = currentUser?.role === 'admin' && adminTab === 'report';
+      const isOwnerReport = currentUser?.role === 'owner' && ownerActiveTab === 'report';
+      if (!isAdminReport && !isOwnerReport) {
+        setReportBookings([]);
+        return;
+      }
+      const reportDate = isAdminReport ? adminReportDate : ownerReportDate;
+      if (!reportDate || (isOwnerReport && ownerFieldQueryIds.length === 0)) {
+        setReportBookings([]);
+        return;
+      }
+
+      const constraints = [where('date', '==', reportDate)];
+      if (isOwnerReport) constraints.push(where('fieldId', 'in', ownerFieldQueryIds));
+      try {
+        const snapshot = await getDocs(query(collection(db, 'bookings'), ...constraints));
+        setReportBookings(dedupeBookingRecords(snapshot.docs.map(d => ({ id: d.id, ...d.data() }))));
+      } catch (error) {
+        console.error('Report query error:', error);
+        setReportBookings([]);
+      }
+    };
+    loadReport();
+  }, [currentUser?.role, adminTab, ownerActiveTab, adminReportDate, ownerReportDate, ownerFieldQueryIds.join('|')]);
 
     const handleLogin = (e) => {
     e.preventDefault();
@@ -822,31 +981,23 @@ export default function FieldBookingApp() {
 
     try {
       const result = await runTransaction(db, async (transaction) => {
-        // Firestore Web transactions support document reads, but not query reads.
-        // Refresh the booking list with a normal query, then use the transaction
-        // below for the deterministic exact-booking document lock.
-        const bookingsQuery = query(
-          collection(db, "bookings"),
-          where("fieldId", "==", userSelectedField.id)
-        );
-        const bookingsSnap = await getDocs(bookingsQuery);
-        const existingBookings = bookingsSnap.docs.map(d => ({
-          id: d.id,
-          ...d.data()
-        }));
-
-        const conflictingBooking = existingBookings.find(b => {
-          if (b.subFieldId !== selectedSubField.id || b.date !== userCheckDate) return false;
-          if (b.status !== 'Pending' && b.status !== 'Approved') return false;
-
-          const existingStart = Number(b.startHour);
-          const existingEnd = Number(b.endHour);
-          if (Number.isNaN(existingStart) || Number.isNaN(existingEnd)) return false;
-
-          return startH < existingEnd && endH > existingStart;
-        });
-
-        if (conflictingBooking) {
+        // The UI preflight catches existing legacy documents. The transaction below
+        // is the authoritative high-volume guard: every occupied hour is claimed by
+        // a deterministic lock document, so concurrent different-range bookings
+        // cannot pass the same availability check.
+        const slotLockRefs = Array.from({ length: endH - startH }, (_, index) => doc(
+          db,
+          'bookingSlotLocks',
+          getBookingSlotLockId(userSelectedField.id, selectedSubField.id, userCheckDate, startH + index)
+        ));
+        const slotLockSnapshots = [];
+        for (const slotLockRef of slotLockRefs) {
+          slotLockSnapshots.push(await transaction.get(slotLockRef));
+        }
+        if (slotLockSnapshots.some((slotLockSnap) => {
+          const lockStatus = slotLockSnap.exists() ? slotLockSnap.data()?.status : '';
+          return lockStatus === 'Pending' || lockStatus === 'Approved';
+        })) {
           throw new Error('SLOT_ALREADY_BOOKED');
         }
 
@@ -891,6 +1042,16 @@ export default function FieldBookingApp() {
         };
 
         transaction.set(newBookingRef, newBookingObj);
+        slotLockRefs.forEach((slotLockRef) => {
+          transaction.set(slotLockRef, {
+            bookingId: newBookingRef.id,
+            fieldId: userSelectedField.id,
+            subFieldId: selectedSubField.id,
+            date: userCheckDate,
+            status: newBookingObj.status,
+            updatedAtTime: timestampMillis
+          }, { merge: true });
+        });
         return {
           id: newBookingRef.id,
           ...newBookingObj
@@ -1142,19 +1303,60 @@ export default function FieldBookingApp() {
       subType = desiredStatus === 'Rejected' ? 'booking_reject' : 'new_booking';
     }
 
-    const targetBooking = bookings.find(b => b.id === bookingId);
+    const targetBooking = historyBookings.find(b => b.id === bookingId) || bookings.find(b => b.id === bookingId);
     if (targetBooking && isBookingExpired(targetBooking)) {
       alert('ဤ Booking ၏ ရက်စွဲ သို့မဟုတ် ကစားချိန်သည် ကျော်လွန်သွားပါပြီ။ Approve / Reject လုပ်၍ မရတော့ပါ။');
       return;
     }
 
     if (window.confirm(confirmMsg)) {
-      if (targetBooking) {
-        const targetField = fields.find(f => f.id === targetBooking.fieldId);
-        const bookingFieldName = targetBooking.subFieldName || targetField?.name || 'Unknown Field';
-        const bookingDate = targetBooking.date || '-';
-        const bookingTimeRange = targetBooking.fullTimeSlot || targetBooking.timeSlot || '-';
-        const bookingUserName = targetBooking.userName || targetBooking.userEmail || 'User';
+      try {
+        const updatedBooking = await runTransaction(db, async (transaction) => {
+          const bookingRef = doc(db, 'bookings', bookingId);
+          const bookingSnap = await transaction.get(bookingRef);
+          if (!bookingSnap.exists()) throw new Error('BOOKING_NOT_FOUND');
+
+          const currentBooking = { id: bookingSnap.id, ...bookingSnap.data() };
+          if (isBookingExpired(currentBooking)) throw new Error('BOOKING_EXPIRED');
+
+          const lockRefs = getBookingSlotLockRefs(currentBooking);
+          const lockSnapshots = [];
+          for (const lockRef of lockRefs) {
+            lockSnapshots.push(await transaction.get(lockRef));
+          }
+          const foreignActiveLock = lockSnapshots.find((lockSnap) => {
+            if (!lockSnap.exists()) return false;
+            const lockData = lockSnap.data() || {};
+            const lockStatus = String(lockData.status || '');
+            return lockData.bookingId && lockData.bookingId !== bookingId && (lockStatus === 'Pending' || lockStatus === 'Approved');
+          });
+          if (foreignActiveLock) throw new Error('SLOT_LOCKED_BY_OTHER');
+
+          transaction.update(bookingRef, {
+            status: desiredStatus,
+            statusUpdatedAtTime: Date.now()
+          });
+          lockRefs.forEach((lockRef, index) => {
+            const lockData = lockSnapshots[index].exists() ? lockSnapshots[index].data() : {};
+            transaction.set(lockRef, {
+              ...lockData,
+              bookingId,
+              fieldId: currentBooking.fieldId,
+              subFieldId: currentBooking.subFieldId,
+              date: currentBooking.date,
+              status: desiredStatus,
+              updatedAtTime: Date.now()
+            }, { merge: true });
+          });
+
+          return { ...currentBooking, status: desiredStatus };
+        });
+
+        const targetField = fields.find(f => f.id === updatedBooking.fieldId);
+        const bookingFieldName = updatedBooking.subFieldName || targetField?.name || 'Unknown Field';
+        const bookingDate = updatedBooking.date || '-';
+        const bookingTimeRange = updatedBooking.fullTimeSlot || updatedBooking.timeSlot || '-';
+        const bookingUserName = updatedBooking.userName || updatedBooking.userEmail || 'User';
         const bookingSummary = `${bookingFieldName} (${bookingDate} / ${bookingTimeRange}) ${bookingUserName}`;
         let notiMsg = '';
         if (desiredStatus === 'Rejected') {
@@ -1164,9 +1366,20 @@ export default function FieldBookingApp() {
         } else {
           notiMsg = `✅ [Booking Approved] ${bookingSummary} ၏ Booking ကို Approve လုပ်လိုက်ပါသည်။`;
         }
-        await triggerSmsNotification(notiMsg, 'booking', subType, fieldId || targetBooking.fieldId, bookingId);
+        await triggerSmsNotification(notiMsg, 'booking', subType, fieldId || updatedBooking.fieldId, bookingId);
+        setHistoryRefreshToken((value) => value + 1);
+      } catch (error) {
+        if (error.message === 'BOOKING_EXPIRED') {
+          alert('ဤ Booking ၏ ရက်စွဲ သို့မဟုတ် ကစားချိန်သည် ကျော်လွန်သွားပါပြီ။ Approve / Reject လုပ်၍ မရတော့ပါ။');
+        } else if (error.message === 'BOOKING_NOT_FOUND') {
+          alert('Booking မှတ်တမ်းကို မတွေ့တော့ပါ။ History ကို ပြန်ဖတ်ပြီး ထပ်ကြိုးစားပါ။');
+        } else if (error.message === 'SLOT_LOCKED_BY_OTHER') {
+          alert('ဤအချိန်ကို အခြား Booking တစ်ခုက ရယူထားပြီးပါပြီ။ History ကို ပြန်ဖတ်ပြီး စစ်ဆေးပါ။');
+        } else {
+          console.error('Error changing booking status:', error);
+          alert('Booking Status ပြောင်းရာတွင် အမှားအယွင်းရှိပါသည်။');
+        }
       }
-      await updateDoc(doc(db, "bookings", bookingId), { status: desiredStatus });
     }
   };
 
@@ -1403,13 +1616,15 @@ export default function FieldBookingApp() {
     };
   };
 
-  const adminReportBookings = sortedBookings.filter(booking => booking.date === adminReportDate);
-  const ownerReportFieldIds = new Set(fields.filter(field => field.ownerEmail === currentUser?.email).map(field => field.id));
-  const ownerReportBookings = sortedBookings.filter(booking => booking.date === ownerReportDate && ownerReportFieldIds.has(booking.fieldId));
+  // Reports and history are populated by server-side bounded queries above.
+  // `sortedBookings` remains the small real-time availability dataset only.
+  const adminReportBookings = currentUser?.role === 'admin' ? reportBookings : [];
+  const ownerReportBookings = currentUser?.role === 'owner' ? reportBookings : [];
   const adminReport = createReportData(adminReportBookings);
   const ownerReport = createReportData(ownerReportBookings);
-  const adminHistoryBookings = sortedBookings;
-  const ownerHistoryBookings = sortedBookings.filter(booking => ownerFieldIds.includes(booking.fieldId));
+  const adminHistoryBookings = currentUser?.role === 'admin' ? historyBookings : [];
+  const ownerHistoryBookings = currentUser?.role === 'owner' ? historyBookings : [];
+  const userHistoryBookings = currentUser?.role === 'user' ? historyBookings : [];
 
   if (!currentUser) {
     return (
@@ -1678,7 +1893,7 @@ export default function FieldBookingApp() {
 
             <div className="hidden sm:flex flex-wrap gap-2 mb-6">
               <button onClick={() => setAdminTab('pending')} className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${adminTab === 'pending' ? 'bg-emerald-600 text-white shadow' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}>
-                Bookings အားလုံး ({sortedBookings.length})
+                Bookings အားလုံး ({adminHistoryBookings.length}{historyHasMore ? '+' : ''})
               </button>
               <button onClick={() => setAdminTab('manage_fields')} className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${adminTab === 'manage_fields' ? 'bg-emerald-600 text-white shadow' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}>
                 Manage Fields & Add Field
@@ -1705,12 +1920,12 @@ export default function FieldBookingApp() {
               >
                 <span>☰ Admin Menu</span>
                 <span className="max-w-[62%] truncate text-right text-[11px] font-semibold">
-                  {adminTab === 'pending' ? `Bookings အားလုံး (${sortedBookings.length})` : adminTab === 'manage_fields' ? 'Manage Fields & Add Field' : adminTab === 'report' ? '📊 Booking Report' : adminTab === 'manage_owners' ? 'Manage Owners & Passwords' : adminTab === 'notifications_page' ? 'Notifications & Filter Page' : 'ကိုယ်ပိုင် Password ပြောင်းရန်'}
+                  {adminTab === 'pending' ? `Bookings အားလုံး (${adminHistoryBookings.length}${historyHasMore ? '+' : ''})` : adminTab === 'manage_fields' ? 'Manage Fields & Add Field' : adminTab === 'report' ? '📊 Booking Report' : adminTab === 'manage_owners' ? 'Manage Owners & Passwords' : adminTab === 'notifications_page' ? 'Notifications & Filter Page' : 'ကိုယ်ပိုင် Password ပြောင်းရန်'}
                 </span>
               </button>
               {adminMobileMenuOpen && (
                 <div className="mt-2 grid gap-2 rounded-xl border border-emerald-100 bg-emerald-50 p-2">
-                  <button type="button" onClick={() => { setAdminTab('pending'); setAdminMobileMenuOpen(false); }} className={`w-full rounded-lg px-3 py-2.5 text-left text-xs font-bold ${adminTab === 'pending' ? 'bg-emerald-600 text-white' : 'bg-white text-gray-700'}`}>Bookings အားလုံး ({sortedBookings.length})</button>
+                  <button type="button" onClick={() => { setAdminTab('pending'); setAdminMobileMenuOpen(false); }} className={`w-full rounded-lg px-3 py-2.5 text-left text-xs font-bold ${adminTab === 'pending' ? 'bg-emerald-600 text-white' : 'bg-white text-gray-700'}`}>Bookings အားလုံး ({adminHistoryBookings.length}{historyHasMore ? '+' : ''})</button>
                   <button type="button" onClick={() => { setAdminTab('manage_fields'); setAdminMobileMenuOpen(false); }} className={`w-full rounded-lg px-3 py-2.5 text-left text-xs font-bold ${adminTab === 'manage_fields' ? 'bg-emerald-600 text-white' : 'bg-white text-gray-700'}`}>Manage Fields & Add Field</button>
                   <button type="button" onClick={() => { setAdminTab('report'); setAdminMobileMenuOpen(false); }} className={`w-full rounded-lg px-3 py-2.5 text-left text-xs font-bold ${adminTab === 'report' ? 'bg-emerald-600 text-white' : 'bg-white text-gray-700'}`}>📊 Booking Report</button>
                   <button type="button" onClick={() => { setAdminTab('manage_owners'); setAdminMobileMenuOpen(false); }} className={`w-full rounded-lg px-3 py-2.5 text-left text-xs font-bold ${adminTab === 'manage_owners' ? 'bg-emerald-600 text-white' : 'bg-white text-gray-700'}`}>🔑 Manage Owners & Passwords</button>
@@ -1880,7 +2095,7 @@ export default function FieldBookingApp() {
             {adminTab === 'pending' && (
               <div>
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-4">
-                  <h3 className="text-base font-bold text-gray-800">Booking မှတ်တမ်းများ</h3>
+                  <h3 className="text-base font-bold text-gray-800">Booking မှတ်တမ်းများ ({adminHistoryBookings.length}{historyHasMore ? '+' : ''})</h3>
                   <div className="flex flex-wrap gap-2">
                     <button
                       type="button"
@@ -1899,6 +2114,16 @@ export default function FieldBookingApp() {
                     </button>
                   </div>
                 </div>
+                <div className="mb-4 flex flex-wrap items-end gap-2 rounded-xl border border-emerald-100 bg-emerald-50/60 p-3">
+                  <label className="flex min-w-[180px] flex-1 flex-col gap-1 text-xs font-bold text-gray-700">
+                    History Date Filter
+                    <input type="date" value={historyDate} onChange={(event) => setHistoryDate(event.target.value)} className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-xs font-normal outline-none focus:border-emerald-500" />
+                  </label>
+                  <button type="button" onClick={() => setHistoryDate('')} className="rounded-lg bg-white px-3 py-2 text-xs font-bold text-gray-700 shadow-sm hover:bg-gray-100">All Dates</button>
+                  <button type="button" disabled={historyPage === 0 || historyLoading} onClick={() => setHistoryPage((page) => Math.max(0, page - 1))} className="rounded-lg bg-white px-3 py-2 text-xs font-bold text-gray-700 shadow-sm disabled:cursor-not-allowed disabled:opacity-40">← Previous</button>
+                  <span className="px-1 py-2 text-xs font-bold text-gray-500">Page {historyPage + 1}</span>
+                  <button type="button" disabled={!historyHasMore || historyLoading} onClick={() => setHistoryPage((page) => page + 1)} className="rounded-lg bg-white px-3 py-2 text-xs font-bold text-gray-700 shadow-sm disabled:cursor-not-allowed disabled:opacity-40">Next →</button>
+                </div>
                 <div className="overflow-x-auto">
                   <table className="w-full text-left border-collapse">
                     <thead>
@@ -1916,8 +2141,10 @@ export default function FieldBookingApp() {
                       </tr>
                     </thead>
                     <tbody className="divide-y text-sm">
-                      {sortedBookings.length > 0 ? (
-                        sortedBookings.map(item => {
+                      {historyLoading ? (
+                        <tr><td colSpan="10" className="p-8 text-center text-sm text-gray-500">History ဖတ်နေပါသည်...</td></tr>
+                      ) : adminHistoryBookings.length > 0 ? (
+                        adminHistoryBookings.map(item => {
                           const targetField = fields.find(f => f.id === item.fieldId);
                           const bookingExpired = isBookingExpired(item);
                           return (
@@ -2352,7 +2579,7 @@ export default function FieldBookingApp() {
                 <div className="flex flex-col gap-4 rounded-2xl border bg-gray-50 p-4 sm:flex-row sm:items-end sm:justify-between">
                   <div>
                     <h3 className="text-base font-extrabold text-gray-800">📊 My Fields Booking Report</h3>
-                    <p className="mt-1 text-xs text-gray-500"></p>
+                    <p className="mt-1 text-xs text-gray-500">ကိုယ့် Owner Account နဲ့သက်ဆိုင်တဲ့ ကွင်းများအတွက်သာ Report ပြပါမယ်။</p>
                   </div>
                   <div className="flex flex-wrap items-end gap-2">
                     <label className="text-xs font-bold text-gray-700">
@@ -2364,7 +2591,7 @@ export default function FieldBookingApp() {
                 </div>
 
                 <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
-                  နာရီစုစုပေါင်းနှင့် ဝင်ငွေကို <strong>Approved Booking</strong> များအတွက်သာတွက်ထားပါသည်။ 
+                  နာရီစုစုပေါင်းနှင့် ဝင်ငွေကို <strong>Approved Booking</strong> များအတွက်သာတွက်ထားပါသည်။ Owner ပိုင်ကွင်းမဟုတ်သော Booking များကို မပြပါ။
                 </div>
 
                 <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
@@ -2413,7 +2640,7 @@ export default function FieldBookingApp() {
                         onChange={(e) => setOwnerNotiFieldId(e.target.value)}
                         className="border rounded-lg p-2 text-xs bg-white font-bold"
                       >
-                        <option value="all">ကွင်းများအားလုံး (All My Fields)</option>
+                        <option value="all">ကိုယ့်ကွင်းများအားလုံး (All My Fields)</option>
                         {fields.filter(f => f.ownerEmail === currentUser.email).map(f => (
                           <option key={f.id} value={f.id}>{f.name} ({f.location})</option>
                         ))}
@@ -2850,7 +3077,7 @@ export default function FieldBookingApp() {
             {ownerActiveTab === 'history' && (
               <div>
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-4">
-                  <h3 className="text-base font-bold text-gray-800">Booking မှတ်တမ်းများ (Owner Fields)</h3>
+                  <h3 className="text-base font-bold text-gray-800">Booking မှတ်တမ်းများ (Owner Fields: {ownerHistoryBookings.length}{historyHasMore ? '+' : ''})</h3>
                   <div className="flex flex-wrap gap-2">
                     <button
                       type="button"
@@ -2865,9 +3092,19 @@ export default function FieldBookingApp() {
                       className="rounded-lg bg-emerald-600 px-3 py-2 text-xs font-bold text-white shadow-sm transition hover:bg-emerald-700 active:scale-[0.98]"
                       title="Excel ဖြင့်ဖွင့်နိုင်သော CSV ဖိုင် ဒေါင်းလုဒ်ရန်"
                     >
-                      Excel Export
+                      📊 Excel Export
                     </button>
                   </div>
+                </div>
+                <div className="mb-4 flex flex-wrap items-end gap-2 rounded-xl border border-emerald-100 bg-emerald-50/60 p-3">
+                  <label className="flex min-w-[180px] flex-1 flex-col gap-1 text-xs font-bold text-gray-700">
+                    History Date Filter
+                    <input type="date" value={historyDate} onChange={(event) => setHistoryDate(event.target.value)} className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-xs font-normal outline-none focus:border-emerald-500" />
+                  </label>
+                  <button type="button" onClick={() => setHistoryDate('')} className="rounded-lg bg-white px-3 py-2 text-xs font-bold text-gray-700 shadow-sm hover:bg-gray-100">All Dates</button>
+                  <button type="button" disabled={historyPage === 0 || historyLoading} onClick={() => setHistoryPage((page) => Math.max(0, page - 1))} className="rounded-lg bg-white px-3 py-2 text-xs font-bold text-gray-700 shadow-sm disabled:cursor-not-allowed disabled:opacity-40">← Previous</button>
+                  <span className="px-1 py-2 text-xs font-bold text-gray-500">Page {historyPage + 1}</span>
+                  <button type="button" disabled={!historyHasMore || historyLoading} onClick={() => setHistoryPage((page) => page + 1)} className="rounded-lg bg-white px-3 py-2 text-xs font-bold text-gray-700 shadow-sm disabled:cursor-not-allowed disabled:opacity-40">Next →</button>
                 </div>
                 <div className="overflow-x-auto rounded-lg">
                   <table className="w-full min-w-[1350px] table-fixed text-left border-collapse">
@@ -2887,7 +3124,9 @@ export default function FieldBookingApp() {
                       </tr>
                     </thead>
                     <tbody className="divide-y text-sm">
-                      {ownerHistoryBookings.length > 0 ? (
+                      {historyLoading ? (
+                        <tr><td colSpan="11" className="p-8 text-center text-sm text-gray-500">History ဖတ်နေပါသည်...</td></tr>
+                      ) : ownerHistoryBookings.length > 0 ? (
                         ownerHistoryBookings.map(item => {
                             const bookingExpired = isBookingExpired(item);
                             const timeRange = item.fullTimeSlot || item.timeSlot || '';
@@ -3420,6 +3659,16 @@ export default function FieldBookingApp() {
                   <h2 className="text-xl font-bold text-gray-800">📋 ကျွန်ုပ်၏ Booking မှတ်တမ်းများ</h2>
                   <button onClick={() => setActiveTab('fields')} className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-bold">← ကွင်းများသို့ ပြန်ရန်</button>
                 </div>
+                <div className="mb-4 flex flex-wrap items-end gap-2 rounded-xl border border-emerald-100 bg-emerald-50/60 p-3">
+                  <label className="flex min-w-[180px] flex-1 flex-col gap-1 text-xs font-bold text-gray-700">
+                    History Date Filter
+                    <input type="date" value={historyDate} onChange={(event) => setHistoryDate(event.target.value)} className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-xs font-normal outline-none focus:border-emerald-500" />
+                  </label>
+                  <button type="button" onClick={() => setHistoryDate('')} className="rounded-lg bg-white px-3 py-2 text-xs font-bold text-gray-700 shadow-sm hover:bg-gray-100">All Dates</button>
+                  <button type="button" disabled={historyPage === 0 || historyLoading} onClick={() => setHistoryPage((page) => Math.max(0, page - 1))} className="rounded-lg bg-white px-3 py-2 text-xs font-bold text-gray-700 shadow-sm disabled:cursor-not-allowed disabled:opacity-40">← Previous</button>
+                  <span className="px-1 py-2 text-xs font-bold text-gray-500">Page {historyPage + 1}</span>
+                  <button type="button" disabled={!historyHasMore || historyLoading} onClick={() => setHistoryPage((page) => page + 1)} className="rounded-lg bg-white px-3 py-2 text-xs font-bold text-gray-700 shadow-sm disabled:cursor-not-allowed disabled:opacity-40">Next →</button>
+                </div>
 
                 <div className="overflow-x-auto rounded-lg">
                   <table className="w-full min-w-[1000px] table-fixed text-left border-collapse">
@@ -3436,10 +3685,10 @@ export default function FieldBookingApp() {
                       </tr>
                     </thead>
                     <tbody className="divide-y text-sm">
-                      {sortedBookings.filter(b => b.userEmail === currentUser.email).length > 0 ? (
-                        sortedBookings
-                          .filter(b => b.userEmail === currentUser.email)
-                          .map(item => {
+                      {historyLoading ? (
+                        <tr><td colSpan="8" className="p-8 text-center text-sm text-gray-500">History ဖတ်နေပါသည်...</td></tr>
+                      ) : userHistoryBookings.length > 0 ? (
+                        userHistoryBookings.map(item => {
                             const targetField = fields.find(f => f.id === item.fieldId);
                             const timeRange = item.fullTimeSlot || item.timeSlot || '';
                             const [startTime, endTime] = timeRange.split(/\s*-\s*/);
