@@ -102,9 +102,30 @@ export default function FieldBookingApp() {
     return savedUser ? JSON.parse(savedUser) : null;
   }); 
 
-  const [email, setEmail] = useState(() => readRememberedLogin().email);
-  const [password, setPassword] = useState(() => readRememberedLogin().password);
-  const [rememberLogin, setRememberLogin] = useState(() => readRememberedLogin().remember);
+const REMEMBERED_LOGIN_STORAGE_KEY = 'field-booking-remembered-login';
+
+const readRememberedLogin = () => {
+  const emptyLogin = { email: '', password: '', remember: false };
+  try {
+    if (typeof window === 'undefined' || !window.localStorage) return emptyLogin;
+    const rawValue = window.localStorage.getItem(REMEMBERED_LOGIN_STORAGE_KEY);
+    if (!rawValue) return emptyLogin;
+    const savedLogin = JSON.parse(rawValue);
+    if (!savedLogin || typeof savedLogin !== 'object') {
+      window.localStorage.removeItem(REMEMBERED_LOGIN_STORAGE_KEY);
+      return emptyLogin;
+    }
+    return {
+      email: typeof savedLogin.email === 'string' ? savedLogin.email : '',
+      password: typeof savedLogin.password === 'string' ? savedLogin.password : '',
+      remember: savedLogin.remember === undefined ? true : Boolean(savedLogin.remember),
+    };
+  } catch (error) {
+    console.warn('Unable to read remembered login on this device.', error);
+    return emptyLogin;
+  }
+};
+
   
   const [authMode, setAuthMode] = useState('login'); 
   const [signupName, setSignupName] = useState('');
