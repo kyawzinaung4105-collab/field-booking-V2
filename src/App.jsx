@@ -1,13 +1,14 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+
 // --- Remediation Admin-Only Security Rules, Duplicate Payment & Audit Log Enhancements ---
-export const ADMIN_SECURITY_RULES = `rules_version = '2';
+export const ADMIN_SECURITY_RULES = `rules_version = \2\;
 service cloud.firestore {
   match /databases/{database}/documents {
+    // Admin-only global rules and permission overrides
     function isAdmin() {
-      return request.auth != null && request.auth.token.role == 'admin';
+      return request.auth != null && request.auth.token.role == \admin\;
     }
     function isOwner(fieldId) {
-      return request.auth != null && (request.auth.token.role == 'admin' || request.auth.token.ownerFieldId == fieldId);
+      return request.auth != null && (request.auth.token.role == \admin\ || request.auth.token.ownerFieldId == fieldId);
     }
     match /bookings/{bookingId} {
       allow read, write: if request.auth != null;
@@ -33,6 +34,171 @@ export function createAuditLog(action, details, actorRole = "admin") {
     immutable: true
   };
 }
+
+
+import React, { useState, useEffect, useRef } from 'react';
+import { db } from './firebase'; 
+import { collection, getDoc, getDocs, addDoc, updateDoc, deleteDoc, doc, setDoc, runTransaction, onSnapshot, query, where, limit, startAfter, orderBy } from 'firebase/firestore';
+
+const defaultUsers = [
+  { email: 'admin@gmail.com', password: 'admin123', name: 'System Admin', role: 'admin' }
+];
+
+const defaultFields = [
+  {
+    id: 'f1',
+    ownerEmail: 'owner@gmail.com',
+    ownerPassword: 'owner123',
+    ownerStatus: 'Active', 
+    name: 'YUFC',
+    location: 'လှိုင်မြို့နယ်',
+    address: 'အမှတ် (၁၂၃)၊ လှိုင်မြို့နယ်',
+    phone: '09795562378',
+    openHour: 8,
+    closeHour: 20,
+    city: 'ရန်ကုန်',
+    subFields: [
+      { id: 'sf_1', name: 'Field A', price: 35000, openHour: 8, closeHour: 20, status: 'Active' },
+      { id: 'sf_2', name: 'Field B', price: 40000, openHour: 8, closeHour: 20, status: 'Active' },
+      { id: 'sf_3', name: 'Field C', price: 45000, openHour: 8, closeHour: 20, status: 'Active' }
+    ],
+    paymentInfo: { kpay: '09-791234567 (KPay)', wave: '09-421234567 (Wave)' }
+  }
+];
+
+const generateSingleTimeSlots = (openHour, closeHour, includeClosingTime = false) => {
+  const slots = [];
+  const start = openHour !== undefined && !isNaN(openHour) ? parseInt(openHour) : 8;
+  const end = closeHour !== undefined && !isNaN(closeHour) ? parseInt(closeHour) : 22;
+  
+  for (let i = start; i <= (includeClosingTime ? end : end - 1); i++) {
+    const format12Hour = (h24) => {
+      const period = h24 >= 12 ? 'PM' : 'AM';
+      const h12 = h24 % 12 === 0 ? 12 : h24 % 12;
+      return `${h12 < 10 ? `0${h12}` : h12}:00 ${period}`;
+    };
+    slots.push({ hour: i, label: `${format12Hour(i)} - ${format12Hour(i + 1)}` });
+  }
+  return slots;
+};
+
+// Payment screenshots must be available to the Owner on another device, so keep an
+// optimized image data URL in the booking document instead of only keeping the
+// temporary File object from the browser input.
+const HISTORY_PAGE_SIZE = 50;
+const REMEMBERED_LOGIN_STORAGE_KEY = 'fieldBookingRememberedLogin';
+
+const detectMobileDevice = () => {
+  if (typeof navigator === 'undefined') return false;
+  const userAgent = navigator.userAgent || '';
+  const isAppleTablet = navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1;
+  return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(userAgent) || isAppleTablet;
+};
+
+const readRememberedLogin = () => {
+  try {
+    const saved = localStorage.getItem(REMEMBERED_LOGIN_STORAGE_KEY);
+    if (!saved) return { email: '', password: '', remember: false };
+    const parsed = JSON.parse(saved);
+    if (typeof parsed?.email !== 'string' || typeof parsed?.password !== 'string') {
+      localStorage.removeItem(REMEMBERED_LOGIN_STORAGE_KEY);
+      return { email: '', password: '', remember: false };
+    }
+    return { email: parsed.email, password: parsed.password, remember: true };
+  } catch (error) {
+    console.warn('Remembered login data is unavailable on this device.', error);
+    return { email: '', password: '', remember: false };
+  }
+};
+
+const getBookingSlotLockId = (fieldId, subFieldId, date, hour) => [
+  fieldId || 'unknown-field',
+  subFieldId || 'unknown-sub-field',
+  date || 'unknown-date',
+  Number(hour)
+].join('__').replace(/[^A-Za-z0-9_-]/g, '-');
+
+const getBookingSlotLockRefs = (booking) => {
+  const startHour = Number(booking?.startHour);
+  const endHour = Number(booking?.endHour);
+  if (!booking?.fieldId || !booking?.subFieldId || !booking?.date || !Number.isFinite(startHour) || !Number.isFinite(endHour) || endHour <= startHour) {
+    return [];
+  }
+  return Array.from({ length: endHour - startHour }, (_, index) => doc(
+    db,
+    'bookingSlotLocks',
+    getBookingSlotLockId(booking.fieldId, booking.subFieldId, booking.date, startHour + index)
+  ));
+};
+
+const dedupeBookingRecords = (records) => {
+  const seen = new Set();
+  return records.filter((booking) => {
+    const key = [
+      booking.fieldId || '',
+      booking.subFieldId || '',
+      booking.date || '',
+      Number(booking.startHour),
+      Number(booking.endHour),
+      booking.userEmail || '',
+      booking.bookedBy || ''
+    ].join('|');
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+};
+
+const preparePaymentScreenshot = (file) => new Promise((resolve, reject) => {
+  if (!file) {
+    resolve(null);
+    return;
+  }
+  if (!file.type || !file.type.startsWith('image/')) {
+    reject(new Error('PAYMENT_SCREENSHOT_MUST_BE_IMAGE'));
+    return;
+  }
+  if (file.size > 10 * 1024 * 1024) {
+    reject(new Error('PAYMENT_SCREENSHOT_TOO_LARGE'));
+    return;
+  }
+
+  const reader = new FileReader();
+  reader.onerror = () => reject(new Error('PAYMENT_SCREENSHOT_READ_FAILED'));
+  reader.onload = () => {
+    const image = new Image();
+    image.onerror = () => reject(new Error('PAYMENT_SCREENSHOT_READ_FAILED'));
+    image.onload = () => {
+      const maxSide = 1600;
+      const scale = Math.min(1, maxSide / image.width, maxSide / image.height);
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.max(1, Math.round(image.width * scale));
+      canvas.height = Math.max(1, Math.round(image.height * scale));
+      const context = canvas.getContext('2d');
+      if (!context) {
+        reject(new Error('PAYMENT_SCREENSHOT_READ_FAILED'));
+        return;
+      }
+      context.fillStyle = '#ffffff';
+      context.fillRect(0, 0, canvas.width, canvas.height);
+      context.drawImage(image, 0, 0, canvas.width, canvas.height);
+
+      let quality = 0.82;
+      let dataUrl = canvas.toDataURL('image/jpeg', quality);
+      while (dataUrl.length > 750000 && quality > 0.5) {
+        quality -= 0.08;
+        dataUrl = canvas.toDataURL('image/jpeg', quality);
+      }
+      if (dataUrl.length > 750000) {
+        reject(new Error('PAYMENT_SCREENSHOT_TOO_LARGE'));
+        return;
+      }
+      resolve(dataUrl);
+    };
+    image.src = reader.result;
+  };
+  reader.readAsDataURL(file);
+});
 
 export default function FieldBookingApp() {
 
@@ -102,30 +268,9 @@ export default function FieldBookingApp() {
     return savedUser ? JSON.parse(savedUser) : null;
   }); 
 
-const REMEMBERED_LOGIN_STORAGE_KEY = 'field-booking-remembered-login';
-
-const readRememberedLogin = () => {
-  const emptyLogin = { email: '', password: '', remember: false };
-  try {
-    if (typeof window === 'undefined' || !window.localStorage) return emptyLogin;
-    const rawValue = window.localStorage.getItem(REMEMBERED_LOGIN_STORAGE_KEY);
-    if (!rawValue) return emptyLogin;
-    const savedLogin = JSON.parse(rawValue);
-    if (!savedLogin || typeof savedLogin !== 'object') {
-      window.localStorage.removeItem(REMEMBERED_LOGIN_STORAGE_KEY);
-      return emptyLogin;
-    }
-    return {
-      email: typeof savedLogin.email === 'string' ? savedLogin.email : '',
-      password: typeof savedLogin.password === 'string' ? savedLogin.password : '',
-      remember: savedLogin.remember === undefined ? true : Boolean(savedLogin.remember),
-    };
-  } catch (error) {
-    console.warn('Unable to read remembered login on this device.', error);
-    return emptyLogin;
-  }
-};
-
+  const [email, setEmail] = useState(() => readRememberedLogin().email);
+  const [password, setPassword] = useState(() => readRememberedLogin().password);
+  const [rememberLogin, setRememberLogin] = useState(() => readRememberedLogin().remember);
   
   const [authMode, setAuthMode] = useState('login'); 
   const [signupName, setSignupName] = useState('');
@@ -595,33 +740,10 @@ const readRememberedLogin = () => {
 
       setHistoryLoading(true);
       try {
-        let snapshot;
-        try {
-          snapshot = await getDocs(query(collection(db, 'bookings'), ...constraints));
-        } catch (idxErr) {
-          console.warn('Index fallback query without orderBy...', idxErr);
-          const simpleConstraints = [];
-          if (currentUser.role === 'user') {
-            simpleConstraints.push(where('userEmail', '==', currentUser.email));
-          } else if (currentUser.role === 'owner') {
-            if (ownerFieldQueryIds.length > 0) {
-              simpleConstraints.push(where('fieldId', 'in', ownerFieldQueryIds));
-            }
-          }
-          if (historyDate) simpleConstraints.push(where('date', '==', historyDate));
-          snapshot = await getDocs(query(collection(db, 'bookings'), ...simpleConstraints));
-        }
+        const snapshot = await getDocs(query(collection(db, 'bookings'), ...constraints));
         if (cancelled || requestId !== historyRequestRef.current) return;
-        let records = sortBookingRecords(dedupeBookingRecords(snapshot.docs.map(d => ({ id: d.id, ...d.data() }))));
-        if (records.length === 0 && bookings.length > 0) {
-          records = bookings.filter(b => {
-            if (currentUser.role === 'user') return b.userEmail === currentUser.email;
-            if (currentUser.role === 'owner') return ownerFieldQueryIds.includes(b.fieldId);
-            return true;
-          });
-          if (historyDate) records = records.filter(b => b.date === historyDate);
-          records = sortBookingRecords(records);
-        }
+
+        const records = sortBookingRecords(dedupeBookingRecords(snapshot.docs.map(d => ({ id: d.id, ...d.data() }))));
         setHistoryBookings(records);
         setHistoryHasMore(snapshot.docs.length === HISTORY_PAGE_SIZE);
         if (snapshot.docs.length > 0) {
@@ -633,14 +755,8 @@ const readRememberedLogin = () => {
         }
       } catch (error) {
         if (!cancelled && requestId === historyRequestRef.current) {
-          console.error('History query error, fallback to local bookings:', error);
-          let fallbackRecords = bookings.filter(b => {
-            if (currentUser.role === 'user') return b.userEmail === currentUser.email;
-            if (currentUser.role === 'owner') return ownerFieldQueryIds.includes(b.fieldId);
-            return true;
-          });
-          if (historyDate) fallbackRecords = fallbackRecords.filter(b => b.date === historyDate);
-          setHistoryBookings(sortBookingRecords(fallbackRecords));
+          console.error('History query error:', error);
+          setHistoryBookings([]);
           setHistoryHasMore(false);
         }
       } finally {
@@ -669,54 +785,11 @@ const readRememberedLogin = () => {
       const constraints = [where('date', '==', reportDate)];
       if (isOwnerReport) constraints.push(where('fieldId', 'in', ownerFieldQueryIds));
       try {
-        let snapshot;
-        try {
-          snapshot = await getDocs(query(collection(db, 'bookings'), ...constraints));
-        } catch (idxErr) {
-          console.warn('Index fallback query without orderBy...', idxErr);
-          const simpleConstraints = [];
-          if (currentUser.role === 'user') {
-            simpleConstraints.push(where('userEmail', '==', currentUser.email));
-          } else if (currentUser.role === 'owner') {
-            if (ownerFieldQueryIds.length > 0) {
-              simpleConstraints.push(where('fieldId', 'in', ownerFieldQueryIds));
-            }
-          }
-          if (historyDate) simpleConstraints.push(where('date', '==', historyDate));
-          snapshot = await getDocs(query(collection(db, 'bookings'), ...simpleConstraints));
-        }
-        if (cancelled || requestId !== historyRequestRef.current) return;
-        let records = sortBookingRecords(dedupeBookingRecords(snapshot.docs.map(d => ({ id: d.id, ...d.data() }))));
-        if (records.length === 0 && bookings.length > 0) {
-          records = bookings.filter(b => {
-            if (currentUser.role === 'user') return b.userEmail === currentUser.email;
-            if (currentUser.role === 'owner') return ownerFieldQueryIds.includes(b.fieldId);
-            return true;
-          });
-          if (historyDate) records = records.filter(b => b.date === historyDate);
-          records = sortBookingRecords(records);
-        }
-        setHistoryBookings(records);
-        setHistoryHasMore(snapshot.docs.length === HISTORY_PAGE_SIZE);
-        if (snapshot.docs.length > 0) {
-          setHistoryCursorStack((previous) => {
-            const next = [...previous];
-            next[historyPage] = snapshot.docs[snapshot.docs.length - 1];
-            return next;
-          });
-        }
+        const snapshot = await getDocs(query(collection(db, 'bookings'), ...constraints));
+        setReportBookings(dedupeBookingRecords(snapshot.docs.map(d => ({ id: d.id, ...d.data() }))));
       } catch (error) {
-        if (!cancelled && requestId === historyRequestRef.current) {
-          console.error('History query error, fallback to local bookings:', error);
-          let fallbackRecords = bookings.filter(b => {
-            if (currentUser.role === 'user') return b.userEmail === currentUser.email;
-            if (currentUser.role === 'owner') return ownerFieldQueryIds.includes(b.fieldId);
-            return true;
-          });
-          if (historyDate) fallbackRecords = fallbackRecords.filter(b => b.date === historyDate);
-          setHistoryBookings(sortBookingRecords(fallbackRecords));
-          setHistoryHasMore(false);
-        }
+        console.error('Report query error:', error);
+        setReportBookings([]);
       }
     };
     loadReport();
