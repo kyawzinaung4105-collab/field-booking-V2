@@ -1859,6 +1859,23 @@ export default function FieldBookingApp() {
               <button type="submit" className="w-full bg-emerald-600 text-white py-2.5 rounded-lg text-sm font-bold shadow hover:bg-emerald-700 transition-colors">အကောင့်ဖန်တီးမည် (Sign Up)</button>
             </form>
           )}
+
+          {!isAppInstalled && (
+            <div className="mt-6 border-t border-gray-100 pt-5">
+              <button
+                type="button"
+                onClick={handleInstallClick}
+                className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-amber-500 px-4 py-3 text-sm font-bold text-white shadow-md transition-all hover:bg-amber-600 active:scale-[0.98]"
+                title="App ကို ဖုန်း Home Screen ပေါ်သို့ ထည့်သွင်းမည်"
+              >
+                <span aria-hidden="true">📲</span>
+                <span>Install App (ဖုန်းထဲထည့်မည်)</span>
+              </button>
+              <p className="mt-2 text-center text-[11px] leading-relaxed text-gray-500">
+                Web link ဖြင့် ဝင်ထားပါက ဒီခလုတ်မှ App ကို Home Screen ပေါ်သို့ ထည့်နိုင်ပါသည်။
+              </p>
+            </div>
+          )}
         </div>
       </div>
     );
