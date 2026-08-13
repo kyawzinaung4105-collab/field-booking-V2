@@ -4059,7 +4059,17 @@ export default function FieldBookingApp() {
                                   <div className="font-mono text-gray-600">Txn: {item.transactionLast5 || '-'}</div>
                                 </td>
                                 <td className="p-3 font-bold text-xs whitespace-nowrap">
-                                  <span className={item.status === 'Approved' ? 'text-emerald-600' : item.status === 'Rejected' ? 'text-red-500' : 'text-amber-500'}>{item.status || '-'}</span>
+                                  {(() => {
+                                    const expired = isBookingExpired(item);
+                                    const baseStatus = String(item.status || 'Pending').replace(/\s+and\s+Expire$/i, '').trim() || 'Pending';
+                                    const displayStatus = expired ? `${baseStatus} and Expire` : baseStatus;
+                                    const statusColor = baseStatus === 'Approved' ? 'text-emerald-600' : baseStatus === 'Rejected' ? 'text-red-500' : 'text-amber-500';
+                                    return (
+                                      <span className={statusColor}>
+                                        {displayStatus}
+                                      </span>
+                                    );
+                                  })()}
                                 </td>
                               </tr>
                             );
