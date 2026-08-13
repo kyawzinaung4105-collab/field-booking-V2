@@ -357,6 +357,22 @@ export default function FieldBookingApp() {
   const [ownerMobileMenuOpen, setOwnerMobileMenuOpen] = useState(false);
   const historyRequestRef = useRef(0);
 
+  // Mobile navigation follows the reference pattern: one left-side drawer for every role.
+  // Keep the existing desktop tabs and role-specific inner menus unchanged.
+  useEffect(() => {
+    if (!mobileHeaderMenuOpen) return undefined;
+    const handleDrawerKeyDown = (event) => {
+      if (event.key === 'Escape') setMobileHeaderMenuOpen(false);
+    };
+    document.addEventListener('keydown', handleDrawerKeyDown);
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.removeEventListener('keydown', handleDrawerKeyDown);
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [mobileHeaderMenuOpen]);
+
   useEffect(() => {
     if (currentUser) {
       sessionStorage.setItem('currentUser', JSON.stringify(currentUser));
@@ -1850,37 +1866,112 @@ export default function FieldBookingApp() {
             <button onClick={handleLogout} className="hidden sm:inline-flex bg-red-500 hover:bg-red-600 text-white text-xs px-3 py-1.5 rounded font-bold">Logout</button>
             <button
               type="button"
-              onClick={() => setMobileHeaderMenuOpen(prev => !prev)}
+              onClick={() => setMobileHeaderMenuOpen(true)}
               className="inline-flex sm:hidden items-center gap-1 rounded-lg bg-emerald-800 px-2.5 py-2 text-xs font-bold hover:bg-emerald-900 active:scale-[0.98]"
               aria-expanded={mobileHeaderMenuOpen}
-              aria-label="Open menu"
+              aria-controls="role-mobile-drawer"
+              aria-label="Open role menu"
             >
               ☰ Menu
             </button>
           </div>
         </div>
 
-        {mobileHeaderMenuOpen && (
-          <div className="absolute right-3 top-full mt-2 w-[min(19rem,calc(100vw-1.5rem))] rounded-2xl border border-emerald-900/20 bg-white p-3 text-gray-800 shadow-2xl sm:hidden">
-            <div className="mb-2 rounded-xl bg-emerald-50 px-3 py-2">
-              <p className="text-sm font-bold text-emerald-900">{currentUser.name}</p>
-              <p className="text-[11px] font-semibold uppercase text-emerald-700">{currentUser.role}</p>
+        <div
+          className={`fixed inset-0 z-[60] sm:hidden transition-opacity duration-200 ${mobileHeaderMenuOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}
+          aria-hidden={!mobileHeaderMenuOpen}
+        >
+          <button
+            type="button"
+            aria-label="Close role menu backdrop"
+            onClick={() => setMobileHeaderMenuOpen(false)}
+            className="absolute inset-0 h-full w-full bg-slate-950/55 backdrop-blur-[2px]"
+          />
+          <aside
+            id="role-mobile-drawer"
+            role="dialog"
+            aria-modal="true"
+            aria-label={`${currentUser.role} menu`}
+            className={`absolute inset-y-0 left-0 flex w-[min(88vw,22rem)] max-w-full flex-col bg-white text-slate-800 shadow-2xl transition-transform duration-300 ease-out ${mobileHeaderMenuOpen ? 'translate-x-0' : '-translate-x-full'}`}
+          >
+            <div className="relative overflow-hidden bg-gradient-to-br from-emerald-800 via-emerald-700 to-teal-600 px-5 pb-5 pt-5 text-white">
+              <div className="absolute -right-10 -top-12 h-36 w-36 rounded-full border-[18px] border-white/10" />
+              <div className="relative flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <div className="mb-3 flex h-14 w-14 items-center justify-center rounded-full border-4 border-white/80 bg-emerald-950/30 text-3xl shadow-lg">⚽</div>
+                  <p className="truncate text-base font-extrabold">{currentUser.name}</p>
+                  <p className="mt-0.5 text-[11px] font-bold uppercase tracking-[0.18em] text-emerald-100">{currentUser.role}</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setMobileHeaderMenuOpen(false)}
+                  className="rounded-full bg-white/15 px-3 py-2 text-xl leading-none text-white transition hover:bg-white/25 active:scale-95"
+                  aria-label="Close menu"
+                >
+                  ×
+                </button>
+              </div>
+              <div className="relative mt-5 flex items-center gap-2 text-xs font-semibold text-emerald-50">
+                <span className="h-2 w-2 rounded-full bg-lime-300 shadow-[0_0_0_4px_rgba(190,242,100,0.18)]" />
+                {currentUser.role === 'admin' ? 'Admin Control Center' : currentUser.role === 'owner' ? 'Owner Field Workspace' : 'Book your field time'}
+              </div>
             </div>
-            <div className="space-y-2">
+
+            <nav className="min-h-0 flex-1 overflow-y-auto py-2" aria-label="Role functions">
+              <p className="px-5 pb-2 pt-3 text-[10px] font-extrabold uppercase tracking-[0.18em] text-slate-400">Functions</p>
+              <button
+                type="button"
+                onClick={() => { setActiveTab('fields'); setUserSelectedField(null); setSelectedSubField(null); setMobileHeaderMenuOpen(false); sessionStorage.removeItem('userSelectedField'); sessionStorage.removeItem('selectedSubField'); }}
+                className="flex w-full items-center gap-3 border-b border-slate-100 px-5 py-3.5 text-left text-sm font-bold transition hover:bg-emerald-50 active:bg-emerald-100"
+              >
+                <span className="w-7 text-center text-xl">🏟️</span><span>ကွင်းများ / Booking</span>
+              </button>
+
               {currentUser.role === 'user' && (
-                <button type="button" onClick={() => { setActiveTab('history'); setMobileHeaderMenuOpen(false); }} className="w-full rounded-xl bg-gray-100 px-3 py-2.5 text-left text-xs font-bold hover:bg-emerald-50">📋 Booking History</button>
+                <button
+                  type="button"
+                  onClick={() => { setActiveTab('history'); setMobileHeaderMenuOpen(false); }}
+                  className={`flex w-full items-center gap-3 border-b border-slate-100 px-5 py-3.5 text-left text-sm font-bold transition ${activeTab === 'history' ? 'bg-emerald-50 text-emerald-800' : 'hover:bg-emerald-50 active:bg-emerald-100'}`}
+                >
+                  <span className="w-7 text-center text-xl">📋</span><span>Booking History</span>
+                </button>
               )}
+
               {currentUser.role === 'admin' && (
-                <button type="button" onClick={() => { setActiveTab('dashboard'); setMobileHeaderMenuOpen(false); }} className="w-full rounded-xl bg-gray-100 px-3 py-2.5 text-left text-xs font-bold hover:bg-emerald-50">⚙️ Admin Dashboard</button>
+                <>
+                  <button type="button" onClick={() => { setActiveTab('dashboard'); setAdminTab('pending'); setMobileHeaderMenuOpen(false); }} className={`flex w-full items-center gap-3 border-b border-slate-100 px-5 py-3.5 text-left text-sm font-bold transition ${activeTab === 'dashboard' && adminTab === 'pending' ? 'bg-emerald-50 text-emerald-800' : 'hover:bg-emerald-50 active:bg-emerald-100'}`}><span className="w-7 text-center text-xl">📋</span><span>Bookings အားလုံး</span></button>
+                  <button type="button" onClick={() => { setActiveTab('dashboard'); setAdminTab('manage_fields'); setMobileHeaderMenuOpen(false); }} className={`flex w-full items-center gap-3 border-b border-slate-100 px-5 py-3.5 text-left text-sm font-bold transition ${activeTab === 'dashboard' && adminTab === 'manage_fields' ? 'bg-emerald-50 text-emerald-800' : 'hover:bg-emerald-50 active:bg-emerald-100'}`}><span className="w-7 text-center text-xl">🏗️</span><span>Manage Fields</span></button>
+                  <button type="button" onClick={() => { setActiveTab('dashboard'); setAdminTab('report'); setMobileHeaderMenuOpen(false); }} className={`flex w-full items-center gap-3 border-b border-slate-100 px-5 py-3.5 text-left text-sm font-bold transition ${activeTab === 'dashboard' && adminTab === 'report' ? 'bg-emerald-50 text-emerald-800' : 'hover:bg-emerald-50 active:bg-emerald-100'}`}><span className="w-7 text-center text-xl">📊</span><span>Booking Report</span></button>
+                  <button type="button" onClick={() => { setActiveTab('dashboard'); setAdminTab('manage_owners'); setMobileHeaderMenuOpen(false); }} className={`flex w-full items-center gap-3 border-b border-slate-100 px-5 py-3.5 text-left text-sm font-bold transition ${activeTab === 'dashboard' && adminTab === 'manage_owners' ? 'bg-emerald-50 text-emerald-800' : 'hover:bg-emerald-50 active:bg-emerald-100'}`}><span className="w-7 text-center text-xl">🔑</span><span>Manage Owners</span></button>
+                  <button type="button" onClick={() => { setActiveTab('dashboard'); setAdminTab('notifications_page'); setMobileHeaderMenuOpen(false); }} className={`flex w-full items-center gap-3 border-b border-slate-100 px-5 py-3.5 text-left text-sm font-bold transition ${activeTab === 'dashboard' && adminTab === 'notifications_page' ? 'bg-emerald-50 text-emerald-800' : 'hover:bg-emerald-50 active:bg-emerald-100'}`}><span className="w-7 text-center text-xl">🔔</span><span>Notifications</span></button>
+                  <button type="button" onClick={() => { setActiveTab('dashboard'); setAdminTab('change_password'); setMobileHeaderMenuOpen(false); }} className={`flex w-full items-center gap-3 border-b border-slate-100 px-5 py-3.5 text-left text-sm font-bold transition ${activeTab === 'dashboard' && adminTab === 'change_password' ? 'bg-emerald-50 text-emerald-800' : 'hover:bg-emerald-50 active:bg-emerald-100'}`}><span className="w-7 text-center text-xl">🔒</span><span>Password ပြောင်းရန်</span></button>
+                </>
               )}
+
               {currentUser.role === 'owner' && (
-                <button type="button" onClick={() => { setActiveTab('owner_manage'); setMobileHeaderMenuOpen(false); }} className="w-full rounded-xl bg-gray-100 px-3 py-2.5 text-left text-xs font-bold hover:bg-emerald-50">🏟️ Manage Fields & History</button>
+                <>
+                  <button type="button" onClick={() => { setActiveTab('owner_manage'); setOwnerActiveTab('pending'); setMobileHeaderMenuOpen(false); }} className={`flex w-full items-center gap-3 border-b border-slate-100 px-5 py-3.5 text-left text-sm font-bold transition ${activeTab === 'owner_manage' && ownerActiveTab === 'pending' ? 'bg-emerald-50 text-emerald-800' : 'hover:bg-emerald-50 active:bg-emerald-100'}`}><span className="w-7 text-center text-xl">📝</span><span>Direct Booking</span></button>
+                  <button type="button" onClick={() => { setActiveTab('owner_manage'); setOwnerActiveTab('history'); setMobileHeaderMenuOpen(false); }} className={`flex w-full items-center gap-3 border-b border-slate-100 px-5 py-3.5 text-left text-sm font-bold transition ${activeTab === 'owner_manage' && ownerActiveTab === 'history' ? 'bg-emerald-50 text-emerald-800' : 'hover:bg-emerald-50 active:bg-emerald-100'}`}><span className="w-7 text-center text-xl">📋</span><span>Booking History</span></button>
+                  <button type="button" onClick={() => { setActiveTab('owner_manage'); setOwnerActiveTab('report'); setMobileHeaderMenuOpen(false); }} className={`flex w-full items-center gap-3 border-b border-slate-100 px-5 py-3.5 text-left text-sm font-bold transition ${activeTab === 'owner_manage' && ownerActiveTab === 'report' ? 'bg-emerald-50 text-emerald-800' : 'hover:bg-emerald-50 active:bg-emerald-100'}`}><span className="w-7 text-center text-xl">📊</span><span>My Fields Report</span></button>
+                  <button type="button" onClick={() => { setActiveTab('owner_manage'); setOwnerActiveTab('notifications_page'); setMobileHeaderMenuOpen(false); }} className={`flex w-full items-center gap-3 border-b border-slate-100 px-5 py-3.5 text-left text-sm font-bold transition ${activeTab === 'owner_manage' && ownerActiveTab === 'notifications_page' ? 'bg-emerald-50 text-emerald-800' : 'hover:bg-emerald-50 active:bg-emerald-100'}`}><span className="w-7 text-center text-xl">🔔</span><span>Notifications</span></button>
+                  <button type="button" onClick={() => { setActiveTab('owner_manage'); setOwnerActiveTab('fields_edit'); setMobileHeaderMenuOpen(false); }} className={`flex w-full items-center gap-3 border-b border-slate-100 px-5 py-3.5 text-left text-sm font-bold transition ${activeTab === 'owner_manage' && ownerActiveTab === 'fields_edit' ? 'bg-emerald-50 text-emerald-800' : 'hover:bg-emerald-50 active:bg-emerald-100'}`}><span className="w-7 text-center text-xl">🏟️</span><span>ကွင်းအချိန် / KPay / Wave</span></button>
+                  <button type="button" onClick={() => { setActiveTab('owner_manage'); setOwnerActiveTab('password'); setMobileHeaderMenuOpen(false); }} className={`flex w-full items-center gap-3 border-b border-slate-100 px-5 py-3.5 text-left text-sm font-bold transition ${activeTab === 'owner_manage' && ownerActiveTab === 'password' ? 'bg-emerald-50 text-emerald-800' : 'hover:bg-emerald-50 active:bg-emerald-100'}`}><span className="w-7 text-center text-xl">🔒</span><span>Password ပြောင်းရန်</span></button>
+                </>
               )}
-              <button type="button" onClick={() => { setActiveTab('fields'); setUserSelectedField(null); setSelectedSubField(null); setMobileHeaderMenuOpen(false); }} className="w-full rounded-xl bg-gray-100 px-3 py-2.5 text-left text-xs font-bold hover:bg-emerald-50">🏟️ ကွင်းများသို့ ပြန်ရန်</button>
-              <button type="button" onClick={() => { handleLogout(); setMobileHeaderMenuOpen(false); }} className="w-full rounded-xl bg-red-50 px-3 py-2.5 text-left text-xs font-bold text-red-700 hover:bg-red-100">Logout</button>
+            </nav>
+
+            <div className="border-t border-slate-200 p-4">
+              {(currentUser.role === 'admin' || currentUser.role === 'owner') && (
+                <button type="button" onClick={() => { setShowNotiDropdown(true); setMobileHeaderMenuOpen(false); handleMarkNotificationsAsRead(); }} className="mb-2 flex w-full items-center gap-3 rounded-xl bg-amber-50 px-4 py-3 text-left text-sm font-bold text-amber-800 transition hover:bg-amber-100">
+                  <span className="text-xl">🔔</span><span>Quick Notifications</span>
+                </button>
+              )}
+              <button type="button" onClick={() => { setMobileHeaderMenuOpen(false); handleLogout(); }} className="flex w-full items-center gap-3 rounded-xl bg-red-50 px-4 py-3 text-left text-sm font-bold text-red-700 transition hover:bg-red-100 active:bg-red-200">
+                <span className="text-xl">↪</span><span>Logout</span>
+              </button>
             </div>
-          </div>
-        )}
+          </aside>
+        </div>
       </header>
 
       <main className="max-w-7xl mx-auto px-4 mt-6">
