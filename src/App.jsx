@@ -50,6 +50,13 @@ const generateSingleTimeSlots = (openHour, closeHour, includeClosingTime = false
 const HISTORY_PAGE_SIZE = 50;
 const REMEMBERED_LOGIN_STORAGE_KEY = 'fieldBookingRememberedLogin';
 
+const detectMobileDevice = () => {
+  if (typeof navigator === 'undefined') return false;
+  const userAgent = navigator.userAgent || '';
+  const isAppleTablet = navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1;
+  return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(userAgent) || isAppleTablet;
+};
+
 const readRememberedLogin = () => {
   try {
     const saved = localStorage.getItem(REMEMBERED_LOGIN_STORAGE_KEY);
@@ -241,6 +248,7 @@ export default function FieldBookingApp() {
   const [deferredPrompt, setDeferredPrompt] = useState(null);
   const [showIosInstallModal, setShowIosInstallModal] = useState(false);
   const [isAppInstalled, setIsAppInstalled] = useState(false);
+  const [isMobileDevice] = useState(() => detectMobileDevice());
 
   useEffect(() => {
     const handleBeforeInstallPrompt = (e) => {
@@ -1860,7 +1868,7 @@ export default function FieldBookingApp() {
             </form>
           )}
 
-          {!isAppInstalled && (
+          {isMobileDevice && !isAppInstalled && (
             <div className="mt-6 border-t border-gray-100 pt-5">
               <button
                 type="button"
@@ -2004,7 +2012,7 @@ export default function FieldBookingApp() {
               <button onClick={() => { setActiveTab('owner_manage'); setMobileHeaderMenuOpen(false); }} className="hidden sm:inline-flex text-xs px-3 py-1.5 rounded bg-emerald-800 text-white font-bold hover:bg-emerald-900">🏟️ Manage Fields & History</button>
             )}
             
-            {!isAppInstalled && (
+            {isMobileDevice && !isAppInstalled && (
                 <button
                   type="button"
                   onClick={handleInstallClick}
