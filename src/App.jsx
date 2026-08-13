@@ -1,3 +1,4 @@
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 // --- Remediation Admin-Only Security Rules, Duplicate Payment & Audit Log Enhancements ---
 export const ADMIN_SECURITY_RULES = `rules_version = '2';
 service cloud.firestore {
