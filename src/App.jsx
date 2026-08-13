@@ -1268,7 +1268,7 @@ export default function FieldBookingApp() {
           userSelectedField.id,
           result.id
         );
-        alert('Booking တင်ခြင်း အောင်မြင်ပါသည်။ Admin အတည်ပြုရန် စောင့်ဆိုင်းပါ။');
+        alert('Booking တင်ခြင်း အောင်မြင်ပါသည်။ Owner အတည်ပြုရန် စောင့်ဆိုင်းပါ။');
         setActiveTab('history');
       }
 
@@ -1443,7 +1443,7 @@ export default function FieldBookingApp() {
         editingOwnerFieldId
       );
 
-      alert('ကွင်းအချက်အလက် ပြင်ဆင်မှု အောင်မြင်ပါသည်။ Admin ထံသို့ အကြောင်းကြားပြီးပါပြီ။');
+      alert('ကွင်းအချက်အလက် ပြင်ဆင်မှု အောင်မြင်ပါသည်။');
       setEditingOwnerFieldId(null);
     } catch (error) {
       console.error("Error updating owner field: ", error);
@@ -2929,7 +2929,7 @@ export default function FieldBookingApp() {
                 <div className="flex flex-col gap-4 rounded-2xl border bg-gray-50 p-4 sm:flex-row sm:items-end sm:justify-between">
                   <div>
                     <h3 className="text-base font-extrabold text-gray-800">📊 My Fields Booking Report</h3>
-                    <p className="mt-1 text-xs text-gray-500">ကိုယ့် Owner Account နဲ့သက်ဆိုင်တဲ့ ကွင်းများအတွက်သာ Report ပြပါမယ်။</p>
+                    <p className="mt-1 text-xs text-gray-500"></p>
                   </div>
                   <div className="flex flex-wrap items-end gap-2">
                     <label className="text-xs font-bold text-gray-700">
@@ -2941,7 +2941,7 @@ export default function FieldBookingApp() {
                 </div>
 
                 <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
-                  နာရီစုစုပေါင်းနှင့် ဝင်ငွေကို <strong>Approved Booking</strong> များအတွက်သာတွက်ထားပါသည်။ Owner ပိုင်ကွင်းမဟုတ်သော Booking များကို မပြပါ။
+                  နာရီစုစုပေါင်းနှင့် ဝင်ငွေကို <strong>Approved Booking</strong> များအတွက်သာတွက်ထားပါသည်။
                 </div>
 
                 <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
@@ -2960,7 +2960,7 @@ export default function FieldBookingApp() {
                 </div>
 
                 <div className="rounded-2xl border bg-white">
-                  <div className="border-b bg-gray-50 p-4"><h4 className="text-sm font-extrabold text-gray-800">ကိုယ့်ကွင်း / ကွင်းခွဲအလိုက် Overall</h4><p className="mt-1 text-xs text-gray-500">{ownerReportDate} တွင် ပါဝင်သော Owner Fields Booking များ</p></div>
+                  <div className="border-b bg-gray-50 p-4"><h4 className="text-sm font-extrabold text-gray-800">ကွင်း / ကွင်းခွဲအလိုက်</h4><p className="mt-1 text-xs text-gray-500">{ownerReportDate} တွင် ပါဝင်သော Owner Fields Booking များ</p></div>
                   {ownerReport.fieldBreakdown.length > 0 ? (
                     <div className="overflow-x-auto">
                       <table className="min-w-[720px] w-full text-left text-xs">
@@ -2969,7 +2969,7 @@ export default function FieldBookingApp() {
                       </table>
                     </div>
                   ) : (
-                    <p className="p-8 text-center text-sm text-gray-500">ရွေးထားသောရက်တွင် ကိုယ့်ကွင်းများအတွက် Booking မရှိသေးပါ။</p>
+                    <p className="p-8 text-center text-sm text-gray-500">ရွေးထားသောရက်တွင် ကွင်းများအတွက် Booking မရှိသေးပါ။</p>
                   )}
                 </div>
               </div>
@@ -2990,7 +2990,7 @@ export default function FieldBookingApp() {
                         onChange={(e) => setOwnerNotiFieldId(e.target.value)}
                         className="border rounded-lg p-2 text-xs bg-white font-bold"
                       >
-                        <option value="all">ကိုယ့်ကွင်းများအားလုံး (All My Fields)</option>
+                        <option value="all">ကွင်းများအားလုံး (All My Fields)</option>
                         {fields.filter(f => f.ownerEmail === currentUser.email).map(f => (
                           <option key={f.id} value={f.id}>{f.name} ({f.location})</option>
                         ))}
