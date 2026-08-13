@@ -726,6 +726,29 @@ export default function FieldBookingApp() {
     }
   };
 
+  const restoreRememberedLogin = () => {
+    const remembered = readRememberedLogin();
+    setEmail(remembered.email);
+    setPassword(remembered.password);
+    setRememberLogin(remembered.remember);
+  };
+
+  const updateRememberedPassword = (nextPassword) => {
+    if (!rememberLogin || !nextPassword) return;
+    try {
+      const remembered = readRememberedLogin();
+      const identifier = remembered.email || currentUser?.email || '';
+      if (identifier) {
+        localStorage.setItem(REMEMBERED_LOGIN_STORAGE_KEY, JSON.stringify({
+          email: identifier,
+          password: nextPassword
+        }));
+      }
+    } catch (error) {
+      console.warn('Unable to update remembered password on this device.', error);
+    }
+  };
+
   const handleLogin = (e) => {
     e.preventDefault();
     const loginIdentifier = email.trim().toLowerCase();
@@ -825,6 +848,7 @@ export default function FieldBookingApp() {
         // merge also works when appConfig/settings has not been created yet.
         await setDoc(doc(db, 'appConfig', 'settings'), { adminPassword: nextPassword }, { merge: true });
         setAdminPassword(nextPassword);
+        updateRememberedPassword(nextPassword);
         alert('Password ပြောင်းတာအောင်မြင်ပါသည်။ နောက်တစ်ကြိမ် Login ဝင်ရာတွင် Password အသစ်ကို အသုံးပြုပါ။');
         setMyNewPassword('');
       } else if (currentUser.role === 'owner') {
@@ -841,6 +865,7 @@ export default function FieldBookingApp() {
         }
         await updateDoc(doc(db, 'fields', targetField.id), { ownerPassword: nextPassword });
         setFields(updatedFields);
+        updateRememberedPassword(nextPassword);
         alert('Password ပြောင်းတာအောင်မြင်ပါသည်');
         setMyNewPassword('');
       }
@@ -851,6 +876,7 @@ export default function FieldBookingApp() {
   };
 
   const handleLogout = () => {
+    restoreRememberedLogin();
     setCurrentUser(null);
     setUserSelectedField(null);
     setSelectedSubField(null);
