@@ -573,10 +573,33 @@ export default function FieldBookingApp() {
 
       setHistoryLoading(true);
       try {
-        const snapshot = await getDocs(query(collection(db, 'bookings'), ...constraints));
+        let snapshot;
+        try {
+          snapshot = await getDocs(query(collection(db, 'bookings'), ...constraints));
+        } catch (idxErr) {
+          console.warn('Index fallback query without orderBy...', idxErr);
+          const simpleConstraints = [];
+          if (currentUser.role === 'user') {
+            simpleConstraints.push(where('userEmail', '==', currentUser.email));
+          } else if (currentUser.role === 'owner') {
+            if (ownerFieldQueryIds.length > 0) {
+              simpleConstraints.push(where('fieldId', 'in', ownerFieldQueryIds));
+            }
+          }
+          if (historyDate) simpleConstraints.push(where('date', '==', historyDate));
+          snapshot = await getDocs(query(collection(db, 'bookings'), ...simpleConstraints));
+        }
         if (cancelled || requestId !== historyRequestRef.current) return;
-
-        const records = sortBookingRecords(dedupeBookingRecords(snapshot.docs.map(d => ({ id: d.id, ...d.data() }))));
+        let records = sortBookingRecords(dedupeBookingRecords(snapshot.docs.map(d => ({ id: d.id, ...d.data() }))));
+        if (records.length === 0 && bookings.length > 0) {
+          records = bookings.filter(b => {
+            if (currentUser.role === 'user') return b.userEmail === currentUser.email;
+            if (currentUser.role === 'owner') return ownerFieldQueryIds.includes(b.fieldId);
+            return true;
+          });
+          if (historyDate) records = records.filter(b => b.date === historyDate);
+          records = sortBookingRecords(records);
+        }
         setHistoryBookings(records);
         setHistoryHasMore(snapshot.docs.length === HISTORY_PAGE_SIZE);
         if (snapshot.docs.length > 0) {
@@ -588,8 +611,14 @@ export default function FieldBookingApp() {
         }
       } catch (error) {
         if (!cancelled && requestId === historyRequestRef.current) {
-          console.error('History query error:', error);
-          setHistoryBookings([]);
+          console.error('History query error, fallback to local bookings:', error);
+          let fallbackRecords = bookings.filter(b => {
+            if (currentUser.role === 'user') return b.userEmail === currentUser.email;
+            if (currentUser.role === 'owner') return ownerFieldQueryIds.includes(b.fieldId);
+            return true;
+          });
+          if (historyDate) fallbackRecords = fallbackRecords.filter(b => b.date === historyDate);
+          setHistoryBookings(sortBookingRecords(fallbackRecords));
           setHistoryHasMore(false);
         }
       } finally {
@@ -618,11 +647,54 @@ export default function FieldBookingApp() {
       const constraints = [where('date', '==', reportDate)];
       if (isOwnerReport) constraints.push(where('fieldId', 'in', ownerFieldQueryIds));
       try {
-        const snapshot = await getDocs(query(collection(db, 'bookings'), ...constraints));
-        setReportBookings(dedupeBookingRecords(snapshot.docs.map(d => ({ id: d.id, ...d.data() }))));
+        let snapshot;
+        try {
+          snapshot = await getDocs(query(collection(db, 'bookings'), ...constraints));
+        } catch (idxErr) {
+          console.warn('Index fallback query without orderBy...', idxErr);
+          const simpleConstraints = [];
+          if (currentUser.role === 'user') {
+            simpleConstraints.push(where('userEmail', '==', currentUser.email));
+          } else if (currentUser.role === 'owner') {
+            if (ownerFieldQueryIds.length > 0) {
+              simpleConstraints.push(where('fieldId', 'in', ownerFieldQueryIds));
+            }
+          }
+          if (historyDate) simpleConstraints.push(where('date', '==', historyDate));
+          snapshot = await getDocs(query(collection(db, 'bookings'), ...simpleConstraints));
+        }
+        if (cancelled || requestId !== historyRequestRef.current) return;
+        let records = sortBookingRecords(dedupeBookingRecords(snapshot.docs.map(d => ({ id: d.id, ...d.data() }))));
+        if (records.length === 0 && bookings.length > 0) {
+          records = bookings.filter(b => {
+            if (currentUser.role === 'user') return b.userEmail === currentUser.email;
+            if (currentUser.role === 'owner') return ownerFieldQueryIds.includes(b.fieldId);
+            return true;
+          });
+          if (historyDate) records = records.filter(b => b.date === historyDate);
+          records = sortBookingRecords(records);
+        }
+        setHistoryBookings(records);
+        setHistoryHasMore(snapshot.docs.length === HISTORY_PAGE_SIZE);
+        if (snapshot.docs.length > 0) {
+          setHistoryCursorStack((previous) => {
+            const next = [...previous];
+            next[historyPage] = snapshot.docs[snapshot.docs.length - 1];
+            return next;
+          });
+        }
       } catch (error) {
-        console.error('Report query error:', error);
-        setReportBookings([]);
+        if (!cancelled && requestId === historyRequestRef.current) {
+          console.error('History query error, fallback to local bookings:', error);
+          let fallbackRecords = bookings.filter(b => {
+            if (currentUser.role === 'user') return b.userEmail === currentUser.email;
+            if (currentUser.role === 'owner') return ownerFieldQueryIds.includes(b.fieldId);
+            return true;
+          });
+          if (historyDate) fallbackRecords = fallbackRecords.filter(b => b.date === historyDate);
+          setHistoryBookings(sortBookingRecords(fallbackRecords));
+          setHistoryHasMore(false);
+        }
       }
     };
     loadReport();
