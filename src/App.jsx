@@ -237,6 +237,52 @@ export default function FieldBookingApp() {
   const [adminPassword, setAdminPassword] = useState('admin123');
   const [selectedTownship, setSelectedTownship] = useState('');
 
+  // PWA & Browser App Install Prompt State
+  const [deferredPrompt, setDeferredPrompt] = useState(null);
+  const [showIosInstallModal, setShowIosInstallModal] = useState(false);
+  const [isAppInstalled, setIsAppInstalled] = useState(false);
+
+  useEffect(() => {
+    const handleBeforeInstallPrompt = (e) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+    };
+    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+
+    const handleAppInstalled = () => {
+      setIsAppInstalled(true);
+      setDeferredPrompt(null);
+    };
+    window.addEventListener('appinstalled', handleAppInstalled);
+
+    if (window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true) {
+      setIsAppInstalled(true);
+    }
+
+    return () => {
+      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+      window.removeEventListener('appinstalled', handleAppInstalled);
+    };
+  }, []);
+
+  const handleInstallClick = async () => {
+    if (deferredPrompt) {
+      deferredPrompt.prompt();
+      const { outcome } = await deferredPrompt.userChoice;
+      if (outcome === 'accepted') {
+        setDeferredPrompt(null);
+      }
+    } else {
+      // Check if iOS
+      const isIOS = /iphone|ipad|ipod/.test(window.navigator.userAgent.toLowerCase());
+      if (isIOS) {
+        setShowIosInstallModal(true);
+      } else {
+        alert('ဤဘရောက်ဆာတွင် App ကို Home Screen သို့ တိုက်ရိုက်တင်ရန် မထောက်ပံ့သေးပါ။ Chrome သို့မဟုတ် Safari ၏ Menu မှ "Add to Home Screen" သို့မဟုတ် "Install App" ကို အသုံးပြုပါ။');
+      }
+    }
+  };
+
   const [usersList, setUsersList] = useState(defaultUsers);
   const [fields, setFields] = useState(defaultFields);
   const [bookings, setBookings] = useState([]);
@@ -1858,6 +1904,32 @@ export default function FieldBookingApp() {
 
   return (
     <>
+      {/* iOS Safari Install Guide Modal */}
+      {showIosInstallModal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-sm w-full p-6 shadow-2xl border text-center space-y-4 animate-in fade-in zoom-in duration-200 text-gray-800">
+            <div className="w-14 h-14 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center mx-auto text-2xl font-bold shadow-inner">
+              📲
+            </div>
+            <div className="space-y-1">
+              <h3 className="text-base font-bold text-gray-900">iPhone တွင် App ထည့်သွင်းနည်း</h3>
+              <p className="text-xs text-gray-600 leading-relaxed">
+                Safari ဘရောက်ဆာ၏ အောက်ခြေရှိ <span className="font-bold text-blue-600">Share (မျှဝေရန်)</span> ခလုတ်ကို နှိပ်ပြီးနောက် <span className="font-bold">"Add to Home Screen"</span> ကို ရွေးချယ်ပါ။
+              </p>
+            </div>
+            <div className="pt-2">
+              <button
+                type="button"
+                onClick={() => setShowIosInstallModal(false)}
+                className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 px-4 rounded-xl shadow transition-all text-xs"
+              >
+                နားလည်ပါပြီ
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* App Update Notification Modal */}
       {updateAvailable && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
@@ -1915,6 +1987,18 @@ export default function FieldBookingApp() {
               <button onClick={() => { setActiveTab('owner_manage'); setMobileHeaderMenuOpen(false); }} className="hidden sm:inline-flex text-xs px-3 py-1.5 rounded bg-emerald-800 text-white font-bold hover:bg-emerald-900">🏟️ Manage Fields & History</button>
             )}
             
+            {!isAppInstalled && (
+                <button
+                  type="button"
+                  onClick={handleInstallClick}
+                  className="inline-flex items-center gap-1.5 bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs px-3 py-1.5 rounded-lg shadow transition-all active:scale-95 shrink-0"
+                  title="App ကို ဖုန်းစခရင်ပေါ်သို့ ထည့်သွင်းမည်"
+                >
+                  <span>📲</span>
+                  <span>Install App</span>
+                </button>
+              )}
+
             {(currentUser.role === 'owner' || currentUser.role === 'admin') && (
               <div className="relative notification-dropdown-container">
                 <button 
