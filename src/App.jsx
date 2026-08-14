@@ -1720,7 +1720,7 @@ export default function FieldBookingApp() {
   });
 
   const baseFieldsList = currentUser?.role === 'owner'
-    ? activeFieldsForUser.filter(f => f.ownerEmail === currentUser.email)
+    ? activeFieldsForUser.filter(f => (f.ownerEmail === currentUser.email || f.ownerEmail?.toLowerCase() === currentUser.email?.toLowerCase() || f.ownerUid === currentUser.uid || f.ownerId === currentUser.uid))
     : activeFieldsForUser;
     
   const displayedFields = selectedTownship.trim() === '' 
@@ -3431,7 +3431,7 @@ export default function FieldBookingApp() {
                         className="border rounded-lg p-2 text-xs bg-white font-bold"
                       >
                         <option value="all">ကွင်းများအားလုံး (All My Fields)</option>
-                        {fields.filter(f => f.ownerEmail === currentUser.email).map(f => (
+                        {fields.filter(f => (f.ownerEmail === currentUser.email || f.ownerEmail?.toLowerCase() === currentUser.email?.toLowerCase() || f.ownerUid === currentUser.uid || f.ownerId === currentUser.uid)).map(f => (
                           <option key={f.id} value={f.id}>{f.name} ({f.location})</option>
                         ))}
                       </select>
@@ -3469,7 +3469,7 @@ export default function FieldBookingApp() {
                       const isBookingRelated = n.type === 'booking' || n.subType === 'new_booking' || n.subType === 'booking_pending' || n.subType === 'booking_reject';
                       if (!isBookingRelated) return false;
 
-                      const myFieldIds = fields.filter(f => f.ownerEmail === currentUser.email).map(f => f.id);
+                      const myFieldIds = fields.filter(f => (f.ownerEmail === currentUser.email || f.ownerEmail?.toLowerCase() === currentUser.email?.toLowerCase() || f.ownerUid === currentUser.uid || f.ownerId === currentUser.uid)).map(f => f.id);
                       if (n.fieldId && !myFieldIds.includes(n.fieldId)) return false;
                       if (ownerNotiFieldId !== 'all' && n.fieldId && n.fieldId !== ownerNotiFieldId) return false;
 
@@ -3486,7 +3486,7 @@ export default function FieldBookingApp() {
                           const isBookingRelated = n.type === 'booking' || n.subType === 'new_booking' || n.subType === 'booking_pending' || n.subType === 'booking_reject';
                           if (!isBookingRelated) return false;
 
-                          const myFieldIds = fields.filter(f => f.ownerEmail === currentUser.email).map(f => f.id);
+                          const myFieldIds = fields.filter(f => (f.ownerEmail === currentUser.email || f.ownerEmail?.toLowerCase() === currentUser.email?.toLowerCase() || f.ownerUid === currentUser.uid || f.ownerId === currentUser.uid)).map(f => f.id);
                           if (n.fieldId && !myFieldIds.includes(n.fieldId)) return false;
                           if (ownerNotiFieldId !== 'all' && n.fieldId && n.fieldId !== ownerNotiFieldId) return false;
 
@@ -3679,7 +3679,7 @@ export default function FieldBookingApp() {
                   </div>
                 ) : (
                   <div className="space-y-4">
-                    {fields.filter(f => f.ownerEmail === currentUser.email).map(f => (
+                    {fields.filter(f => (f.ownerEmail === currentUser.email || f.ownerEmail?.toLowerCase() === currentUser.email?.toLowerCase() || f.ownerUid === currentUser.uid || f.ownerId === currentUser.uid)).map(f => (
                       <div key={f.id} className="bg-gray-50 border rounded-xl p-4 flex justify-between items-center">
                         <div>
                           <h4 className="font-bold text-sm text-gray-800">{f.name} ({f.location})</h4>
@@ -3712,7 +3712,7 @@ export default function FieldBookingApp() {
                         className="w-full border rounded-lg p-2.5 text-sm bg-white"
                       >
                         <option value="">-- ကွင်းရွေးပါ --</option>
-                        {fields.filter(f => f.ownerEmail === currentUser.email).map(f => (
+                        {fields.filter(f => (f.ownerEmail === currentUser.email || f.ownerEmail?.toLowerCase() === currentUser.email?.toLowerCase() || f.ownerUid === currentUser.uid || f.ownerId === currentUser.uid)).map(f => (
                           <option key={f.id} value={f.id}>{f.name} ({f.location})</option>
                         ))}
                       </select>
