@@ -926,8 +926,14 @@ export default function FieldBookingApp() {
       setEmail('');
       setPassword('');
     } catch (error) {
-      console.error("Login error:", error);
-      alert('Username သို့မဟုတ် Password မှားယွင်းနေပါသည်။ (Firebase Auth)');
+      console.error("Login error code:", error.code, "message:", error.message);
+      if (error.code === 'auth/invalid-credential' || error.code === 'auth/wrong-password' || error.code === 'auth/user-not-found') {
+        alert('အကောင့် သို့မဟုတ် Password မှားယွင်းနေပါသည်။ Firebase တွင် ဤအကောင့်ရှိမရှိ သေချာစစ်ဆေးပါ။');
+      } else if (error.code === 'auth/invalid-email') {
+        alert('အီးမေးလ် ပုံစံ မှားယွင်းနေပါသည်။');
+      } else {
+        alert(`Login ဝင်၍မရပါ: ${error.message}`);
+      }
     }
   };
 
