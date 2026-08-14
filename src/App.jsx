@@ -2521,53 +2521,34 @@ export default function FieldBookingApp() {
         {currentUser.role === 'admin' && activeTab === 'dashboard' ? (
           <div className="bg-white rounded-xl shadow p-4 sm:p-6">
             <div className="flex flex-col items-start gap-3 mb-6 border-b pb-4 sm:flex-row sm:justify-between sm:items-center">
-              <h2 className="text-lg sm:text-xl font-bold text-gray-800">Admin Management Dashboard</h2>
-              <button onClick={() => { setActiveTab('fields'); setAdminMobileMenuOpen(false); }} className="hidden sm:inline-flex w-full sm:w-auto bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-bold">← ကွင်းများသို့ ပြန်ရန်</button>
-            </div>
-
-            <div className="hidden sm:flex flex-wrap gap-2 mb-6">
-              <button onClick={() => setAdminTab('pending')} className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${adminTab === 'pending' ? 'bg-[#ff4f70] text-white shadow-[0_8px_20px_rgba(255,79,112,0.22)]' : 'bg-slate-100 text-slate-700 hover:bg-[#fff0f3]'}`}>
-                Bookings အားလုံး ({adminHistoryBookings.length}{historyHasMore ? '+' : ''})
-              </button>
-              <button onClick={() => setAdminTab('manage_fields')} className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${adminTab === 'manage_fields' ? 'bg-[#ff4f70] text-white shadow-[0_8px_20px_rgba(255,79,112,0.22)]' : 'bg-slate-100 text-slate-700 hover:bg-[#fff0f3]'}`}>
-                Manage Fields & Add Field
-              </button>
-              <button onClick={() => setAdminTab('report')} className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${adminTab === 'report' ? 'bg-[#ff4f70] text-white shadow-[0_8px_20px_rgba(255,79,112,0.22)]' : 'bg-slate-100 text-slate-700 hover:bg-[#fff0f3]'}`}>
-                📊 Booking Report
-              </button>
-              <button onClick={() => setAdminTab('manage_owners')} className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${adminTab === 'manage_owners' ? 'bg-[#ff4f70] text-white shadow-[0_8px_20px_rgba(255,79,112,0.22)]' : 'bg-slate-100 text-slate-700 hover:bg-[#fff0f3]'}`}>
-                🔑 Manage Owners & Passwords
-              </button>
-              <button onClick={() => setAdminTab('notifications_page')} className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${adminTab === 'notifications_page' ? 'bg-[#ff4f70] text-white shadow-[0_8px_20px_rgba(255,79,112,0.22)]' : 'bg-slate-100 text-slate-700 hover:bg-[#fff0f3]'}`}>
-                🔔 Notifications & Filter Page
-              </button>
-              <button onClick={() => setAdminTab('change_password')} className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${adminTab === 'change_password' ? 'bg-[#ff4f70] text-white shadow-[0_8px_20px_rgba(255,79,112,0.22)]' : 'bg-slate-100 text-slate-700 hover:bg-[#fff0f3]'}`}>
-                🔒 ကိုယ်ပိုင် Password ပြောင်းရန်
-              </button>
-            </div>
-            <div className="hidden">
-              <button
-                type="button"
-                onClick={() => setAdminMobileMenuOpen(prev => !prev)}
-                className="flex w-full items-center justify-between rounded-xl bg-emerald-600 px-4 py-3 text-left text-xs font-bold text-white shadow"
-                aria-expanded={adminMobileMenuOpen}
-              >
-                <span>☰ Admin Menu</span>
-                <span className="max-w-[62%] truncate text-right text-[11px] font-semibold">
-                  {adminTab === 'pending' ? `Bookings အားလုံး (${adminHistoryBookings.length}${historyHasMore ? '+' : ''})` : adminTab === 'manage_fields' ? 'Manage Fields & Add Field' : adminTab === 'report' ? '📊 Booking Report' : adminTab === 'manage_owners' ? 'Manage Owners & Passwords' : adminTab === 'notifications_page' ? 'Notifications & Filter Page' : 'ကိုယ်ပိုင် Password ပြောင်းရန်'}
-                </span>
-              </button>
-              {adminMobileMenuOpen && (
-                <div className="mt-2 grid gap-2 rounded-xl border border-emerald-100 bg-emerald-50 p-2">
-                  <button type="button" onClick={() => { setAdminTab('pending'); setAdminMobileMenuOpen(false); }} className={`w-full rounded-lg px-3 py-2.5 text-left text-xs font-bold ${adminTab === 'pending' ? 'bg-[#ff4f70] text-white shadow-[0_8px_20px_rgba(255,79,112,0.22)]' : 'bg-slate-800 text-slate-200'}`}>Bookings အားလုံး ({adminHistoryBookings.length}{historyHasMore ? '+' : ''})</button>
-                  <button type="button" onClick={() => { setAdminTab('manage_fields'); setAdminMobileMenuOpen(false); }} className={`w-full rounded-lg px-3 py-2.5 text-left text-xs font-bold ${adminTab === 'manage_fields' ? 'bg-[#ff4f70] text-white shadow-[0_8px_20px_rgba(255,79,112,0.22)]' : 'bg-slate-800 text-slate-200'}`}>Manage Fields & Add Field</button>
-                  <button type="button" onClick={() => { setAdminTab('report'); setAdminMobileMenuOpen(false); }} className={`w-full rounded-lg px-3 py-2.5 text-left text-xs font-bold ${adminTab === 'report' ? 'bg-[#ff4f70] text-white shadow-[0_8px_20px_rgba(255,79,112,0.22)]' : 'bg-slate-800 text-slate-200'}`}>📊 Booking Report</button>
-                  <button type="button" onClick={() => { setAdminTab('manage_owners'); setAdminMobileMenuOpen(false); }} className={`w-full rounded-lg px-3 py-2.5 text-left text-xs font-bold ${adminTab === 'manage_owners' ? 'bg-[#ff4f70] text-white shadow-[0_8px_20px_rgba(255,79,112,0.22)]' : 'bg-slate-800 text-slate-200'}`}>🔑 Manage Owners & Passwords</button>
-                  <button type="button" onClick={() => { setAdminTab('notifications_page'); setAdminMobileMenuOpen(false); }} className={`w-full rounded-lg px-3 py-2.5 text-left text-xs font-bold ${adminTab === 'notifications_page' ? 'bg-[#ff4f70] text-white shadow-[0_8px_20px_rgba(255,79,112,0.22)]' : 'bg-slate-800 text-slate-200'}`}>🔔 Notifications & Filter Page</button>
-                  <button type="button" onClick={() => { setAdminTab('change_password'); setAdminMobileMenuOpen(false); }} className={`w-full rounded-lg px-3 py-2.5 text-left text-xs font-bold ${adminTab === 'change_password' ? 'bg-[#ff4f70] text-white shadow-[0_8px_20px_rgba(255,79,112,0.22)]' : 'bg-slate-800 text-slate-200'}`}>🔒 ကိုယ်ပိုင် Password ပြောင်းရန်</button>
-                </div>
+              <h2 className="text-lg sm:text-xl font-bold text-gray-800">{adminTab === 'pending' ? 'Booking History' : 'Admin Management Dashboard'}</h2>
+              {adminTab !== 'pending' && (
+                <button onClick={() => { setActiveTab('fields'); setAdminMobileMenuOpen(false); }} className="hidden sm:inline-flex w-full sm:w-auto bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-bold">← ကွင်းများသို့ ပြန်ရန်</button>
               )}
             </div>
+
+            {adminTab !== 'pending' && (
+              <div className="hidden sm:flex flex-wrap gap-2 mb-6">
+                <button onClick={() => setAdminTab('pending')} className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${adminTab === 'pending' ? 'bg-[#ff4f70] text-white shadow-[0_8px_20px_rgba(255,79,112,0.22)]' : 'bg-slate-100 text-slate-700 hover:bg-[#fff0f3]'}`}>
+                  Bookings အားလုံး ({adminHistoryBookings.length}{historyHasMore ? '+' : ''})
+                </button>
+                <button onClick={() => setAdminTab('manage_fields')} className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${adminTab === 'manage_fields' ? 'bg-[#ff4f70] text-white shadow-[0_8px_20px_rgba(255,79,112,0.22)]' : 'bg-slate-100 text-slate-700 hover:bg-[#fff0f3]'}`}>
+                  Manage Fields & Add Field
+                </button>
+                <button onClick={() => setAdminTab('report')} className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${adminTab === 'report' ? 'bg-[#ff4f70] text-white shadow-[0_8px_20px_rgba(255,79,112,0.22)]' : 'bg-slate-100 text-slate-700 hover:bg-[#fff0f3]'}`}>
+                  📊 Booking Report
+                </button>
+                <button onClick={() => setAdminTab('manage_owners')} className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${adminTab === 'manage_owners' ? 'bg-[#ff4f70] text-white shadow-[0_8px_20px_rgba(255,79,112,0.22)]' : 'bg-slate-100 text-slate-700 hover:bg-[#fff0f3]'}`}>
+                  🔑 Manage Owners & Passwords
+                </button>
+                <button onClick={() => setAdminTab('notifications_page')} className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${adminTab === 'notifications_page' ? 'bg-[#ff4f70] text-white shadow-[0_8px_20px_rgba(255,79,112,0.22)]' : 'bg-slate-100 text-slate-700 hover:bg-[#fff0f3]'}`}>
+                  🔔 Notifications & Filter Page
+                </button>
+                <button onClick={() => setAdminTab('change_password')} className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${adminTab === 'change_password' ? 'bg-[#ff4f70] text-white shadow-[0_8px_20px_rgba(255,79,112,0.22)]' : 'bg-slate-100 text-slate-700 hover:bg-[#fff0f3]'}`}>
+                  🔒 ကိုယ်ပိုင် Password ပြောင်းရန်
+                </button>
+              </div>
+            )}
 
             {adminTab === 'change_password' && (
               <div className="bg-gray-50 border rounded-2xl p-6 max-w-md">
