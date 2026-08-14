@@ -1,6 +1,7 @@
 /* Field Booking UI style: Desktop and Mobile share the supplied screenshot palette: green header, light page background, white dashboard card, and green active states. Mobile keeps its existing drawer, sizing, spacing, and responsive shell. Preserve Burmese-first booking/auth/payment/history business logic, Cash payments, 50%/100% plans, and selected-page-only rendering. */
 import React, { useState, useEffect, useRef } from 'react';
-import { db } from './firebase'; 
+import { db, auth } from './firebase';
+import { signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged } from 'firebase/auth'; 
 import { collection, getDoc, getDocs, addDoc, updateDoc, deleteDoc, doc, setDoc, runTransaction, onSnapshot, query, where, limit, startAfter, orderBy } from 'firebase/firestore';
 
 const defaultUsers = [
@@ -480,6 +481,42 @@ export default function FieldBookingApp() {
   }, [userCheckDate]);
 
   useEffect(() => {
+    const unsubAuth = onAuthStateChanged(auth, async (firebaseUser) => {
+      if (firebaseUser) {
+        // Resolve user role and name from users collection or fields collection by email/uid
+        const email = firebaseUser.email || '';
+        if (email === 'admin@gmail.com') {
+          setCurrentUser({ name: 'System Admin', role: 'admin', email: 'admin@gmail.com', uid: firebaseUser.uid });
+          return;
+        }
+        // Check users collection
+        try {
+          const userQuery = query(collection(db, 'users'), where('email', '==', email));
+          const userSnap = await getDocs(userQuery);
+          if (!userSnap.empty) {
+            const uData = userSnap.docs[0].data();
+            setCurrentUser({ name: uData.name, role: uData.role || 'user', email: uData.email, uid: firebaseUser.uid });
+            return;
+          }
+          // Check fields collection for owner
+          const fieldSnap = await getDocs(query(collection(db, 'fields'), where('ownerEmail', '==', email)));
+          if (!fieldSnap.empty) {
+            const fData = fieldSnap.docs[0].data();
+            if (fData.ownerStatus !== 'Disabled') {
+              setCurrentUser({ name: fData.name, role: 'owner', email: fData.ownerEmail, uid: firebaseUser.uid });
+              return;
+            }
+          }
+        } catch (err) {
+          console.error("Error resolving auth role:", err);
+        }
+        // Fallback default user
+        setCurrentUser({ name: email.split('@')[0] || 'User', role: 'user', email, uid: firebaseUser.uid });
+      } else {
+        setCurrentUser(null);
+      }
+    });
+
     const unsubUsers = onSnapshot(collection(db, "users"), (snapshot) => {
       if (!snapshot.empty) {
         setUsersList(snapshot.docs.map(d => ({ id: d.id, ...d.data() })));
@@ -689,7 +726,11 @@ export default function FieldBookingApp() {
 
       const constraints = [];
       if (currentUser.role === 'user') {
-        constraints.push(where('userEmail', '==', currentUser.email));
+        if (currentUser.uid && currentUser.uid !== 'admin') {
+          constraints.push(where('userUid', '==', currentUser.uid));
+        } else {
+          constraints.push(where('userEmail', '==', currentUser.email));
+        }
       } else if (currentUser.role === 'owner') {
         if (ownerFieldQueryIds.length === 0) {
           setHistoryBookings([]);
@@ -854,45 +895,40 @@ export default function FieldBookingApp() {
     }
   };
 
-  const handleLogin = (e) => {
+  const handleLogin = async (e) => {
     e.preventDefault();
-    const loginIdentifier = email.trim().toLowerCase();
-    if (loginIdentifier === 'admin@gmail.com') {
-      if (password === adminPassword) {
-        setCurrentUser({ name: 'System Admin', role: 'admin', email: 'admin@gmail.com' });
-        saveRememberedLogin();
-        setActiveTab('fields');
-        setEmail('');
-        setPassword('');
-        return;
+    const rawInput = email.trim();
+    let loginEmail = rawInput.toLowerCase();
+
+    // Resolve username or owner name to email if needed
+    if (!loginEmail.includes('@')) {
+      if (loginEmail === 'admin') {
+        loginEmail = 'admin@gmail.com';
       } else {
-        alert('Admin Password မှားယွင်းနေပါသည်။');
-        return;
-      }
-    }
-
-    let foundUser = usersList.find(u => u.name.toLowerCase() === email.trim().toLowerCase() && u.password === password);
-    
-    if (!foundUser) {
-      const fieldMatched = fields.find(f => f.ownerEmail === email && f.ownerPassword === password);
-      if (fieldMatched) {
-        if (fieldMatched.ownerStatus === 'Disabled') {
-          alert('ဤ Owner အကောင့်မှာ Disabled လုပ်ထားပါသဖြင့် Login ဝင်၍ မရပါ။');
-          return;
+        const matchedUser = usersList.find(u => u.name.toLowerCase() === loginEmail);
+        if (matchedUser) {
+          loginEmail = matchedUser.email;
+        } else {
+          const matchedField = fields.find(f => f.name.toLowerCase() === loginEmail || (f.ownerEmail && f.ownerEmail.split('@')[0].toLowerCase() === loginEmail));
+          if (matchedField) {
+            loginEmail = matchedField.ownerEmail;
+          } else {
+            loginEmail = `${loginEmail}_user@gmail.com`;
+          }
         }
-        foundUser = { name: fieldMatched.name, role: 'owner', email: fieldMatched.ownerEmail };
       }
     }
 
-    if (foundUser) {
-      setCurrentUser({ name: foundUser.name, role: foundUser.role, email: foundUser.email || foundUser.name });
+    try {
+      await signInWithEmailAndPassword(auth, loginEmail, password);
       saveRememberedLogin();
       setActiveTab('fields');
-    } else {
-      alert('Username သို့မဟုတ် Password မှားယွင်းနေပါသည်။');
+      setEmail('');
+      setPassword('');
+    } catch (error) {
+      console.error("Login error:", error);
+      alert('Username သို့မဟုတ် Password မှားယွင်းနေပါသည်။ (Firebase Auth)');
     }
-    setEmail('');
-    setPassword('');
   };
 
   const handleSignup = async (e) => {
@@ -919,23 +955,24 @@ export default function FieldBookingApp() {
       return;
     }
 
+    const signupEmail = `${signupName.trim().toLowerCase()}_user@gmail.com`;
     const newUserObj = {
-      email: `${signupName.trim().toLowerCase()}_user@gmail.com`,
-      password: signupPassword,
+      email: signupEmail,
       name: signupName.trim(),
       role: 'user'
     };
 
     try {
-      const docRef = await addDoc(collection(db, "users"), newUserObj);
-      setUsersList(prev => [...prev, { id: docRef.id, ...newUserObj }]);
+      const userCredential = await createUserWithEmailAndPassword(auth, signupEmail, signupPassword);
+      await setDoc(doc(db, "users", userCredential.user.uid), newUserObj);
+      setUsersList(prev => [...prev, { id: userCredential.user.uid, ...newUserObj }]);
       alert('အကောင့်ဖွင့်ခြင်း အောင်မြင်ပါသည်။ ကျေးဇူးပြု၍ Login ဝင်ပါ။');
       setAuthMode('login');
       setSignupName('');
       setSignupPassword('');
     } catch (error) {
       console.error("Error signing up: ", error);
-      alert('အကောင့်ဖွင့်ရာတွင် အမှားအယွင်းရှိပါသည်။');
+      alert('အကောင့်ဖွင့်ရာတွင် အမှားအယွင်းရှိပါသည်။ (သို့မဟုတ် ဤအကောင့်ရှိပြီးသားဖြစ်သည်)');
     }
   };
 
@@ -980,7 +1017,12 @@ export default function FieldBookingApp() {
     }
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    try {
+      await signOut(auth);
+    } catch (e) {
+      console.error("Sign out error:", e);
+    }
     restoreRememberedLogin();
     setCurrentUser(null);
     setUserSelectedField(null);
@@ -1239,6 +1281,8 @@ export default function FieldBookingApp() {
           bookedAt: bookedTimeFormatted,
           createdAtTime: timestampMillis,
           userEmail: currentUser.email,
+          userUid: currentUser.uid || auth.currentUser?.uid || 'admin',
+          creatorUid: currentUser.uid || auth.currentUser?.uid || 'admin',
           customerName: currentUser.role === 'owner' ? ownerCustomerName.trim() : customerName.trim(),
           customerPhone: currentUser.role === 'owner' ? ownerCustomerPhone.trim() : customerPhone.trim(),
           userName: currentUser.role === 'owner' ? `${ownerCustomerName.trim()} (${ownerCustomerPhone.trim()}) [Owner Direct Booked]` : currentUser.name,
