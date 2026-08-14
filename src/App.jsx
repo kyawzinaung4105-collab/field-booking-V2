@@ -2215,6 +2215,42 @@ export default function FieldBookingApp() {
     );
   }
 
+  // If owner account is disabled by admin, lock entire owner view in real-time with Logout only
+  const isOwnerDisabled = currentUser?.role === 'owner' && fields.some(f => 
+    (f.ownerEmail === currentUser.email || f.ownerEmail?.toLowerCase() === currentUser.email?.toLowerCase() || f.ownerUid === currentUser.uid || f.ownerId === currentUser.uid) &&
+    String(f.ownerStatus || '').trim().toLowerCase() === 'disabled'
+  );
+
+  if (isOwnerDisabled) {
+    return (
+      <div className="fixed inset-0 bg-slate-950 z-50 flex items-center justify-center p-4">
+        <div className="bg-white rounded-2xl max-w-md w-full p-8 shadow-2xl border text-center space-y-6 animate-in fade-in zoom-in duration-300">
+          <div className="w-20 h-20 bg-red-100 text-red-600 rounded-full flex items-center justify-center mx-auto text-3xl font-bold shadow-inner">
+            🚫
+          </div>
+          <div className="space-y-2">
+            <h2 className="text-xl font-bold text-gray-900">Admin မှ ပိတ်ထားပါသည်</h2>
+            <p className="text-sm text-gray-600 leading-relaxed">
+              သင့်၏ Owner အကောင့်နှင့် ကွင်းများကို System Administrator မှ ပိတ်ပင်ထားခြင်း (Disabled) ဖြစ်ပါသည်။ လုပ်ဆောင်ချက်များကို ဆက်လက်အသုံးပြု၍မရပါ။
+            </p>
+          </div>
+          <div className="pt-2">
+            <button
+              onClick={() => {
+                signOut(auth);
+                setCurrentUser(null);
+                clearRememberedLogin();
+              }}
+              className="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-3 px-4 rounded-xl shadow-lg transition-all text-sm flex items-center justify-center gap-2"
+            >
+              🚪 Logout (ထွက်မည်)
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   const mobileActiveLabel = currentUser.role === 'admin'
     ? (adminTab === 'pending' ? 'Bookings အားလုံး' : adminTab === 'manage_fields' ? 'Manage Fields' : adminTab === 'report' ? 'Booking Report' : adminTab === 'manage_owners' ? 'Manage Owners' : adminTab === 'notifications_page' ? 'Notifications' : 'Password ပြောင်းရန်')
     : currentUser.role === 'owner'
