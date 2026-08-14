@@ -17,7 +17,7 @@ const firebaseConfig = {
 const app = !getApps().length ? initializeApp(firebaseConfig) : getApps()[0];
 export const db = getFirestore(app);
 export const auth = getAuth(app);
-import { signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged } from 'firebase/auth'; 
+import { signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged, updatePassword, sendPasswordResetEmail, EmailAuthProvider, reauthenticateWithCredential } from 'firebase/auth'; 
 import { collection, getDoc, getDocs, addDoc, updateDoc, deleteDoc, doc, setDoc, runTransaction, onSnapshot, query, where, limit, startAfter, orderBy } from 'firebase/firestore';
 
 const defaultUsers = [
@@ -1004,44 +1004,63 @@ export default function FieldBookingApp() {
     }
   };
 
-    const handleChangeMyPassword = async (e) => {
+  const [oldPasswordInput, setOldPasswordInput] = useState('');
+  const [newPasswordInput, setNewPasswordInput] = useState('');
+
+  const handleChangeMyPassword = async (e) => {
     e.preventDefault();
-    const nextPassword = myNewPassword.trim();
-    if (!nextPassword) {
-      alert('ကျေးဇူးပြု၍ Password အသစ် ထည့်သွင်းပါ။');
+    const oldPass = oldPasswordInput.trim();
+    const newPass = newPasswordInput.trim();
+
+    if (!oldPass || !newPass) {
+      alert('ကျေးဇူးပြု၍ Password အဟောင်းနှင့် Password အသစ် နှစ်ခုစလုံးကို ထည့်သွင်းပါ။');
+      return;
+    }
+    if (newPass.length < 6) {
+      alert('Password အသစ်သည် အနည်းဆုံး စာလုံးရေ ၆ လုံး ရှိရပါမည်။');
       return;
     }
 
     try {
-      if (currentUser.role === 'admin') {
-        // Use the same canonical document that is read during startup. `setDoc` with
-        // merge also works when appConfig/settings has not been created yet.
-        await setDoc(doc(db, 'appConfig', 'settings'), { adminPassword: nextPassword }, { merge: true });
-        setAdminPassword(nextPassword);
-        updateRememberedPassword(nextPassword);
-        alert('Password ပြောင်းတာအောင်မြင်ပါသည်။ နောက်တစ်ကြိမ် Login ဝင်ရာတွင် Password အသစ်ကို အသုံးပြုပါ။');
-        setMyNewPassword('');
-      } else if (currentUser.role === 'owner') {
-        const updatedFields = fields.map(f => {
-          if (f.ownerEmail === currentUser.email) {
-            return { ...f, ownerPassword: nextPassword };
-          }
-          return f;
-        });
-        const targetField = updatedFields.find(f => f.ownerEmail === currentUser.email);
-        if (!targetField || !targetField.id) {
-          alert('Owner ကွင်းအချက်အလက် မတွေ့ပါသဖြင့် Password ပြောင်း၍ မရပါ။');
-          return;
-        }
-        await updateDoc(doc(db, 'fields', targetField.id), { ownerPassword: nextPassword });
-        setFields(updatedFields);
-        updateRememberedPassword(nextPassword);
-        alert('Password ပြောင်းတာအောင်မြင်ပါသည်');
-        setMyNewPassword('');
+      const firebaseUser = auth.currentUser;
+      if (!firebaseUser || !firebaseUser.email) {
+        alert('လက်ရှိ Login ဝင်ထားသော အသုံးပြုသူကို ရှာမတွေ့ပါ။ ကျေးဇူးပြု၍ Login ပြန်ဝင်ပါ။');
+        return;
       }
+
+      // Re-authenticate with old password to verify knowledge of current password
+      const credential = EmailAuthProvider.credential(firebaseUser.email, oldPass);
+      await reauthenticateWithCredential(firebaseUser, credential);
+
+      // Update password in Firebase Authentication
+      await updatePassword(firebaseUser, newPass);
+
+      // Also update remembered credentials if active
+      updateRememberedPassword(newPass);
+
+      alert('Password ပြောင်းလဲခြင်း အောင်မြင်ပါသည်။');
+      setOldPasswordInput('');
+      setNewPasswordInput('');
     } catch (error) {
       console.error('Error changing password:', error);
-      alert('Password ပြောင်းရာတွင် အမှားအယွင်းရှိပါသည်။ ကျေးဇူးပြု၍ ထပ်မံကြိုးစားပါ။');
+      if (error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') {
+        alert('Password အဟောင်း မှားယွင်းနေပါသည်။');
+      } else {
+        alert(`Password ပြောင်းရာတွင် အမှားအယွင်းရှိပါသည်။ (${error.message})`);
+      }
+    }
+  };
+
+  const handleForgotPassword = async () => {
+    const emailToReset = currentUser?.email || prompt('ကျေးဇူးပြု၍ သင်၏ အကောင့် Email လိပ်စာကို ထည့်သွင်းပါ:');
+    if (!emailToReset) return;
+
+    try {
+      await sendPasswordResetEmail(auth, emailToReset.trim());
+      alert(`Password Reset Link ကို ${emailToReset} သို့ ပို့စ်ပေးလိုက်ပါပြီ။ သင့် Email Inbox သို့မဟုတ် Spam ထဲတွင် စစ်ဆေးပါ။`);
+    } catch (error) {
+      console.error('Error sending password reset email:', error);
+      alert(`Password Reset ပို့ရာတွင် အမှားအယွင်းရှိပါသည်။ (${error.message})`);
     }
   };
 
@@ -2613,7 +2632,10 @@ export default function FieldBookingApp() {
             <span>🏟️</span><span>ကွင်းများ / Booking</span>
           </button>
           {currentUser.role === 'user' && (
-            <button type="button" data-active={activeTab === 'history'} onClick={() => setActiveTab('history')}><span>📋</span><span>Booking History</span></button>
+            <>
+              <button type="button" data-active={activeTab === 'history'} onClick={() => setActiveTab('history')}><span>📋</span><span>Booking History</span></button>
+              <button type="button" data-active={activeTab === 'password'} onClick={() => setActiveTab('password')}><span>🔒</span><span>Password ပြောင်းရန်</span></button>
+            </>
           )}
           {currentUser.role === 'owner' && (
             <>
@@ -2652,6 +2674,9 @@ export default function FieldBookingApp() {
               </button>
               <button type="button" data-active={activeTab === 'history'} onClick={() => setActiveTab('history')}>
                 <span aria-hidden="true">📋</span><span>Booking History</span>
+              </button>
+              <button type="button" data-active={activeTab === 'password'} onClick={() => setActiveTab('password')}>
+                <span aria-hidden="true">🔒</span><span>Password ပြောင်းရန်</span>
               </button>
             </>
           )}
@@ -2720,20 +2745,20 @@ export default function FieldBookingApp() {
 
             {adminTab === 'change_password' && (
               <div className="bg-gray-50 border rounded-2xl p-6 max-w-md">
-                <h3 className="text-lg font-bold mb-4 text-gray-800">Admin Password ပြောင်းလဲရန်</h3>
+                <h3 className="text-lg font-bold mb-4 text-gray-800">🔒 Change Password (Password ပြောင်းရန်)</h3>
                 <form onSubmit={handleChangeMyPassword} className="space-y-4">
                   <div>
-                    <label className="block text-xs font-bold text-gray-700 mb-1">Password အသစ်</label>
-                    <input 
-                      type="text" 
-                      placeholder="Password အသစ်ထည့်ပါ" 
-                      value={myNewPassword} 
-                      onChange={(e) => setMyNewPassword(e.target.value)} 
-                      className="w-full border rounded-lg p-2.5 text-sm bg-white font-mono" 
-                      required 
-                    />
+                    <label className="block text-xs font-bold text-gray-700 mb-1">Password အဟောင်း (Current Password)</label>
+                    <input type="password" value={oldPasswordInput} onChange={(e) => setOldPasswordInput(e.target.value)} className="w-full border rounded-lg p-2.5 text-sm bg-white font-mono" required placeholder="••••••••" />
                   </div>
-                  <button type="submit" className="bg-emerald-600 text-white px-4 py-2.5 rounded-lg text-xs font-bold shadow hover:bg-emerald-700">Password ပြောင်းမည်</button>
+                  <div>
+                    <label className="block text-xs font-bold text-gray-700 mb-1">Password အသစ် (New Password - အနည်းဆုံး ၆ လုံး)</label>
+                    <input type="password" value={newPasswordInput} onChange={(e) => setNewPasswordInput(e.target.value)} className="w-full border rounded-lg p-2.5 text-sm bg-white font-mono" required placeholder="••••••••" />
+                  </div>
+                  <div className="flex items-center justify-between pt-2">
+                    <button type="submit" className="bg-emerald-600 text-white px-4 py-2.5 rounded-lg text-xs font-bold hover:bg-emerald-700 transition">Password ပြောင်းမည်</button>
+                    <button type="button" onClick={handleForgotPassword} className="text-xs text-blue-600 font-bold hover:underline">Password မေ့နေပါသလား? (Forgot)</button>
+                  </div>
                 </form>
               </div>
             )}
@@ -3479,13 +3504,20 @@ export default function FieldBookingApp() {
 
             {ownerActiveTab === 'password' && (
               <div className="bg-gray-50 border rounded-2xl p-6 max-w-md">
-                <h3 className="text-lg font-bold mb-4 text-gray-800">Owner Password ချိန်းရန်</h3>
+                <h3 className="text-lg font-bold mb-4 text-gray-800">🔒 Change Password (Password ပြောင်းရန်)</h3>
                 <form onSubmit={handleChangeMyPassword} className="space-y-4">
                   <div>
-                    <label className="block text-xs font-bold text-gray-700 mb-1">Password အသစ်</label>
-                    <input type="text" value={myNewPassword} onChange={(e) => setMyNewPassword(e.target.value)} className="w-full border rounded-lg p-2.5 text-sm bg-white font-mono" required />
+                    <label className="block text-xs font-bold text-gray-700 mb-1">Password အဟောင်း (Current Password)</label>
+                    <input type="password" value={oldPasswordInput} onChange={(e) => setOldPasswordInput(e.target.value)} className="w-full border rounded-lg p-2.5 text-sm bg-white font-mono" required placeholder="••••••••" />
                   </div>
-                  <button type="submit" className="bg-emerald-600 text-white px-4 py-2.5 rounded-lg text-xs font-bold">Password ပြောင်းမည်</button>
+                  <div>
+                    <label className="block text-xs font-bold text-gray-700 mb-1">Password အသစ် (New Password - အနည်းဆုံး ၆ လုံး)</label>
+                    <input type="password" value={newPasswordInput} onChange={(e) => setNewPasswordInput(e.target.value)} className="w-full border rounded-lg p-2.5 text-sm bg-white font-mono" required placeholder="••••••••" />
+                  </div>
+                  <div className="flex items-center justify-between pt-2">
+                    <button type="submit" className="bg-emerald-600 text-white px-4 py-2.5 rounded-lg text-xs font-bold hover:bg-emerald-700 transition">Password ပြောင်းမည်</button>
+                    <button type="button" onClick={handleForgotPassword} className="text-xs text-blue-600 font-bold hover:underline">Password မေ့နေပါသလား? (Forgot)</button>
+                  </div>
                 </form>
               </div>
             )}
@@ -4447,6 +4479,29 @@ export default function FieldBookingApp() {
               </div>
                 )}
               </>
+            )}
+
+            {activeTab === 'password' && currentUser.role === 'user' && (
+              <div className="bg-white rounded-xl shadow p-6 mt-6 max-w-md">
+                <div className="flex justify-between items-center mb-6 border-b pb-4">
+                  <h2 className="text-xl font-bold text-gray-800">🔒 Change Password</h2>
+                  <button onClick={() => setActiveTab('fields')} className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-bold">← ကွင်းများသို့ ပြန်ရန်</button>
+                </div>
+                <form onSubmit={handleChangeMyPassword} className="space-y-4">
+                  <div>
+                    <label className="block text-xs font-bold text-gray-700 mb-1">Password အဟောင်း (Current Password)</label>
+                    <input type="password" value={oldPasswordInput} onChange={(e) => setOldPasswordInput(e.target.value)} className="w-full border rounded-lg p-2.5 text-sm bg-white font-mono" required placeholder="••••••••" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-gray-700 mb-1">Password အသစ် (New Password - အနည်းဆုံး ၆ လုံး)</label>
+                    <input type="password" value={newPasswordInput} onChange={(e) => setNewPasswordInput(e.target.value)} className="w-full border rounded-lg p-2.5 text-sm bg-white font-mono" required placeholder="••••••••" />
+                  </div>
+                  <div className="flex items-center justify-between pt-2">
+                    <button type="submit" className="bg-emerald-600 text-white px-4 py-2.5 rounded-lg text-xs font-bold hover:bg-emerald-700 transition">Password ပြောင်းမည်</button>
+                    <button type="button" onClick={handleForgotPassword} className="text-xs text-blue-600 font-bold hover:underline">Password မေ့နေပါသလား? (Forgot)</button>
+                  </div>
+                </form>
+              </div>
             )}
 
             {activeTab === 'history' && currentUser.role === 'user' && (
