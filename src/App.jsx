@@ -5,12 +5,13 @@ import { getFirestore } from 'firebase/firestore';
 import { getAuth } from 'firebase/auth';
 
 const firebaseConfig = {
-  apiKey: "AIzaSyCMuEbPcTT9j-WvNLAWcAX3nJr_-x1uFo",
+  apiKey: "AIzaSyCMuEbPcTT97j-WvNLAwcAX3nJr_-x1uFo",
   authDomain: "fieldbooking-80ad6.firebaseapp.com",
   projectId: "fieldbooking-80ad6",
-  storageBucket: "fieldbooking-80ad6.appspot.com",
+  storageBucket: "fieldbooking-80ad6.firebasestorage.app",
   messagingSenderId: "297623698493",
-  appId: "1:297623698493:web:49483a28305cba8abc7e54"
+  appId: "1:297623698493:web:49483a28305cba8abc7e54",
+  measurementId: "G-NF0Y9PM37G"
 };
 
 const app = !getApps().length ? initializeApp(firebaseConfig) : getApps()[0];
