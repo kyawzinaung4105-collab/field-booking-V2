@@ -1513,55 +1513,73 @@ export default function FieldBookingApp() {
 
   const handleStartEditOwnerField = (field) => {
     setEditingOwnerFieldId(field.id);
-    setOwnerEditFieldName(field.name);
-    setOwnerEditFieldLocation(field.location);
+    setOwnerEditFieldName(field.name || '');
+    setOwnerEditFieldLocation(field.location || '');
     setOwnerEditFieldAddress(field.address || '');
     setOwnerEditFieldPhone(field.phone || '');
-    setOwnerEditFieldOpenHour(field.openHour ?? 8);
-    setOwnerEditFieldCloseHour(field.closeHour ?? 22);
+    setOwnerEditFieldOpenHour(field.openHour !== undefined ? field.openHour : 8);
+    setOwnerEditFieldCloseHour(field.closeHour !== undefined ? field.closeHour : 22);
     setOwnerEditFieldKpay(field.paymentInfo?.kpay || '');
     setOwnerEditFieldWave(field.paymentInfo?.wave || '');
-    setOwnerEditSubFields(field.subFields.map(sf => ({
-      ...sf,
-      openHour: sf.openHour !== undefined ? sf.openHour : (field.openHour ?? 8),
-      closeHour: sf.closeHour !== undefined ? sf.closeHour : (field.closeHour ?? 22),
-      status: sf.status ?? 'Active'
+    setOwnerEditSubFields((field.subFields || []).map(sf => ({
+      id: sf.id || String(Date.now() + Math.random()),
+      name: sf.name || '',
+      price: sf.price !== undefined ? Number(sf.price) : 0,
+      openHour: sf.openHour !== undefined ? Number(sf.openHour) : (field.openHour ?? 8),
+      closeHour: sf.closeHour !== undefined ? Number(sf.closeHour) : (field.closeHour ?? 22),
+      status: sf.status || 'Active'
     })));
   };
 
   const handleSaveOwnerEditedField = async () => {
     if (!editingOwnerFieldId) return;
-    if (!ownerEditFieldName || !ownerEditFieldLocation || ownerEditSubFields.length === 0) {
+    if (!ownerEditFieldName || !ownerEditFieldLocation || !ownerEditSubFields || ownerEditSubFields.length === 0) {
       alert('ကွင်းအမည်၊ မြို့နယ် နှင့် ကွင်းခွဲ အနည်းဆုံး ၁ ခု ထည့်သွင်းပါ။');
       return;
     }
 
+    const cleanSubFields = ownerEditSubFields.map(sf => ({
+      id: sf.id || String(Date.now() + Math.random()),
+      name: String(sf.name || 'ကွင်းခွဲ'),
+      price: Number(sf.price) || 0,
+      openHour: Number(sf.openHour) || 8,
+      closeHour: Number(sf.closeHour) || 22,
+      status: String(sf.status || 'Active')
+    }));
+
     const updatedData = {
-      name: ownerEditFieldName,
-      location: ownerEditFieldLocation,
-      address: ownerEditFieldAddress || ownerEditFieldLocation,
-      phone: ownerEditFieldPhone || '09-XXXXXXXXX',
-      openHour: parseInt(ownerEditFieldOpenHour),
-      closeHour: parseInt(ownerEditFieldCloseHour),
-      subFields: ownerEditSubFields,
-      paymentInfo: { kpay: ownerEditFieldKpay, wave: ownerEditFieldWave }
+      name: String(ownerEditFieldName),
+      location: String(ownerEditFieldLocation),
+      address: String(ownerEditFieldAddress || ownerEditFieldLocation),
+      phone: String(ownerEditFieldPhone || '09-XXXXXXXXX'),
+      openHour: Number(ownerEditFieldOpenHour) || 8,
+      closeHour: Number(ownerEditFieldCloseHour) || 22,
+      subFields: cleanSubFields,
+      paymentInfo: {
+        kpay: String(ownerEditFieldKpay || ''),
+        wave: String(ownerEditFieldWave || '')
+      }
     };
 
     try {
       await updateDoc(doc(db, "fields", editingOwnerFieldId), updatedData);
       
-      await triggerSmsNotification(
-        `🔔 [Owner Update] ${currentUser.name} (${ownerEditFieldName}) မှ ကွင်းခွဲအချိန်များ သို့မဟုတ် KPay/Wave နံပါတ်များကို ပြင်ဆင်သွားပါသည်။`,
-        'owner_update',
-        'owner_update_info',
-        editingOwnerFieldId
-      );
+      try {
+        await triggerSmsNotification(
+          `🔔 [Owner Update] ${currentUser.name} (${ownerEditFieldName}) မှ ကွင်းအချက်အလက်များကို ပြင်ဆင်သွားပါသည်။`,
+          'owner_update',
+          'owner_update_info',
+          editingOwnerFieldId
+        );
+      } catch (notifErr) {
+        console.error("Non-fatal notification error:", notifErr);
+      }
 
       alert('ကွင်းအချက်အလက် ပြင်ဆင်မှု အောင်မြင်ပါသည်။');
       setEditingOwnerFieldId(null);
     } catch (error) {
       console.error("Error updating owner field: ", error);
-      alert('ကွင်းပြင်ဆင်ရာတွင် အမှားအယွင်းရှိပါသည်။');
+      alert('ကွင်းပြင်ဆင်ရာတွင် အမှားအယွင်းရှိပါသည်။ (' + (error.message || error) + ')');
     }
   };
 
@@ -3540,6 +3558,10 @@ export default function FieldBookingApp() {
                       <div>
                         <label className="block text-xs font-bold text-gray-700 mb-1">မြို့နယ်</label>
                         <input type="text" value={ownerEditFieldLocation} onChange={(e) => setOwnerEditFieldLocation(e.target.value)} className="w-full border rounded p-2 text-xs bg-white" />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold text-gray-700 mb-1">ကွင်းဖုန်းနံပါတ် (Field Phone No)</label>
+                        <input type="text" value={ownerEditFieldPhone} onChange={(e) => setOwnerEditFieldPhone(e.target.value)} placeholder="09-xxxxxxxxx" className="w-full border rounded p-2 text-xs bg-white" />
                       </div>
                       <div className="grid grid-cols-2 gap-2">
                         <div>
