@@ -4013,7 +4013,7 @@ export default function FieldBookingApp() {
           </div>
         ) : (
           <div>
-            {activeTab !== 'history' && (
+            {activeTab === 'fields' && (
               <>
                 {userSelectedField ? (
               <div className="bg-white rounded-xl shadow p-6">
