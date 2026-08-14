@@ -3584,42 +3584,53 @@ export default function FieldBookingApp() {
                             alert('ဖျက်မည့် cutoff date ကို ရွေးပေးပါ။');
                             return;
                           }
-                          if (window.confirm(`${usageCleanupBefore} မတိုင်မီ Notification များကို Firebase မှ လုံးဝဖျက်ဆီးရန် သေချာပါသလား?`)) {
+                          if (window.confirm(`${usageCleanupBefore} (ပါဝင်ပြီး) မတိုင်မီ Notification အားလုံးကို Firebase မှ အပြီးအပိုင် ဖျက်ဆီးရန် သေချာပါသလား?`)) {
                             try {
-                              const cutoffDateObj = new Date(`${usageCleanupBefore}T00:00:00`);
-                              const cutoffTime = cutoffDateObj.getTime();
+                              const cutoffDateStr = usageCleanupBefore.trim(); // YYYY-MM-DD
+                              const cutoffParsed = new Date(`${cutoffDateStr}T00:00:00`);
+                              const cutoffTime = cutoffParsed.getTime();
+
                               const qSnap = await getDocs(collection(db, 'notifications'));
                               let count = 0;
                               for (const dSnap of qSnap.docs) {
                                 const nData = dSnap.data();
                                 let match = false;
                                 
-                                // Check date string format (e.g. "8/7/2026" or "2026-08-07")
+                                // Parse nData.date robustly (handles "8/7/2026", "08/07/2026", "2026-08-07")
                                 if (nData.date) {
-                                  const parts = String(nData.date).split('/');
-                                  let docDateObj = null;
-                                  if (parts.length === 3) {
-                                    // M/D/YYYY or D/M/YYYY -> parse robustly
-                                    const m = parseInt(parts[0], 10);
-                                    const d = parseInt(parts[1], 10);
-                                    const y = parseInt(parts[2], 10);
-                                    if (!isNaN(m) && !isNaN(d) && !isNaN(y)) {
-                                      docDateObj = new Date(y, m - 1, d);
+                                  const rawDate = String(nData.date).trim();
+                                  if (rawDate.includes('/')) {
+                                    const parts = rawDate.split('/');
+                                    if (parts.length === 3) {
+                                      let m = parseInt(parts[0], 10);
+                                      let d = parseInt(parts[1], 10);
+                                      let y = parseInt(parts[2], 10);
+                                      // If year is first or formatted differently, normalize
+                                      if (m > 31) {
+                                        // YYYY/MM/DD
+                                        y = parseInt(parts[0], 10);
+                                        m = parseInt(parts[1], 10);
+                                        d = parseInt(parts[2], 10);
+                                      }
+                                      if (!isNaN(m) && !isNaN(d) && !isNaN(y)) {
+                                        const docDate = new Date(y, m - 1, d);
+                                        if (!isNaN(docDate.getTime()) && docDate.getTime() <= cutoffTime) {
+                                          match = true;
+                                        }
+                                      }
                                     }
                                   } else {
-                                    docDateObj = new Date(nData.date);
-                                  }
-                                  if (docDateObj && !isNaN(docDateObj.getTime())) {
-                                    if (docDateObj.getTime() < cutoffTime) {
+                                    const docDate = new Date(rawDate);
+                                    if (!isNaN(docDate.getTime()) && docDate.getTime() <= cutoffTime) {
                                       match = true;
                                     }
                                   }
                                 }
 
-                                // Fallback to timestamp if date string parsing failed
+                                // If date parsing didn't match, check createdAtTime / timestamp
                                 if (!match) {
-                                  const notificationTime = Number(nData.createdAtTime || (nData.createdAt?.seconds ? nData.createdAt.seconds * 1000 : 0)) || 0;
-                                  if (Number.isFinite(notificationTime) && notificationTime > 0 && notificationTime < cutoffTime) {
+                                  const t = Number(nData.createdAtTime || (nData.createdAt?.seconds ? nData.createdAt.seconds * 1000 : 0)) || 0;
+                                  if (Number.isFinite(t) && t > 0 && t <= cutoffTime) {
                                     match = true;
                                   }
                                 }
@@ -3629,10 +3640,10 @@ export default function FieldBookingApp() {
                                   count++;
                                 }
                               }
-                              alert(`${count} ခုသော Notification များကို Firebase မှ အောင်မြင်စွာ ဖျက်ဆီးပြီးပါပြီ။`);
+                              alert(`အောင်မြင်ပါသည်! Firebase မှ Notification ${count} ခုကို အပြီးအပိုင် ဖျက်ဆီးပြီးပါပြီ။`);
                             } catch (err) {
                               console.error(err);
-                              alert('Notification ရှင်းလင်းရာတွင် အမှားအယွင်းရှိပါသည်။');
+                              alert('Notification ဖျက်ဆီးရာတွင် အမှားအယွင်းရှိပါသည်။ Console တွင် ကြည့်ပါ။');
                             }
                           }
                         }}
