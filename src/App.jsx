@@ -2072,12 +2072,14 @@ export default function FieldBookingApp() {
           .field-app-shell[data-mobile-device="true"] {
             min-width: 360px;
           }
+          /* Landscape phones use the full viewport; keep the controls mobile,
+             but never squeeze the application into a partial-width column. */
           .field-app-shell[data-mobile-device="true"] .field-app-header-inner,
           .field-app-shell[data-mobile-device="true"] .field-app-main {
-            width: min(100% - 24px, 430px);
-            max-width: 430px;
-            margin-left: auto;
-            margin-right: auto;
+            width: 100%;
+            max-width: 100%;
+            margin-left: 0;
+            margin-right: 0;
           }
           .field-app-shell[data-mobile-device="true"] .field-app-header-inner {
             min-height: 3.8rem;
@@ -2087,6 +2089,14 @@ export default function FieldBookingApp() {
           }
           .field-app-shell[data-mobile-device="true"] button[class~="sm:hidden"] {
             display: inline-flex !important;
+          }
+          .field-app-shell[data-mobile-device="true"] [class~="fixed"][class~="inset-0"] {
+            min-height: 100dvh;
+            touch-action: none;
+          }
+          .field-app-shell[data-mobile-device="true"] .field-role-drawer,
+          .field-app-shell[data-mobile-device="true"] .field-role-drawer * {
+            touch-action: manipulation;
           }
           .field-app-shell[data-mobile-device="true"] [class~="hidden"][class~="sm:flex"],
           .field-app-shell[data-mobile-device="true"] [class~="hidden"][class~="sm:inline-flex"] {
@@ -2105,6 +2115,36 @@ export default function FieldBookingApp() {
           }
           .field-app-shell[data-mobile-device="true"] .field-role-drawer {
             width: min(88vw, 22rem);
+            height: 100dvh;
+            max-height: 100dvh;
+            overflow: hidden;
+            box-sizing: border-box;
+            z-index: 2;
+          }
+          .field-app-shell[data-mobile-device="true"] .field-role-nav {
+            flex: 1 1 auto;
+            min-height: 0;
+            overflow-x: hidden;
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+            overscroll-behavior: contain;
+            touch-action: pan-y;
+            position: relative;
+            z-index: 3;
+          }
+          .field-app-shell[data-mobile-device="true"] .field-role-nav button {
+            position: relative;
+            z-index: 4;
+            flex: 0 0 auto;
+            min-height: 3.65rem;
+            pointer-events: auto;
+            touch-action: manipulation;
+          }
+          .field-app-shell[data-mobile-device="true"] .field-role-drawer > div:last-child {
+            position: relative;
+            z-index: 5;
+            flex: 0 0 auto;
+            background: #0f172a;
           }
           .field-app-shell[data-mobile-device="true"] .field-app-main > div {
             border-radius: 1rem;
