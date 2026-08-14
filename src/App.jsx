@@ -1,4 +1,4 @@
-/* Field Booking UI style: Desktop follows the supplied screenshot with a green header, white dashboard card, and horizontal role navigation. Mobile keeps the existing drawer and responsive shell. Preserve Burmese-first booking/auth/payment/history business logic, Cash payments, 50%/100% plans, and selected-page-only rendering. */
+/* Field Booking UI style: Desktop and Mobile share the supplied screenshot palette: green header, light page background, white dashboard card, and green active states. Mobile keeps its existing drawer, sizing, spacing, and responsive shell. Preserve Burmese-first booking/auth/payment/history business logic, Cash payments, 50%/100% plans, and selected-page-only rendering. */
 import React, { useState, useEffect, useRef } from 'react';
 import { db } from './firebase'; 
 import { collection, getDoc, getDocs, addDoc, updateDoc, deleteDoc, doc, setDoc, runTransaction, onSnapshot, query, where, limit, startAfter, orderBy } from 'firebase/firestore';
@@ -2043,12 +2043,13 @@ export default function FieldBookingApp() {
         .field-app-shell {
           position: relative;
           min-height: 100vh;
-          background-color: #020617;
-          background-image: radial-gradient(circle at 0% 0%, rgba(255,79,112,.16), transparent 26%), radial-gradient(circle at 100% 100%, rgba(14,165,233,.12), transparent 30%);
+          background: #f5f7f9;
+          background-image: linear-gradient(180deg, #f8fafb 0%, #f4f7f8 100%);
         }
         .field-app-header {
-          background: linear-gradient(112deg, #0b1220 0%, #172033 58%, #241523 100%) !important;
-          border-bottom: 1px solid rgba(255,255,255,.1);
+          background: linear-gradient(105deg, #007d5d 0%, #00916d 55%, #007e60 100%) !important;
+          border-top: 4px solid #d9f99d;
+          border-bottom: 1px solid rgba(0,72,54,.24);
         }
         .field-app-header-inner {
           min-height: 4.25rem;
@@ -2058,6 +2059,7 @@ export default function FieldBookingApp() {
           z-index: 1;
         }
         .field-app-main > div {
+          background: #fff;
           border-color: var(--field-line);
           box-shadow: 0 18px 42px rgba(15,23,42,.10);
         }
@@ -2155,22 +2157,25 @@ export default function FieldBookingApp() {
           }
         }
         .field-role-drawer {
-          background: linear-gradient(180deg, #0b1220 0%, #101827 48%, #0f172a 100%) !important;
+          background: linear-gradient(180deg, #007d5d 0%, #008b67 48%, #006f54 100%) !important;
         }
         .field-drawer-hero {
-          border-bottom: 1px solid rgba(255,255,255,.12);
-          background: radial-gradient(circle at 100% 0%, rgba(255,79,112,.2), transparent 42%), #0b1220 !important;
+          border-bottom: 1px solid rgba(255,255,255,.22);
+          background: linear-gradient(105deg, #007d5d 0%, #00916d 55%, #007e60 100%) !important;
         }
         .field-role-nav button {
-          border-color: rgba(255,255,255,.08) !important;
-          color: #cbd5e1;
+          border-color: rgba(255,255,255,.18) !important;
+          color: #f0fdf4;
         }
         .field-role-nav button:hover, .field-role-nav button:active {
           color: #fff;
         }
         .field-role-nav button[class*="bg-[#fff0f3]"] {
-          color: var(--field-coral) !important;
-          background: rgba(255,79,112,.12) !important;
+          color: #007d5d !important;
+          background: #dcfce7 !important;
+        }
+        .field-app-shell[data-mobile-device="true"] .field-role-drawer > div:last-child {
+          background: #f5f7f9;
         }
         @media (max-width: 640px) {
           .field-app-main > div {
