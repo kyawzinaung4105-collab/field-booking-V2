@@ -1340,6 +1340,7 @@ export default function FieldBookingApp() {
       });
 
       setBookings(prev => [result, ...prev]);
+      setHistoryRefreshToken(prev => prev + 1);
 
       if (currentUser.role === 'owner') {
         await triggerSmsNotification(
