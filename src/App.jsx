@@ -1114,27 +1114,31 @@ export default function FieldBookingApp() {
         return;
       }
     } else {
+      const isCashPayment = selectedPaymentMethod === 'Cash';
       if (
         selectedStartSlot === '' ||
         selectedEndSlot === '' ||
         !selectedPaymentMethod ||
         !customerName.trim() ||
-        !customerPhone.trim() ||
-        !transactionLast5 ||
-        !paymentScreenshot
+        !customerPhone.trim()
       ) {
         alert('ကျေးဇူးပြု၍ လိုအပ်သော အချက်အလက်များ အားလုံးဖြည့်စွက်ပါ။');
         return;
       }
 
-      if (transactionLast5.length !== 5) {
+      if (!isCashPayment && (!transactionLast5 || !paymentScreenshot)) {
+        alert('KPay သို့မဟုတ် Wave ရွေးချယ်ထားပါက Transaction နောက်ဆုံး ၅ လုံးနှင့် Screenshot နှစ်ခုလုံး ထည့်ပါ။');
+        return;
+      }
+
+      if (!isCashPayment && transactionLast5.length !== 5) {
         alert('Transaction နံပါတ် နောက်ဆုံး ၅ လုံးတိတိ ထည့်ပါ။');
         return;
       }
     }
 
     let paymentScreenshotDataUrl = null;
-    if (currentUser.role !== 'owner') {
+    if (currentUser.role !== 'owner' && selectedPaymentMethod !== 'Cash') {
       try {
         paymentScreenshotDataUrl = await preparePaymentScreenshot(paymentScreenshot);
       } catch (error) {
@@ -1239,9 +1243,9 @@ export default function FieldBookingApp() {
           customerPhone: currentUser.role === 'owner' ? ownerCustomerPhone.trim() : customerPhone.trim(),
           userName: currentUser.role === 'owner' ? `${ownerCustomerName.trim()} (${ownerCustomerPhone.trim()}) [Owner Direct Booked]` : currentUser.name,
           paymentMethod: selectedPaymentMethod,
-          transactionLast5: currentUser.role === 'owner' ? 'OWNER' : transactionLast5,
-          screenshotName: currentUser.role === 'owner' ? 'Direct Manual Booking' : paymentScreenshot?.name,
-          ...(currentUser.role === 'owner' ? {} : { paymentScreenshot: paymentScreenshotDataUrl }),
+          transactionLast5: currentUser.role === 'owner' ? 'OWNER' : selectedPaymentMethod === 'Cash' ? 'CASH' : transactionLast5,
+          screenshotName: currentUser.role === 'owner' ? 'Direct Manual Booking' : selectedPaymentMethod === 'Cash' ? 'Cash payment - no screenshot' : paymentScreenshot?.name,
+          ...(currentUser.role === 'owner' || selectedPaymentMethod === 'Cash' ? {} : { paymentScreenshot: paymentScreenshotDataUrl }),
           status: currentUser.role === 'owner' ? 'Approved' : 'Pending',
           bookedBy: currentUser.role === 'owner' ? 'Owner' : 'User'
         };
@@ -2056,6 +2060,66 @@ export default function FieldBookingApp() {
           border-color: var(--field-line);
           box-shadow: 0 18px 42px rgba(15,23,42,.10);
         }
+        .field-desktop-workspace {
+          display: block;
+        }
+        .field-desktop-sidebar {
+          display: none;
+        }
+        @media (min-width: 1025px) {
+          .field-app-shell[data-mobile-device="false"] .field-desktop-workspace {
+            display: grid;
+            grid-template-columns: 238px minmax(0, 1fr);
+            max-width: 1440px;
+            min-height: calc(100vh - 4.25rem);
+            margin: 0 auto;
+          }
+          .field-app-shell[data-mobile-device="false"] .field-desktop-sidebar {
+            display: flex;
+            position: sticky;
+            top: 4.25rem;
+            height: calc(100vh - 4.25rem);
+            flex-direction: column;
+            padding: 1.25rem .9rem;
+            overflow-y: auto;
+            background: linear-gradient(180deg, #0b1630 0%, #132345 55%, #0f1b38 100%);
+            border-right: 1px solid rgba(255,255,255,.08);
+          }
+          .field-app-shell[data-mobile-device="false"] .field-desktop-sidebar button {
+            display: flex;
+            width: 100%;
+            align-items: center;
+            gap: .7rem;
+            border: 0;
+            border-radius: .65rem;
+            padding: .8rem .75rem;
+            color: #cbd5e1;
+            text-align: left;
+            font-size: .75rem;
+            font-weight: 800;
+            transition: background-color .18s ease, color .18s ease, transform .18s ease;
+          }
+          .field-app-shell[data-mobile-device="false"] .field-desktop-sidebar button:hover {
+            color: #fff;
+            background: rgba(255,255,255,.08);
+            transform: translateX(2px);
+          }
+          .field-app-shell[data-mobile-device="false"] .field-desktop-sidebar button[data-active="true"] {
+            color: #fff;
+            background: #ff4f70;
+            box-shadow: 0 8px 20px rgba(255,79,112,.24);
+          }
+          .field-app-shell[data-mobile-device="false"] .field-app-main {
+            width: 100%;
+            max-width: none;
+            margin: 0;
+            padding: 1.5rem 1.75rem 3rem;
+          }
+          .field-app-shell[data-mobile-device="false"] .field-app-main > div {
+            border-radius: .8rem;
+            box-shadow: 0 14px 34px rgba(15,23,42,.12);
+          }
+        }
         .field-role-drawer {
           background: linear-gradient(180deg, #0b1220 0%, #101827 48%, #0f172a 100%) !important;
         }
@@ -2421,6 +2485,38 @@ export default function FieldBookingApp() {
         </div>
       </header>
 
+      <div className="field-desktop-workspace">
+        <aside className="field-desktop-sidebar" aria-label="Desktop navigation">
+          <div className="mb-5 border-b border-white/10 pb-4">
+            <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-[#ff4f70] text-2xl shadow-lg">⚽</div>
+            <p className="truncate text-sm font-extrabold text-white">{currentUser.name}</p>
+            <p className="mt-1 text-[10px] font-bold uppercase tracking-[0.18em] text-emerald-200">{currentUser.role}</p>
+          </div>
+          <p className="mb-2 px-2 text-[10px] font-extrabold uppercase tracking-[0.18em] text-slate-400">Menu</p>
+          <button type="button" data-active={activeTab === 'fields'} onClick={() => { setActiveTab('fields'); setUserSelectedField(null); setSelectedSubField(null); sessionStorage.removeItem('userSelectedField'); sessionStorage.removeItem('selectedSubField'); }}>
+            <span>🏟️</span><span>ကွင်းများ / Booking</span>
+          </button>
+          {currentUser.role === 'user' && (
+            <button type="button" data-active={activeTab === 'history'} onClick={() => setActiveTab('history')}><span>📋</span><span>Booking History</span></button>
+          )}
+          {currentUser.role === 'owner' && (
+            <>
+              <button type="button" data-active={activeTab === 'owner_manage'} onClick={() => setActiveTab('owner_manage')}><span>🧾</span><span>Manage & History</span></button>
+              <button type="button" data-active={activeTab === 'owner_report'} onClick={() => setActiveTab('owner_report')}><span>📊</span><span>My Fields Report</span></button>
+            </>
+          )}
+          {currentUser.role === 'admin' && (
+            <>
+              <button type="button" data-active={activeTab === 'dashboard'} onClick={() => { setActiveTab('dashboard'); setAdminTab('pending'); }}><span>📋</span><span>Bookings အားလုံး</span></button>
+              <button type="button" data-active={activeTab === 'dashboard' && adminTab === 'manage_fields'} onClick={() => { setActiveTab('dashboard'); setAdminTab('manage_fields'); }}><span>🏗️</span><span>Manage Fields</span></button>
+              <button type="button" data-active={activeTab === 'dashboard' && adminTab === 'report'} onClick={() => { setActiveTab('dashboard'); setAdminTab('report'); }}><span>📊</span><span>Booking Report</span></button>
+              <button type="button" data-active={activeTab === 'dashboard' && adminTab === 'manage_owners'} onClick={() => { setActiveTab('dashboard'); setAdminTab('manage_owners'); }}><span>🔑</span><span>Manage Owners</span></button>
+            </>
+          )}
+          <div className="mt-auto border-t border-white/10 pt-4">
+            <button type="button" onClick={handleLogout}><span>↪️</span><span>Logout</span></button>
+          </div>
+        </aside>
       <main className="field-app-main max-w-7xl mx-auto px-3 sm:px-4 mt-4 sm:mt-6">
         {currentUser.role === 'admin' && activeTab === 'dashboard' ? (
           <div className="bg-white rounded-xl shadow p-4 sm:p-6">
@@ -4013,12 +4109,20 @@ export default function FieldBookingApp() {
                             <label className="block text-xs font-bold text-gray-700 mb-1">ငွေပေးချေမည့်နည်းလမ်း</label>
                             <select 
                               value={selectedPaymentMethod} 
-                              onChange={(e) => setSelectedPaymentMethod(e.target.value)}
+                              onChange={(e) => {
+                                const nextPaymentMethod = e.target.value;
+                                setSelectedPaymentMethod(nextPaymentMethod);
+                                if (nextPaymentMethod === 'Cash') {
+                                  setTransactionLast5('');
+                                  setPaymentScreenshot(null);
+                                }
+                              }}
                               className="w-full border rounded-lg p-2.5 text-sm bg-white font-bold"
                             >
                               <option value="">-- နည်းလမ်းရွေးပါ --</option>
                               <option value="KPay">KPay</option>
                               <option value="Wave">Wave</option>
+                              <option value="Cash">Cash (ငွေသား)</option>
                             </select>
 
 
@@ -4035,7 +4139,7 @@ export default function FieldBookingApp() {
                             </div>
 
                             {/* Dedicated Payment Account Box below dropdown */}
-                            {selectedPaymentMethod && (
+                            {selectedPaymentMethod && selectedPaymentMethod !== 'Cash' && (
                               <div className="mt-2.5 p-3 bg-emerald-50/70 border border-emerald-300 rounded-lg flex items-center justify-between shadow-sm">
                                 <div className="space-y-0.5">
                                   <p className="text-[11px] font-bold text-emerald-800 uppercase tracking-wider">
@@ -4077,9 +4181,10 @@ export default function FieldBookingApp() {
                             )}
                           </div>
 
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
-                          <div>
-                            <label className="block text-xs font-bold text-gray-700 mb-1">ငွေလွှဲ Transaction နံပါတ် နောက်ဆုံး ၅ လုံး</label>
+                        {selectedPaymentMethod !== 'Cash' && (
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+                            <div>
+                              <label className="block text-xs font-bold text-gray-700 mb-1">ငွေလွှဲ Transaction နံပါတ် နောက်ဆုံး ၅ လုံး</label>
                             <input 
                               type="text" 
                               maxLength="5" 
@@ -4101,8 +4206,15 @@ export default function FieldBookingApp() {
                               onChange={(e) => setPaymentScreenshot(e.target.files[0])}
                               className="w-full border rounded-lg p-1.5 text-xs bg-white file:mr-4 file:py-1 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-emerald-50 file:text-emerald-700 hover:file:bg-emerald-100" 
                             />
+                            </div>
                           </div>
-                        </div>
+                        )}
+
+                        {selectedPaymentMethod === 'Cash' && (
+                          <div className="mt-3 rounded-xl border border-amber-300 bg-amber-50 p-3 text-xs font-bold text-amber-900">
+                            💵 Cash (ငွေသား) ကို ရွေးထားပါသည်။ Transaction နံပါတ် နောက်ဆုံး ၅ လုံးနှင့် Screenshot တင်ရန် မလိုအပ်ပါ။
+                          </div>
+                        )}
 
                         {calculatedDuration > 0 && (
                           <div className="bg-emerald-100 border border-emerald-300 p-3 rounded-xl text-xs space-y-1 font-bold text-emerald-900">
@@ -4370,6 +4482,7 @@ export default function FieldBookingApp() {
           </div>
         )}
       </main>
+      </div>
     </div>
     </>
   );
