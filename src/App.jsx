@@ -1,4 +1,4 @@
-/* Field Booking UI style: Compact Operations Console inspired by the supplied TikTok POS reference. Dark slate shell, light data workspace, Field Coral active navigation, Burmese-first responsive density. Preserve booking/auth/payment/history business logic. */
+/* Field Booking UI style: Desktop follows the supplied screenshot with a green header, white dashboard card, and horizontal role navigation. Mobile keeps the existing drawer and responsive shell. Preserve Burmese-first booking/auth/payment/history business logic, Cash payments, 50%/100% plans, and selected-page-only rendering. */
 import React, { useState, useEffect, useRef } from 'react';
 import { db } from './firebase'; 
 import { collection, getDoc, getDocs, addDoc, updateDoc, deleteDoc, doc, setDoc, runTransaction, onSnapshot, query, where, limit, startAfter, orderBy } from 'firebase/firestore';
@@ -2043,6 +2043,7 @@ export default function FieldBookingApp() {
         .field-app-shell {
           position: relative;
           min-height: 100vh;
+          background-color: #020617;
           background-image: radial-gradient(circle at 0% 0%, rgba(255,79,112,.16), transparent 26%), radial-gradient(circle at 100% 100%, rgba(14,165,233,.12), transparent 30%);
         }
         .field-app-header {
@@ -2062,62 +2063,95 @@ export default function FieldBookingApp() {
         }
         .field-desktop-workspace {
           display: block;
+          min-height: calc(100vh - 4.25rem);
         }
         .field-desktop-sidebar {
           display: none;
         }
+        .field-desktop-topnav {
+          display: none;
+        }
         @media (min-width: 1025px) {
+          .field-app-shell[data-mobile-device="false"] {
+            background: #f5f7f9;
+            background-image: linear-gradient(180deg, #f8fafb 0%, #f4f7f8 100%);
+          }
+          .field-app-shell[data-mobile-device="false"] .field-app-header {
+            background: linear-gradient(105deg, #007d5d 0%, #00916d 55%, #007e60 100%) !important;
+            border-top: 4px solid #d9f99d;
+            border-bottom: 1px solid rgba(0,72,54,.24);
+          }
+          .field-app-shell[data-mobile-device="false"] .field-app-header-inner {
+            min-height: 4rem;
+          }
           .field-app-shell[data-mobile-device="false"] .field-desktop-workspace {
-            display: grid;
-            grid-template-columns: 238px minmax(0, 1fr);
+            display: block;
             max-width: 1440px;
-            min-height: calc(100vh - 4.25rem);
+            min-height: calc(100vh - 4rem);
             margin: 0 auto;
-          }
-          .field-app-shell[data-mobile-device="false"] .field-desktop-sidebar {
-            display: flex;
-            position: sticky;
-            top: 4.25rem;
-            height: calc(100vh - 4.25rem);
-            flex-direction: column;
-            padding: 1.25rem .9rem;
-            overflow-y: auto;
-            background: linear-gradient(180deg, #0b1630 0%, #132345 55%, #0f1b38 100%);
-            border-right: 1px solid rgba(255,255,255,.08);
-          }
-          .field-app-shell[data-mobile-device="false"] .field-desktop-sidebar button {
-            display: flex;
-            width: 100%;
-            align-items: center;
-            gap: .7rem;
-            border: 0;
-            border-radius: .65rem;
-            padding: .8rem .75rem;
-            color: #cbd5e1;
-            text-align: left;
-            font-size: .75rem;
-            font-weight: 800;
-            transition: background-color .18s ease, color .18s ease, transform .18s ease;
-          }
-          .field-app-shell[data-mobile-device="false"] .field-desktop-sidebar button:hover {
-            color: #fff;
-            background: rgba(255,255,255,.08);
-            transform: translateX(2px);
-          }
-          .field-app-shell[data-mobile-device="false"] .field-desktop-sidebar button[data-active="true"] {
-            color: #fff;
-            background: #ff4f70;
-            box-shadow: 0 8px 20px rgba(255,79,112,.24);
+            padding: 1.6rem 1.35rem 3rem;
           }
           .field-app-shell[data-mobile-device="false"] .field-app-main {
             width: 100%;
-            max-width: none;
-            margin: 0;
-            padding: 1.5rem 1.75rem 3rem;
+            max-width: 1340px;
+            min-height: 31rem;
+            margin: 0 auto;
+            padding: 1.25rem 1.45rem 2.5rem;
+            background: #fff;
+            border: 1px solid #e1e8e5;
+            border-radius: 1rem;
+            box-shadow: 0 8px 24px rgba(15,23,42,.09);
+          }
+          .field-app-shell[data-mobile-device="false"] .field-desktop-topnav {
+            display: flex;
+            align-items: center;
+            gap: .55rem;
+            width: 100%;
+            overflow-x: auto;
+            padding: .1rem 0 1.1rem;
+            margin-bottom: 1.05rem;
+            border-bottom: 1px solid #e3e8e6;
+            scrollbar-width: thin;
+          }
+          .field-app-shell[data-mobile-device="false"] .field-desktop-topnav button {
+            flex: 0 0 auto;
+            min-height: 2.55rem;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: .38rem;
+            padding: .58rem .85rem;
+            border: 1px solid #edf0f1;
+            border-radius: .72rem;
+            color: #334155;
+            background: #f5f6f7;
+            font-size: .72rem;
+            font-weight: 800;
+            white-space: nowrap;
+            transition: background-color .18s ease, border-color .18s ease, color .18s ease, box-shadow .18s ease, transform .18s ease;
+          }
+          .field-app-shell[data-mobile-device="false"] .field-desktop-topnav button:hover {
+            color: #007d5d;
+            background: #ecfdf5;
+            border-color: #99e6c5;
+            transform: translateY(-1px);
+          }
+          .field-app-shell[data-mobile-device="false"] .field-desktop-topnav button[data-active="true"] {
+            color: #fff;
+            background: #009b72;
+            border-color: #008b67;
+            box-shadow: 0 5px 12px rgba(0,139,103,.22);
+          }
+          .field-app-shell[data-mobile-device="false"] .field-desktop-topnav button[data-active="true"]:hover {
+            color: #fff;
+            background: #008b67;
           }
           .field-app-shell[data-mobile-device="false"] .field-app-main > div {
-            border-radius: .8rem;
-            box-shadow: 0 14px 34px rgba(15,23,42,.12);
+            border-radius: .35rem;
+            box-shadow: none;
+          }
+          .field-app-shell[data-mobile-device="false"] .field-app-main > div > div:first-child {
+            border-color: #e2e8e5;
           }
         }
         .field-role-drawer {
@@ -2518,6 +2552,74 @@ export default function FieldBookingApp() {
           </div>
         </aside>
       <main className="field-app-main max-w-7xl mx-auto px-3 sm:px-4 mt-4 sm:mt-6">
+        <nav className="field-desktop-topnav" aria-label="Desktop role navigation">
+          {currentUser.role === 'user' && (
+            <>
+              <button
+                type="button"
+                data-active={activeTab === 'fields'}
+                onClick={() => {
+                  setActiveTab('fields');
+                  setUserSelectedField(null);
+                  setSelectedSubField(null);
+                  sessionStorage.removeItem('userSelectedField');
+                  sessionStorage.removeItem('selectedSubField');
+                }}
+              >
+                <span aria-hidden="true">🏟️</span><span>ကွင်းများ / Booking</span>
+              </button>
+              <button type="button" data-active={activeTab === 'history'} onClick={() => setActiveTab('history')}>
+                <span aria-hidden="true">📋</span><span>Booking History</span>
+              </button>
+            </>
+          )}
+
+          {currentUser.role === 'admin' && (
+            <>
+              <button type="button" data-active={activeTab === 'dashboard' && adminTab === 'pending'} onClick={() => { setActiveTab('dashboard'); setAdminTab('pending'); }}>
+                <span aria-hidden="true">📋</span><span>Bookings အားလုံး</span>
+              </button>
+              <button type="button" data-active={activeTab === 'dashboard' && adminTab === 'manage_fields'} onClick={() => { setActiveTab('dashboard'); setAdminTab('manage_fields'); }}>
+                <span aria-hidden="true">🏗️</span><span>Manage Fields & Add Field</span>
+              </button>
+              <button type="button" data-active={activeTab === 'dashboard' && adminTab === 'report'} onClick={() => { setActiveTab('dashboard'); setAdminTab('report'); }}>
+                <span aria-hidden="true">📊</span><span>Booking Report</span>
+              </button>
+              <button type="button" data-active={activeTab === 'dashboard' && adminTab === 'manage_owners'} onClick={() => { setActiveTab('dashboard'); setAdminTab('manage_owners'); }}>
+                <span aria-hidden="true">🔑</span><span>Manage Owners & Passwords</span>
+              </button>
+              <button type="button" data-active={activeTab === 'dashboard' && adminTab === 'notifications_page'} onClick={() => { setActiveTab('dashboard'); setAdminTab('notifications_page'); }}>
+                <span aria-hidden="true">🔔</span><span>Notifications & Filter</span>
+              </button>
+              <button type="button" data-active={activeTab === 'dashboard' && adminTab === 'change_password'} onClick={() => { setActiveTab('dashboard'); setAdminTab('change_password'); }}>
+                <span aria-hidden="true">🔒</span><span>Password ပြောင်းရန်</span>
+              </button>
+            </>
+          )}
+
+          {currentUser.role === 'owner' && (
+            <>
+              <button type="button" data-active={activeTab === 'owner_manage' && ownerActiveTab === 'pending'} onClick={() => { setActiveTab('owner_manage'); setOwnerActiveTab('pending'); }}>
+                <span aria-hidden="true">📝</span><span>Direct Booking</span>
+              </button>
+              <button type="button" data-active={activeTab === 'owner_manage' && ownerActiveTab === 'history'} onClick={() => { setActiveTab('owner_manage'); setOwnerActiveTab('history'); }}>
+                <span aria-hidden="true">📋</span><span>Booking History</span>
+              </button>
+              <button type="button" data-active={activeTab === 'owner_manage' && ownerActiveTab === 'report'} onClick={() => { setActiveTab('owner_manage'); setOwnerActiveTab('report'); }}>
+                <span aria-hidden="true">📊</span><span>My Fields Report</span>
+              </button>
+              <button type="button" data-active={activeTab === 'owner_manage' && ownerActiveTab === 'notifications_page'} onClick={() => { setActiveTab('owner_manage'); setOwnerActiveTab('notifications_page'); }}>
+                <span aria-hidden="true">🔔</span><span>Notifications & Filter</span>
+              </button>
+              <button type="button" data-active={activeTab === 'owner_manage' && ownerActiveTab === 'fields_edit'} onClick={() => { setActiveTab('owner_manage'); setOwnerActiveTab('fields_edit'); }}>
+                <span aria-hidden="true">🏟️</span><span>ကွင်းအချိန် / KPay / Wave</span>
+              </button>
+              <button type="button" data-active={activeTab === 'owner_manage' && ownerActiveTab === 'password'} onClick={() => { setActiveTab('owner_manage'); setOwnerActiveTab('password'); }}>
+                <span aria-hidden="true">🔒</span><span>Password ပြောင်းရန်</span>
+              </button>
+            </>
+          )}
+        </nav>
         {currentUser.role === 'admin' && activeTab === 'dashboard' ? (
           <div className="bg-white rounded-xl shadow p-4 sm:p-6">
             <div className="flex flex-col items-start gap-3 mb-6 border-b pb-4 sm:flex-row sm:justify-between sm:items-center">
