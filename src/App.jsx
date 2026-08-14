@@ -3584,20 +3584,52 @@ export default function FieldBookingApp() {
                             alert('ဖျက်မည့် cutoff date ကို ရွေးပေးပါ။');
                             return;
                           }
-                          if (window.confirm(`${usageCleanupBefore} မတိုင်မီ Notification များကို ဖျက်ဆီးရန် သေချာပါသလား?`)) {
+                          if (window.confirm(`${usageCleanupBefore} မတိုင်မီ Notification များကို Firebase မှ လုံးဝဖျက်ဆီးရန် သေချာပါသလား?`)) {
                             try {
-                              const cutoffTime = new Date(`${usageCleanupBefore}T00:00:00`).getTime();
+                              const cutoffDateObj = new Date(`${usageCleanupBefore}T00:00:00`);
+                              const cutoffTime = cutoffDateObj.getTime();
                               const qSnap = await getDocs(collection(db, 'notifications'));
                               let count = 0;
                               for (const dSnap of qSnap.docs) {
                                 const nData = dSnap.data();
-                                const notificationTime = Number(nData.createdAtTime || (nData.createdAt?.seconds ? nData.createdAt.seconds * 1000 : 0)) || new Date(`${nData.date || ''} ${nData.time || ''}`).getTime();
-                                if (Number.isFinite(notificationTime) && notificationTime < cutoffTime) {
+                                let match = false;
+                                
+                                // Check date string format (e.g. "8/7/2026" or "2026-08-07")
+                                if (nData.date) {
+                                  const parts = String(nData.date).split('/');
+                                  let docDateObj = null;
+                                  if (parts.length === 3) {
+                                    // M/D/YYYY or D/M/YYYY -> parse robustly
+                                    const m = parseInt(parts[0], 10);
+                                    const d = parseInt(parts[1], 10);
+                                    const y = parseInt(parts[2], 10);
+                                    if (!isNaN(m) && !isNaN(d) && !isNaN(y)) {
+                                      docDateObj = new Date(y, m - 1, d);
+                                    }
+                                  } else {
+                                    docDateObj = new Date(nData.date);
+                                  }
+                                  if (docDateObj && !isNaN(docDateObj.getTime())) {
+                                    if (docDateObj.getTime() < cutoffTime) {
+                                      match = true;
+                                    }
+                                  }
+                                }
+
+                                // Fallback to timestamp if date string parsing failed
+                                if (!match) {
+                                  const notificationTime = Number(nData.createdAtTime || (nData.createdAt?.seconds ? nData.createdAt.seconds * 1000 : 0)) || 0;
+                                  if (Number.isFinite(notificationTime) && notificationTime > 0 && notificationTime < cutoffTime) {
+                                    match = true;
+                                  }
+                                }
+
+                                if (match) {
                                   await deleteDoc(doc(db, 'notifications', dSnap.id));
                                   count++;
                                 }
                               }
-                              alert(`${count} ခုသော cutoff date မတိုင်မီ Notification များကို ဖျက်ပြီးပါပြီ။`);
+                              alert(`${count} ခုသော Notification များကို Firebase မှ အောင်မြင်စွာ ဖျက်ဆီးပြီးပါပြီ။`);
                             } catch (err) {
                               console.error(err);
                               alert('Notification ရှင်းလင်းရာတွင် အမှားအယွင်းရှိပါသည်။');
