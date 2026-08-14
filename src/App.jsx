@@ -91,6 +91,29 @@ const readRememberedLogin = () => {
   }
 };
 
+const getStoredUserRole = () => {
+  try {
+    const savedUser = sessionStorage.getItem('currentUser');
+    if (!savedUser) return '';
+    const parsed = JSON.parse(savedUser);
+    return typeof parsed?.role === 'string' ? parsed.role : '';
+  } catch {
+    return '';
+  }
+};
+
+const getStoredRolePage = (role, fallback = 'fields') => {
+  if (!role) return sessionStorage.getItem('activeTab') || fallback;
+  return sessionStorage.getItem(`fieldBooking:activeTab:${role}`)
+    || sessionStorage.getItem('activeTab')
+    || fallback;
+};
+
+const getStoredRoleInnerPage = (role, fallback) => {
+  if (!role) return fallback;
+  return sessionStorage.getItem(`fieldBooking:innerTab:${role}`) || fallback;
+};
+
 const getBookingSlotLockId = (fieldId, subFieldId, date, hour) => [
   fieldId || 'unknown-field',
   subFieldId || 'unknown-sub-field',
@@ -366,9 +389,8 @@ export default function FieldBookingApp() {
     return `${cutoff.getFullYear()}-${String(cutoff.getMonth() + 1).padStart(2, '0')}-${String(cutoff.getDate()).padStart(2, '0')}`;
   });
 
-  const [activeTab, setActiveTab] = useState(() => {
-    return sessionStorage.getItem('activeTab') || 'fields';
-  }); 
+  const [activeTab, setActiveTab] = useState(() => getStoredRolePage(getStoredUserRole(), 'fields'));
+
 
   const [userSelectedField, setUserSelectedField] = useState(() => {
     const saved = sessionStorage.getItem('userSelectedField');
@@ -447,8 +469,8 @@ export default function FieldBookingApp() {
   const [ownerEditFieldStatus, setOwnerEditFieldStatus] = useState('Active');
   const [ownerEditSubFields, setOwnerEditSubFields] = useState([]);
 
-  const [adminTab, setAdminTab] = useState('pending');
-  const [ownerActiveTab, setOwnerActiveTab] = useState('pending');
+  const [adminTab, setAdminTab] = useState(() => getStoredRoleInnerPage(getStoredUserRole() === 'admin' ? 'admin' : '', 'pending'));
+  const [ownerActiveTab, setOwnerActiveTab] = useState(() => getStoredRoleInnerPage(getStoredUserRole() === 'owner' ? 'owner' : '', 'pending'));
   const [mobileHeaderMenuOpen, setMobileHeaderMenuOpen] = useState(false);
   const [adminMobileMenuOpen, setAdminMobileMenuOpen] = useState(false);
   const [ownerMobileMenuOpen, setOwnerMobileMenuOpen] = useState(false);
@@ -480,7 +502,22 @@ export default function FieldBookingApp() {
 
   useEffect(() => {
     sessionStorage.setItem('activeTab', activeTab);
-  }, [activeTab]);
+    if (currentUser?.role) {
+      sessionStorage.setItem(`fieldBooking:activeTab:${currentUser.role}`, activeTab);
+    }
+  }, [activeTab, currentUser?.role]);
+
+  useEffect(() => {
+    if (currentUser?.role === 'admin') {
+      sessionStorage.setItem('fieldBooking:innerTab:admin', adminTab);
+    }
+  }, [adminTab, currentUser?.role]);
+
+  useEffect(() => {
+    if (currentUser?.role === 'owner') {
+      sessionStorage.setItem('fieldBooking:innerTab:owner', ownerActiveTab);
+    }
+  }, [ownerActiveTab, currentUser?.role]);
 
   useEffect(() => {
     if (userSelectedField) {
@@ -539,16 +576,25 @@ export default function FieldBookingApp() {
       }
     });
 
+    return () => unsubAuth();
+  }, []);
+
+  useEffect(() => {
+    if (!currentUser?.uid) {
+      setUsersList(defaultUsers);
+      setFields(defaultFields);
+      setSmsNotifications([]);
+      return undefined;
+    }
+
     const unsubUsers = onSnapshot(collection(db, "users"), (snapshot) => {
-      if (!snapshot.empty) {
-        setUsersList(snapshot.docs.map(d => ({ id: d.id, ...d.data() })));
-      }
+      setUsersList(snapshot.docs.map(d => ({ id: d.id, ...d.data() })));
     });
 
     const unsubFields = onSnapshot(collection(db, "fields"), (snapshot) => {
       if (!snapshot.empty) {
         setFields(snapshot.docs.map(d => ({ id: d.id, ...d.data() })));
-      } else {
+      } else if (currentUser.role === 'admin') {
         defaultFields.forEach(async (f) => {
           await setDoc(doc(db, "fields", f.id), f);
         });
@@ -562,7 +608,6 @@ export default function FieldBookingApp() {
     );
     const unsubNoti = onSnapshot(recentNotificationsQuery, (snapshot) => {
       const rawNotis = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
-      // Hide exact legacy duplicate notifications in the UI.
       const seen = new Set();
       const uniqueNotis = rawNotis.filter(n => {
         const key = [
@@ -582,12 +627,8 @@ export default function FieldBookingApp() {
         if (typeof notification.createdAtTime === 'number' && Number.isFinite(notification.createdAtTime)) {
           return notification.createdAtTime;
         }
-        if (notification.createdAt?.toMillis) {
-          return notification.createdAt.toMillis();
-        }
-        if (notification.createdAt?.seconds) {
-          return notification.createdAt.seconds * 1000;
-        }
+        if (notification.createdAt?.toMillis) return notification.createdAt.toMillis();
+        if (notification.createdAt?.seconds) return notification.createdAt.seconds * 1000;
         const parsed = new Date(`${notification.date || ''} ${notification.time || ''}`).getTime();
         return Number.isFinite(parsed) ? parsed : 0;
       };
@@ -605,7 +646,7 @@ export default function FieldBookingApp() {
       unsubFields();
       unsubNoti();
     };
-  }, []);
+  }, [currentUser?.uid, currentUser?.role]);
 
   // Availability only needs bookings for the selected field and selected date.
   // This keeps the real-time listener bounded even when the historical collection is large.
