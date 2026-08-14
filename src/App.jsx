@@ -3695,23 +3695,27 @@ export default function FieldBookingApp() {
                     </div>
 
 
-                    <div>
-                      <label className="block text-xs font-bold text-gray-700 mb-1">ငွေပေးချေမည့် အစီအစဉ်</label>
-                      <select
-                        value={paymentPlan}
-                        onChange={(e) => setPaymentPlan(e.target.value)}
-                        className="w-full border rounded-lg p-2.5 text-sm bg-white font-bold"
-                      >
-                        <option value="50">50% ငွေပေးချေရန် ({calculatedTotalPrice > 0 ? Math.round(calculatedTotalPrice * 0.5).toLocaleString() : 0} ကျပ်)</option>
-                        <option value="100">100% ငွေပေးချေရန် ({calculatedTotalPrice > 0 ? calculatedTotalPrice.toLocaleString() : 0} ကျပ်)</option>
-                      </select>
-                    </div>
+                    {selectedPaymentMethod !== 'Cash' && (
+                      <div>
+                        <label className="block text-xs font-bold text-gray-700 mb-1">ငွေပေးချေမည့် အစီအစဉ်</label>
+                        <select 
+                          value={paymentPlan}
+                          onChange={(e) => setPaymentPlan(e.target.value)}
+                          className="w-full border rounded-lg p-2.5 text-sm bg-white font-bold"
+                        >
+                          <option value="50">50% ငွေပေးချေရန် ({calculatedTotalPrice > 0 ? Math.round(calculatedTotalPrice * 0.5).toLocaleString() : 0} ကျပ်)</option>
+                          <option value="100">100% ငွေပေးချေရန် ({calculatedTotalPrice > 0 ? calculatedTotalPrice.toLocaleString() : 0} ကျပ်)</option>
+                        </select>
+                      </div>
+                    )}
 
                     {calculatedDuration > 0 && (
                       <div className="bg-emerald-50 border border-emerald-200 p-3 rounded-xl text-xs space-y-1 font-bold text-emerald-900">
                         <p>⏱️ ကြာချိန်: {calculatedDuration} နာရီ</p>
                         <p>💵 စုစုပေါင်းကျသင့်ငွေ: {calculatedTotalPrice.toLocaleString()} ကျပ်</p>
-                            <p className="text-amber-700">💳 {paymentPlanPercent}% ပေးချေရန်: {calculatedPayableAmount.toLocaleString()} ကျပ်</p>
+                            {selectedPaymentMethod !== 'Cash' && (
+                              <p className="text-amber-700">💳 {paymentPlanPercent}% ပေးချေရန်: {calculatedPayableAmount.toLocaleString()} ကျပ်</p>
+                            )}
                       </div>
                     )}
 
@@ -4165,17 +4169,19 @@ export default function FieldBookingApp() {
                             </select>
 
 
-                            <div className="mt-3">
-                              <label className="block text-xs font-bold text-gray-700 mb-1">ငွေပေးချေမည့် အစီအစဉ်</label>
-                              <select
-                                value={paymentPlan}
-                                onChange={(e) => setPaymentPlan(e.target.value)}
-                                className="w-full border rounded-lg p-2.5 text-sm bg-white font-bold"
-                              >
-                                <option value="50">50% ငွေပေးချေရန် ({calculatedTotalPrice > 0 ? Math.round(calculatedTotalPrice * 0.5).toLocaleString() : 0} ကျပ်)</option>
-                                <option value="100">100% ငွေပေးချေရန် ({calculatedTotalPrice > 0 ? calculatedTotalPrice.toLocaleString() : 0} ကျပ်)</option>
-                              </select>
-                            </div>
+                            {selectedPaymentMethod !== 'Cash' && (
+                              <div className="mt-3">
+                                <label className="block text-xs font-bold text-gray-700 mb-1">ငွေပေးချေမည့် အစီအစဉ်</label>
+                                <select
+                                  value={paymentPlan}
+                                  onChange={(e) => setPaymentPlan(e.target.value)}
+                                  className="w-full border rounded-lg p-2.5 text-sm bg-white font-bold"
+                                >
+                                  <option value="50">50% ငွေပေးချေရန် ({calculatedTotalPrice > 0 ? Math.round(calculatedTotalPrice * 0.5).toLocaleString() : 0} ကျပ်)</option>
+                                  <option value="100">100% ငွေပေးချေရန် ({calculatedTotalPrice > 0 ? calculatedTotalPrice.toLocaleString() : 0} ကျပ်)</option>
+                                </select>
+                              </div>
+                            )}
 
                             {/* Dedicated Payment Account Box below dropdown */}
                             {selectedPaymentMethod && selectedPaymentMethod !== 'Cash' && (
@@ -4249,17 +4255,13 @@ export default function FieldBookingApp() {
                           </div>
                         )}
 
-                        {selectedPaymentMethod === 'Cash' && (
-                          <div className="mt-3 rounded-xl border border-amber-300 bg-amber-50 p-3 text-xs font-bold text-amber-900">
-                            💵 Cash (ငွေသား) ကို ရွေးထားပါသည်။ Transaction နံပါတ် နောက်ဆုံး ၅ လုံးနှင့် Screenshot တင်ရန် မလိုအပ်ပါ။
-                          </div>
-                        )}
-
                         {calculatedDuration > 0 && (
                           <div className="bg-emerald-100 border border-emerald-300 p-3 rounded-xl text-xs space-y-1 font-bold text-emerald-900">
                             <p>⏱️ ကြာချိန်: {calculatedDuration} နာရီ ({format12Hour(parseInt(selectedStartSlot))} ~ {format12Hour(parseInt(selectedEndSlot))})</p>
                             <p>💵 စုစုပေါင်းကျသင့်ငွေ: {calculatedTotalPrice.toLocaleString()} ကျပ်</p>
-                            <p className="text-amber-700">💳 {paymentPlanPercent}% ပေးချေရန်: {calculatedPayableAmount.toLocaleString()} ကျပ်</p>
+                            {selectedPaymentMethod !== 'Cash' && (
+                              <p className="text-amber-700">💳 {paymentPlanPercent}% ပေးချေရန်: {calculatedPayableAmount.toLocaleString()} ကျပ်</p>
+                            )}
                           </div>
                         )}
 
