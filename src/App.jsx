@@ -2631,7 +2631,7 @@ export default function FieldBookingApp() {
         </nav>
         {currentUser.role === 'admin' && activeTab === 'dashboard' ? (
           <div className="bg-white rounded-xl shadow p-4 sm:p-6">
-            <div className="field-mobile-duplicate-meta flex flex-col items-start gap-3 mb-6 border-b pb-4 sm:flex-row sm:justify-between sm:items-center">
+            <div className="flex flex-col items-start gap-3 mb-6 border-b pb-4 sm:flex-row sm:justify-between sm:items-center">
               <h2 className="text-lg sm:text-xl font-bold text-gray-800">{adminTab === 'pending' ? 'Booking History' : 'Admin Management Dashboard'}</h2>
               {adminTab !== 'pending' && (
                 <button onClick={() => { setActiveTab('fields'); setAdminMobileMenuOpen(false); }} className="hidden sm:inline-flex w-full sm:w-auto bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-bold">← ကွင်းများသို့ ပြန်ရန်</button>
@@ -3236,7 +3236,7 @@ export default function FieldBookingApp() {
           </div>
         ) : currentUser.role === 'owner' && activeTab === 'owner_manage' ? (
           <div className="bg-white rounded-xl shadow p-4 sm:p-6">
-            <div className="field-mobile-duplicate-meta flex flex-col items-start gap-3 mb-6 border-b pb-4 sm:flex-row sm:justify-between sm:items-center">
+            <div className="flex flex-col items-start gap-3 mb-6 border-b pb-4 sm:flex-row sm:justify-between sm:items-center">
               <h2 className="text-lg sm:text-xl font-bold text-gray-800">🏟️ Owner Dashboard & Direct Booking</h2>
               <button onClick={() => { setActiveTab('fields'); setOwnerMobileMenuOpen(false); }} className="hidden sm:inline-flex w-full sm:w-auto bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-bold">← ကွင်းများသို့ ပြန်ရန်</button>
             </div>
