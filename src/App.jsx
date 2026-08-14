@@ -993,8 +993,14 @@ export default function FieldBookingApp() {
       setSignupName('');
       setSignupPassword('');
     } catch (error) {
-      console.error("Error signing up: ", error);
-      alert('အကောင့်ဖွင့်ရာတွင် အမှားအယွင်းရှိပါသည်။ (သို့မဟုတ် ဤအကောင့်ရှိပြီးသားဖြစ်သည်)');
+      console.error("Signup error code:", error.code, "message:", error.message);
+      if (error.code === 'auth/email-already-in-use') {
+        alert('ဤအကောင့် (Username) ရှိနှင့်ပြီးသား ဖြစ်ပါသည်။');
+      } else if (error.code === 'auth/weak-password') {
+        alert('Password သည် အနည်းဆုံး ၆ လုံး ရှိရပါမည်။');
+      } else {
+        alert(`အကောင့်ဖွင့်၍မရပါ: ${error.message}`);
+      }
     }
   };
 
