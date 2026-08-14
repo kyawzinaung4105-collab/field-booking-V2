@@ -2177,6 +2177,10 @@ export default function FieldBookingApp() {
         .field-app-shell[data-mobile-device="true"] .field-role-drawer > div:last-child {
           background: #f5f7f9;
         }
+        /* On phones, show only the selected function's actual page content. Keep the desktop dashboard heading/meta intact. */
+        .field-app-shell[data-mobile-device="true"] .field-mobile-duplicate-meta {
+          display: none !important;
+        }
         @media (max-width: 640px) {
           .field-app-main > div {
             border-radius: 1rem;
@@ -2627,14 +2631,14 @@ export default function FieldBookingApp() {
         </nav>
         {currentUser.role === 'admin' && activeTab === 'dashboard' ? (
           <div className="bg-white rounded-xl shadow p-4 sm:p-6">
-            <div className="flex flex-col items-start gap-3 mb-6 border-b pb-4 sm:flex-row sm:justify-between sm:items-center">
+            <div className="field-mobile-duplicate-meta flex flex-col items-start gap-3 mb-6 border-b pb-4 sm:flex-row sm:justify-between sm:items-center">
               <h2 className="text-lg sm:text-xl font-bold text-gray-800">{adminTab === 'pending' ? 'Booking History' : 'Admin Management Dashboard'}</h2>
               {adminTab !== 'pending' && (
                 <button onClick={() => { setActiveTab('fields'); setAdminMobileMenuOpen(false); }} className="hidden sm:inline-flex w-full sm:w-auto bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-bold">← ကွင်းများသို့ ပြန်ရန်</button>
               )}
             </div>
 
-            <div className="mb-6 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+            <div className="field-mobile-duplicate-meta mb-6 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
               <p className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-slate-500">လက်ရှိရွေးချယ်ထားသော Function</p>
               <p className="mt-1 text-sm font-extrabold text-slate-800">
                 {adminTab === 'pending' ? `Booking History (${adminHistoryBookings.length}${historyHasMore ? '+' : ''})` : adminTab === 'manage_fields' ? 'Manage Fields & Add Field' : adminTab === 'report' ? '📊 Booking Report' : adminTab === 'manage_owners' ? '🔑 Manage Owners & Passwords' : adminTab === 'notifications_page' ? '🔔 Notifications & Filter Page' : '🔒 ကိုယ်ပိုင် Password ပြောင်းရန်'}
@@ -3232,12 +3236,12 @@ export default function FieldBookingApp() {
           </div>
         ) : currentUser.role === 'owner' && activeTab === 'owner_manage' ? (
           <div className="bg-white rounded-xl shadow p-4 sm:p-6">
-            <div className="flex flex-col items-start gap-3 mb-6 border-b pb-4 sm:flex-row sm:justify-between sm:items-center">
+            <div className="field-mobile-duplicate-meta flex flex-col items-start gap-3 mb-6 border-b pb-4 sm:flex-row sm:justify-between sm:items-center">
               <h2 className="text-lg sm:text-xl font-bold text-gray-800">🏟️ Owner Dashboard & Direct Booking</h2>
               <button onClick={() => { setActiveTab('fields'); setOwnerMobileMenuOpen(false); }} className="hidden sm:inline-flex w-full sm:w-auto bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-bold">← ကွင်းများသို့ ပြန်ရန်</button>
             </div>
 
-            <div className="mb-6 rounded-xl border border-emerald-100 bg-emerald-50 px-4 py-3">
+            <div className="field-mobile-duplicate-meta mb-6 rounded-xl border border-emerald-100 bg-emerald-50 px-4 py-3">
               <p className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-emerald-700">လက်ရှိရွေးချယ်ထားသော Function</p>
               <p className="mt-1 text-sm font-extrabold text-emerald-900">
                 {ownerActiveTab === 'pending' ? 'Booking တင်ရန် (Direct Booking)' : ownerActiveTab === 'history' ? 'Booking မှတ်တမ်းများ' : ownerActiveTab === 'report' ? '📊 My Fields Report' : ownerActiveTab === 'notifications_page' ? '🔔 Notifications Page' : ownerActiveTab === 'password' ? '🔒 Password ချိန်းရန်' : '🏟️ ကွင်းအချိန်များနှင့် KPay/Wave နံပါတ်များ ပြင်ဆင်ရန်'}
