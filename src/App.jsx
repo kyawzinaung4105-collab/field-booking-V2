@@ -439,6 +439,7 @@ export default function FieldBookingApp() {
   const [ownerEditFieldCloseHour, setOwnerEditFieldCloseHour] = useState(22);
   const [ownerEditFieldKpay, setOwnerEditFieldKpay] = useState('');
   const [ownerEditFieldWave, setOwnerEditFieldWave] = useState('');
+  const [ownerEditFieldStatus, setOwnerEditFieldStatus] = useState('Active');
   const [ownerEditSubFields, setOwnerEditSubFields] = useState([]);
 
   const [adminTab, setAdminTab] = useState('pending');
@@ -1521,6 +1522,7 @@ export default function FieldBookingApp() {
     setOwnerEditFieldCloseHour(field.closeHour !== undefined ? field.closeHour : 22);
     setOwnerEditFieldKpay(field.paymentInfo?.kpay || '');
     setOwnerEditFieldWave(field.paymentInfo?.wave || '');
+    setOwnerEditFieldStatus(field.ownerStatus || 'Active');
     setOwnerEditSubFields((field.subFields || []).map(sf => ({
       id: sf.id || String(Date.now() + Math.random()),
       name: sf.name || '',
@@ -1555,6 +1557,7 @@ export default function FieldBookingApp() {
       openHour: Number(ownerEditFieldOpenHour) || 8,
       closeHour: Number(ownerEditFieldCloseHour) || 22,
       subFields: cleanSubFields,
+      ownerStatus: String(ownerEditFieldStatus || 'Active'),
       paymentInfo: {
         kpay: String(ownerEditFieldKpay || ''),
         wave: String(ownerEditFieldWave || '')
@@ -3580,6 +3583,13 @@ export default function FieldBookingApp() {
                       <div>
                         <label className="block text-xs font-bold text-gray-700 mb-1">Wave No (User ဘက်တွင်ပေါ်မည့်နံပါတ်)</label>
                         <input type="text" value={ownerEditFieldWave} onChange={(e) => setOwnerEditFieldWave(e.target.value)} placeholder="09-xxxxxxxxx (Wave)" className="w-full border rounded p-2 text-xs bg-white" />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold text-gray-700 mb-1">ကွင်းအခြေအနေ (Field Status)</label>
+                        <select value={ownerEditFieldStatus} onChange={(e) => setOwnerEditFieldStatus(e.target.value)} className="w-full border rounded p-2 text-xs bg-white">
+                          <option value="Active">Active (ဖွင့်)</option>
+                          <option value="Disabled">Disabled / Inactive (ပိတ်)</option>
+                        </select>
                       </div>
 
                       <div className="border-t pt-3">
