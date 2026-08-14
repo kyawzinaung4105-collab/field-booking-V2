@@ -3571,9 +3571,9 @@ export default function FieldBookingApp() {
                     <div className="border rounded-xl p-4 bg-amber-50/50 flex flex-col justify-between space-y-3">
                       <div>
                         <h5 className="font-bold text-xs text-amber-900">🔔 သတ်မှတ်ရက်မတိုင်မီ Notification များဖျက်ရန်</h5>
-                        <p className="text-[11px] text-gray-600 mt-1">အောက်ပါရက်စွဲထက် အဟောင်းဖြစ်သော Notification များကိုသာ ဖျက်မည်။ ဖျက်ပြီးသော Data များကို ပြန်ယူ၍မရပါ။</p>
+                        <p className="text-[11px] text-gray-600 mt-1">အောက်ပါရက်စွဲ သို့မဟုတ် ထိုရက်မတိုင်မီက Notification များကို Firebase မှ အပြီးအပိုင် ဖျက်မည်။</p>
                         <label className="mt-3 block text-[11px] font-bold text-gray-700">
-                          ဖျက်မည့် cutoff date
+                          ဖျက်မည့် cutoff date (YYYY-MM-DD)
                           <input type="date" value={usageCleanupBefore} onChange={(e) => setUsageCleanupBefore(e.target.value)} className="mt-1 block w-full rounded-lg border bg-white px-2 py-1.5 text-xs font-bold" />
                         </label>
                       </div>
@@ -3581,14 +3581,13 @@ export default function FieldBookingApp() {
                         type="button"
                         onClick={async () => {
                           if (!usageCleanupBefore) {
-                            alert('ဖျက်မည့် cutoff date ကို ရွေးပေးပါ။');
+                            alert('ကျေးဇူးပြု၍ ဖျက်မည့် cutoff date ကို ရွေးပေးပါ။');
                             return;
                           }
-                          if (window.confirm(`${usageCleanupBefore} (ပါဝင်ပြီး) မတိုင်မီ Notification အားလုံးကို Firebase မှ အပြီးအပိုင် ဖျက်ဆီးရန် သေချာပါသလား?`)) {
+                          if (window.confirm(`${usageCleanupBefore} (ပါဝင်ပြီး) သို့မဟုတ် ယင်းမတိုင်မီ Notification များကို Firebase မှ အပြီးအပိုင် ဖျက်ဆီးရန် သေချာပါသလား?`)) {
                             try {
-                              const cutoffDateStr = usageCleanupBefore.trim(); // YYYY-MM-DD
-                              const cutoffParsed = new Date(`${cutoffDateStr}T00:00:00`);
-                              const cutoffTime = cutoffParsed.getTime();
+                              const [cY, cM, cD] = usageCleanupBefore.split('-').map(Number);
+                              const cutoffTargetTime = new Date(cY, cM - 1, cD).getTime();
 
                               const qSnap = await getDocs(collection(db, 'notifications'));
                               let count = 0;
@@ -3596,7 +3595,6 @@ export default function FieldBookingApp() {
                                 const nData = dSnap.data();
                                 let match = false;
                                 
-                                // Parse nData.date robustly (handles "8/7/2026", "08/07/2026", "2026-08-07")
                                 if (nData.date) {
                                   const rawDate = String(nData.date).trim();
                                   if (rawDate.includes('/')) {
@@ -3605,33 +3603,28 @@ export default function FieldBookingApp() {
                                       let m = parseInt(parts[0], 10);
                                       let d = parseInt(parts[1], 10);
                                       let y = parseInt(parts[2], 10);
-                                      // If year is first or formatted differently, normalize
                                       if (m > 31) {
-                                        // YYYY/MM/DD
                                         y = parseInt(parts[0], 10);
                                         m = parseInt(parts[1], 10);
                                         d = parseInt(parts[2], 10);
                                       }
                                       if (!isNaN(m) && !isNaN(d) && !isNaN(y)) {
-                                        const docDate = new Date(y, m - 1, d);
-                                        if (!isNaN(docDate.getTime()) && docDate.getTime() <= cutoffTime) {
-                                          match = true;
-                                        }
+                                        const docTime = new Date(y, m - 1, d).getTime();
+                                        if (docTime <= cutoffTargetTime) match = true;
                                       }
                                     }
                                   } else {
-                                    const docDate = new Date(rawDate);
-                                    if (!isNaN(docDate.getTime()) && docDate.getTime() <= cutoffTime) {
-                                      match = true;
-                                    }
+                                    const docTime = new Date(rawDate).getTime();
+                                    if (!isNaN(docTime) && docTime <= cutoffTargetTime) match = true;
                                   }
                                 }
 
-                                // If date parsing didn't match, check createdAtTime / timestamp
                                 if (!match) {
                                   const t = Number(nData.createdAtTime || (nData.createdAt?.seconds ? nData.createdAt.seconds * 1000 : 0)) || 0;
-                                  if (Number.isFinite(t) && t > 0 && t <= cutoffTime) {
-                                    match = true;
+                                  if (t > 0) {
+                                    const dObj = new Date(t);
+                                    const dTime = new Date(dObj.getFullYear(), dObj.getMonth(), dObj.getDate()).getTime();
+                                    if (dTime <= cutoffTargetTime) match = true;
                                   }
                                 }
 
@@ -3641,15 +3634,60 @@ export default function FieldBookingApp() {
                                 }
                               }
                               alert(`အောင်မြင်ပါသည်! Firebase မှ Notification ${count} ခုကို အပြီးအပိုင် ဖျက်ဆီးပြီးပါပြီ။`);
+                              window.location.reload();
                             } catch (err) {
                               console.error(err);
-                              alert('Notification ဖျက်ဆီးရာတွင် အမှားအယွင်းရှိပါသည်။ Console တွင် ကြည့်ပါ။');
+                              alert('Notification ဖျက်ဆီးရာတွင် အမှားအယွင်းရှိပါသည်။');
                             }
                           }
                         }}
                         className="bg-amber-600 hover:bg-amber-700 text-white font-bold py-2 px-3 rounded-lg text-xs transition shadow"
                       >
                         သတ်မှတ်ရက်မတိုင်မီ Notification များဖျက်မည်
+                      </button>
+                    </div>
+
+                    <div className="border rounded-xl p-4 bg-blue-50/50 flex flex-col justify-between space-y-3 sm:col-span-2">
+                      <div>
+                        <h5 className="font-bold text-xs text-blue-900">📅 သတ်မှတ်ရက်အလိုက် Booking History များ ဖျက်ရန်</h5>
+                        <p className="text-[11px] text-gray-600 mt-1">သတ်မှတ်ထားသော ကစားမည့်ရက် (Booking Date) ရှိ Booking မှတ်တမ်းများကို Firebase မှ ရွေးချယ်ဖျက်ဆီးနိုင်ပါသည်။</p>
+                        <label className="mt-3 block text-[11px] font-bold text-gray-700 max-w-xs">
+                          ဖျက်မည့် Booking ရက်စွဲ (YYYY-MM-DD)
+                          <input type="date" id="admin_booking_cleanup_date" className="mt-1 block w-full rounded-lg border bg-white px-2 py-1.5 text-xs font-bold" />
+                        </label>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          const inputEl = document.getElementById('admin_booking_cleanup_date');
+                          const targetDate = inputEl ? inputEl.value.trim() : '';
+                          if (!targetDate) {
+                            alert('ကျေးဇူးပြု၍ ဖျက်မည့် Booking ရက်စွဲကို ရွေးပေးပါ။');
+                            return;
+                          }
+                          if (window.confirm(`${targetDate} ရက်စွဲပါရှိသော Booking အားလုံးကို Firebase မှ အပြီးအပိုင် ဖျက်ဆီးရန် သေချာပါသလား?`)) {
+                            try {
+                              const qSnap = await getDocs(collection(db, 'bookings'));
+                              let count = 0;
+                              for (const dSnap of qSnap.docs) {
+                                const bData = dSnap.data();
+                                const bDate = String(bData.date || '').trim();
+                                if (bDate === targetDate) {
+                                  await deleteDoc(doc(db, 'bookings', dSnap.id));
+                                  count++;
+                                }
+                              }
+                              alert(`အောင်မြင်ပါသည်! ရက်စွဲ ${targetDate} ပါ Bookings ${count} ခုကို Firebase မှ ဖျက်ဆီးပြီးပါပြီ။`);
+                              window.location.reload();
+                            } catch (err) {
+                              console.error(err);
+                              alert('Booking များကို ဖျက်ဆီးရာတွင် အမှားအယွင်းရှိပါသည်။');
+                            }
+                          }
+                        }}
+                        className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg text-xs transition shadow self-start"
+                      >
+                        ရွေးချယ်ထားသော ရက်စွဲပါ Bookings များကို ဖျက်မည်
                       </button>
                     </div>
                   </div>
