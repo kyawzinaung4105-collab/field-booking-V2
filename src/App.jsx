@@ -2064,6 +2064,53 @@ export default function FieldBookingApp() {
             min-height: 3.8rem;
           }
         }
+        /* Keep a phone in the portrait-style shell after physical rotation.
+           Browser orientation cannot always be locked by a normal web page, so this
+           rule keeps the mobile navigation, one-column density, and narrow workspace
+           even when the viewport becomes landscape. */
+        @media (orientation: landscape) and (max-width: 1024px) {
+          .field-app-shell[data-mobile-device="true"] {
+            min-width: 360px;
+          }
+          .field-app-shell[data-mobile-device="true"] .field-app-header-inner,
+          .field-app-shell[data-mobile-device="true"] .field-app-main {
+            width: min(100% - 24px, 430px);
+            max-width: 430px;
+            margin-left: auto;
+            margin-right: auto;
+          }
+          .field-app-shell[data-mobile-device="true"] .field-app-header-inner {
+            min-height: 3.8rem;
+          }
+          .field-app-shell[data-mobile-device="true"] [class~="sm:hidden"] {
+            display: block !important;
+          }
+          .field-app-shell[data-mobile-device="true"] button[class~="sm:hidden"] {
+            display: inline-flex !important;
+          }
+          .field-app-shell[data-mobile-device="true"] [class~="hidden"][class~="sm:flex"],
+          .field-app-shell[data-mobile-device="true"] [class~="hidden"][class~="sm:inline-flex"] {
+            display: none !important;
+          }
+          .field-app-shell[data-mobile-device="true"] [class~="sm:flex-row"] {
+            flex-direction: column !important;
+          }
+          .field-app-shell[data-mobile-device="true"] [class~="sm:grid-cols-2"],
+          .field-app-shell[data-mobile-device="true"] [class~="sm:grid-cols-3"] {
+            grid-template-columns: minmax(0, 1fr) !important;
+          }
+          .field-app-shell[data-mobile-device="true"] [class~="sm:col-span-2"],
+          .field-app-shell[data-mobile-device="true"] [class~="sm:col-span-3"] {
+            grid-column: span 1 / span 1 !important;
+          }
+          .field-app-shell[data-mobile-device="true"] .field-role-drawer {
+            width: min(88vw, 22rem);
+          }
+          .field-app-shell[data-mobile-device="true"] .field-app-main > div {
+            border-radius: 1rem;
+            box-shadow: 0 12px 28px rgba(15,23,42,.12);
+          }
+        }
         @media (prefers-reduced-motion: reduce) {
           .field-app-shell *, .field-auth-shell * {
             animation-duration: .01ms !important;
@@ -2126,7 +2173,7 @@ export default function FieldBookingApp() {
         </div>
       )}
 
-    <div data-ui-shell="compact-console" className="field-app-shell min-h-screen bg-slate-950 font-sans pb-12 text-slate-900">
+    <div data-ui-shell="compact-console" data-mobile-device={isMobileDevice ? 'true' : 'false'} className="field-app-shell min-h-screen bg-slate-950 font-sans pb-12 text-slate-900">
       <header className="field-app-header bg-slate-950 text-white shadow-md sticky top-0 z-50">
         <div className="field-app-header-inner max-w-7xl mx-auto px-3 py-2.5 sm:px-4 sm:py-3 flex items-center gap-2">
           <button
