@@ -360,6 +360,11 @@ export default function FieldBookingApp() {
     const today = new Date();
     return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
   });
+  const [usageCleanupBefore, setUsageCleanupBefore] = useState(() => {
+    const cutoff = new Date();
+    cutoff.setDate(cutoff.getDate() - 30);
+    return `${cutoff.getFullYear()}-${String(cutoff.getMonth() + 1).padStart(2, '0')}-${String(cutoff.getDate()).padStart(2, '0')}`;
+  });
 
   const [activeTab, setActiveTab] = useState(() => {
     return sessionStorage.getItem('activeTab') || 'fields';
@@ -2744,6 +2749,7 @@ export default function FieldBookingApp() {
                   <button type="button" onClick={() => { setActiveTab('dashboard'); setAdminTab('report'); setMobileHeaderMenuOpen(false); }} className={`flex w-full items-center gap-3 border-b border-slate-100 px-5 py-3.5 text-left text-sm font-bold transition ${activeTab === 'dashboard' && adminTab === 'report' ? 'bg-[#fff0f3] text-[#c92f51] shadow-[inset_3px_0_0_#ff4f70]' : 'hover:bg-slate-800 active:bg-slate-700'}`}><span className="w-7 text-center text-xl">📊</span><span>Booking Report</span></button>
                   <button type="button" onClick={() => { setActiveTab('dashboard'); setAdminTab('manage_owners'); setMobileHeaderMenuOpen(false); }} className={`flex w-full items-center gap-3 border-b border-slate-100 px-5 py-3.5 text-left text-sm font-bold transition ${activeTab === 'dashboard' && adminTab === 'manage_owners' ? 'bg-[#fff0f3] text-[#c92f51] shadow-[inset_3px_0_0_#ff4f70]' : 'hover:bg-slate-800 active:bg-slate-700'}`}><span className="w-7 text-center text-xl">🔑</span><span>Manage Owners</span></button>
                   <button type="button" onClick={() => { setActiveTab('dashboard'); setAdminTab('notifications_page'); setMobileHeaderMenuOpen(false); }} className={`flex w-full items-center gap-3 border-b border-slate-100 px-5 py-3.5 text-left text-sm font-bold transition ${activeTab === 'dashboard' && adminTab === 'notifications_page' ? 'bg-[#fff0f3] text-[#c92f51] shadow-[inset_3px_0_0_#ff4f70]' : 'hover:bg-slate-800 active:bg-slate-700'}`}><span className="w-7 text-center text-xl">🔔</span><span>Notifications</span></button>
+                  <button type="button" onClick={() => { setActiveTab('dashboard'); setAdminTab('usage_cleanup'); setMobileHeaderMenuOpen(false); }} className={`flex w-full items-center gap-3 border-b border-slate-100 px-5 py-3.5 text-left text-sm font-bold transition ${activeTab === 'dashboard' && adminTab === 'usage_cleanup' ? 'bg-[#fff0f3] text-[#c92f51] shadow-[inset_3px_0_0_#ff4f70]' : 'hover:bg-slate-800 active:bg-slate-700'}`}><span className="w-7 text-center text-xl">🗄️</span><span>Firebase Usage & Cleanup</span></button>
                   <button type="button" onClick={() => { setActiveTab('dashboard'); setAdminTab('change_password'); setMobileHeaderMenuOpen(false); }} className={`flex w-full items-center gap-3 border-b border-slate-100 px-5 py-3.5 text-left text-sm font-bold transition ${activeTab === 'dashboard' && adminTab === 'change_password' ? 'bg-[#fff0f3] text-[#c92f51] shadow-[inset_3px_0_0_#ff4f70]' : 'hover:bg-slate-800 active:bg-slate-700'}`}><span className="w-7 text-center text-xl">🔒</span><span>Password ပြောင်းရန်</span></button>
                 </>
               )}
@@ -2852,6 +2858,9 @@ export default function FieldBookingApp() {
               <button type="button" data-active={activeTab === 'dashboard' && adminTab === 'notifications_page'} onClick={() => { setActiveTab('dashboard'); setAdminTab('notifications_page'); }}>
                 <span aria-hidden="true">🔔</span><span>Notifications & Filter</span>
               </button>
+              <button type="button" data-active={activeTab === 'dashboard' && adminTab === 'usage_cleanup'} onClick={() => { setActiveTab('dashboard'); setAdminTab('usage_cleanup'); }}>
+                <span aria-hidden="true">🗄️</span><span>Firebase Usage & Cleanup</span>
+              </button>
               <button type="button" data-active={activeTab === 'dashboard' && adminTab === 'change_password'} onClick={() => { setActiveTab('dashboard'); setAdminTab('change_password'); }}>
                 <span aria-hidden="true">🔒</span><span>Password ပြောင်းရန်</span>
               </button>
@@ -2893,7 +2902,7 @@ export default function FieldBookingApp() {
             <div className="field-mobile-duplicate-meta mb-6 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
               <p className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-slate-500">လက်ရှိရွေးချယ်ထားသော Function</p>
               <p className="mt-1 text-sm font-extrabold text-slate-800">
-                {adminTab === 'pending' ? `Booking History (${adminHistoryBookings.length}${historyHasMore ? '+' : ''})` : adminTab === 'manage_fields' ? 'Manage Fields & Add Field' : adminTab === 'report' ? '📊 Booking Report' : adminTab === 'manage_owners' ? '🔑 Manage Owners & Passwords' : adminTab === 'notifications_page' ? '🔔 Notifications & Filter Page' : '🔒 ကိုယ်ပိုင် Password ပြောင်းရန်'}
+                {adminTab === 'pending' ? `Booking History (${adminHistoryBookings.length}${historyHasMore ? '+' : ''})` : adminTab === 'manage_fields' ? 'Manage Fields & Add Field' : adminTab === 'report' ? '📊 Booking Report' : adminTab === 'manage_owners' ? '🔑 Manage Owners & Passwords' : adminTab === 'notifications_page' ? '🔔 Notifications & Filter Page' : adminTab === 'usage_cleanup' ? '🗄️ Firebase Usage & Cleanup' : '🔒 ကိုယ်ပိုင် Password ပြောင်းရန်'}
               </p>
             </div>
 
@@ -3482,6 +3491,125 @@ export default function FieldBookingApp() {
                       </div>
                     </div>
                   ))}
+                </div>
+              </div>
+            )}
+
+            {adminTab === 'usage_cleanup' && (
+              <div className="space-y-6">
+                <div className="rounded-2xl border bg-slate-50 p-5">
+                  <h3 className="text-base font-extrabold text-gray-900">🗄️ Firebase Firestore Usage & Free Plan Quota Monitor</h3>
+                  <p className="mt-1 text-xs text-gray-600 leading-relaxed">
+                    Firebase Free Plan (Spark) တွင် တစ်နေ့လျှင် <strong className="text-emerald-700">Reads 50,000 ခု</strong>၊ <strong className="text-emerald-700">Writes 20,000 ခု</strong> နှင့် <strong className="text-emerald-700">Storage 1 GB</strong> အထိ အခမဲ့အသုံးပြုခွင့်ရှိပါသည်။ အောက်ပါဇယားသည် လက်ရှိ Database တွင် သိမ်းဆည်းထားသော အချက်အလက် အရေအတွက်များကို တိုက်ရိုက်ပြသပေးနေပါသည်။
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                  <div className="bg-white border rounded-2xl p-5 shadow-sm">
+                    <p className="text-xs font-bold text-gray-500">Fields / SubFields</p>
+                    <p className="mt-1 text-2xl font-extrabold text-emerald-700">{fields.length} ကွင်း</p>
+                    <p className="mt-1 text-[11px] text-gray-400">Total stored fields</p>
+                  </div>
+                  <div className="bg-white border rounded-2xl p-5 shadow-sm">
+                    <p className="text-xs font-bold text-gray-500">Loaded Bookings (Cache)</p>
+                    <p className="mt-1 text-2xl font-extrabold text-blue-700">{bookings.length + adminHistoryBookings.length} ခု</p>
+                    <p className="mt-1 text-[11px] text-gray-400">Active & History records</p>
+                  </div>
+                  <div className="bg-white border rounded-2xl p-5 shadow-sm">
+                    <p className="text-xs font-bold text-gray-500">Notifications</p>
+                    <p className="mt-1 text-2xl font-extrabold text-amber-700">{smsNotifications.length} ခု</p>
+                    <p className="mt-1 text-[11px] text-gray-400">Activity notices</p>
+                  </div>
+                  <div className="bg-white border rounded-2xl p-5 shadow-sm">
+                    <p className="text-xs font-bold text-gray-500">Quota Tracking</p>
+                    <p className="mt-1 text-2xl font-extrabold text-violet-700">Console</p>
+                    <p className="mt-1 text-[11px] text-violet-700 font-bold">နေ့စဉ် Reads/Writes ကို Firebase Console တွင်စစ်ပါ</p>
+                  </div>
+                </div>
+
+                <div className="rounded-2xl border bg-white p-5 space-y-4">
+                  <h4 className="text-sm font-extrabold text-gray-900">🧹 Database Cleanup Tools (မလိုအပ်တော့သော Data များကို ရှင်းလင်းရန်)</h4>
+                  <p className="text-xs text-gray-600">
+                    Quota မကုန်စေရန် ရက်စွဲကျော်လွန်သွားသော Booking များနှင့် Notification ဟောင်းများကို စနစ်တကျ ဖယ်ရှားနိုင်ပါသည်။ အောက်ပါခလုတ်များကို Admin မှ တိုက်ရိုက် နှိပ်၍ သန့်စင်နိုင်သည် (သတိပြုရန်: ဖျက်ပြီးသော Data များကို ပြန်ယူ၍မရပါ)။
+                  </p>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
+                    <div className="border rounded-xl p-4 bg-red-50/50 flex flex-col justify-between space-y-3">
+                      <div>
+                        <h5 className="font-bold text-xs text-red-900">🗑️ ရက်လွန်/ဟောင်းနေသော Booking များ ဖျက်ရန်</h5>
+                        <p className="text-[11px] text-gray-600 mt-1">ကစားမည့်ရက် ကျော်လွန်သွားပြီးသော Rejected သို့မဟုတ် Expired ဖြစ်နေသည့် booking များကို ဖျက်ဆီး၍ database space ရှင်းလင်းမည်။</p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          if (window.confirm('ရက်လွန်/ဟောင်းနေသော Booking အားလုံးကို ဖျက်ဆီးရန် သေချာပါသလား?')) {
+                            try {
+                              const qSnap = await getDocs(collection(db, 'bookings'));
+                              let count = 0;
+                              for (const dSnap of qSnap.docs) {
+                                const bData = dSnap.data();
+                                const expired = isBookingExpired(bData) || bData.status === 'Rejected';
+                                if (expired) {
+                                  await deleteDoc(doc(db, 'bookings', dSnap.id));
+                                  count++;
+                                }
+                              }
+                              alert(`${count} ခုသော ရက်လွန်/Reject ဖြစ်ပြီးသော Booking များ ကို အောင်မြင်စွာ ဖျက်ဆီးပြီးပါပြီ။`);
+                              window.location.reload();
+                            } catch (err) {
+                              console.error(err);
+                              alert('Booking ရှင်းလင်းရာတွင် အမှားအယွင်းရှိပါသည်။');
+                            }
+                          }
+                        }}
+                        className="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-3 rounded-lg text-xs transition shadow"
+                      >
+                        ရက်လွန် Bookings များကို ဖျက်မည်
+                      </button>
+                    </div>
+
+                    <div className="border rounded-xl p-4 bg-amber-50/50 flex flex-col justify-between space-y-3">
+                      <div>
+                        <h5 className="font-bold text-xs text-amber-900">🔔 သတ်မှတ်ရက်မတိုင်မီ Notification များဖျက်ရန်</h5>
+                        <p className="text-[11px] text-gray-600 mt-1">အောက်ပါရက်စွဲထက် အဟောင်းဖြစ်သော Notification များကိုသာ ဖျက်မည်။ ဖျက်ပြီးသော Data များကို ပြန်ယူ၍မရပါ။</p>
+                        <label className="mt-3 block text-[11px] font-bold text-gray-700">
+                          ဖျက်မည့် cutoff date
+                          <input type="date" value={usageCleanupBefore} onChange={(e) => setUsageCleanupBefore(e.target.value)} className="mt-1 block w-full rounded-lg border bg-white px-2 py-1.5 text-xs font-bold" />
+                        </label>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          if (!usageCleanupBefore) {
+                            alert('ဖျက်မည့် cutoff date ကို ရွေးပေးပါ။');
+                            return;
+                          }
+                          if (window.confirm(`${usageCleanupBefore} မတိုင်မီ Notification များကို ဖျက်ဆီးရန် သေချာပါသလား?`)) {
+                            try {
+                              const cutoffTime = new Date(`${usageCleanupBefore}T00:00:00`).getTime();
+                              const qSnap = await getDocs(collection(db, 'notifications'));
+                              let count = 0;
+                              for (const dSnap of qSnap.docs) {
+                                const nData = dSnap.data();
+                                const notificationTime = Number(nData.createdAtTime || (nData.createdAt?.seconds ? nData.createdAt.seconds * 1000 : 0)) || new Date(`${nData.date || ''} ${nData.time || ''}`).getTime();
+                                if (Number.isFinite(notificationTime) && notificationTime < cutoffTime) {
+                                  await deleteDoc(doc(db, 'notifications', dSnap.id));
+                                  count++;
+                                }
+                              }
+                              alert(`${count} ခုသော cutoff date မတိုင်မီ Notification များကို ဖျက်ပြီးပါပြီ။`);
+                            } catch (err) {
+                              console.error(err);
+                              alert('Notification ရှင်းလင်းရာတွင် အမှားအယွင်းရှိပါသည်။');
+                            }
+                          }
+                        }}
+                        className="bg-amber-600 hover:bg-amber-700 text-white font-bold py-2 px-3 rounded-lg text-xs transition shadow"
+                      >
+                        သတ်မှတ်ရက်မတိုင်မီ Notification များဖျက်မည်
+                      </button>
+                    </div>
+                  </div>
                 </div>
               </div>
             )}
