@@ -1,6 +1,21 @@
 /* Field Booking UI style: Desktop and Mobile share the supplied screenshot palette: green header, light page background, white dashboard card, and green active states. Mobile keeps its existing drawer, sizing, spacing, and responsive shell. Preserve Burmese-first booking/auth/payment/history business logic, Cash payments, 50%/100% plans, and selected-page-only rendering. */
 import React, { useState, useEffect, useRef } from 'react';
-import { db, auth } from './firebase';
+import { initializeApp, getApps } from 'firebase/app';
+import { getFirestore } from 'firebase/firestore';
+import { getAuth } from 'firebase/auth';
+
+const firebaseConfig = {
+  apiKey: "AIzaSyCMuEbPcTT9j-WvNLAWcAX3nJr_-x1uFo",
+  authDomain: "fieldbooking-80ad6.firebaseapp.com",
+  projectId: "fieldbooking-80ad6",
+  storageBucket: "fieldbooking-80ad6.appspot.com",
+  messagingSenderId: "297623698493",
+  appId: "1:297623698493:web:49483a28305cba8abc7e54"
+};
+
+const app = !getApps().length ? initializeApp(firebaseConfig) : getApps()[0];
+export const db = getFirestore(app);
+export const auth = getAuth(app);
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged } from 'firebase/auth'; 
 import { collection, getDoc, getDocs, addDoc, updateDoc, deleteDoc, doc, setDoc, runTransaction, onSnapshot, query, where, limit, startAfter, orderBy } from 'firebase/firestore';
 
