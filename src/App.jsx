@@ -1381,7 +1381,7 @@ export default function FieldBookingApp() {
       }
 
       console.error("Error saving booking:", error);
-      alert('Booking သိမ်းဆည်းရာတွင် အမှားအယွင်းရှိပါသည်။');
+      alert(`Booking သိမ်းဆည်းရာတွင် အမှားအယွင်းရှိပါသည်။\n\nError: ${error.message || error.code || JSON.stringify(error)}`);
     }
   };
 
