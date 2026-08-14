@@ -1406,6 +1406,26 @@ export default function FieldBookingApp() {
     }
   };
 
+  // Both Owner and Admin use this exact Firestore subFields schema. The fields
+  // collection listener is the shared source of truth for every role.
+  const normalizeFieldSubFields = (items, fallbackOpenHour = 8, fallbackCloseHour = 22) => {
+    const source = Array.isArray(items) ? items : [];
+    return source.map((sf, index) => ({
+      id: String(sf?.id || `sf_${Date.now()}_${index}`),
+      name: String(sf?.name || 'ကွင်းခွဲ'),
+      price: Number.isFinite(Number(sf?.price)) ? Number(sf.price) : 0,
+      openHour: Number.isFinite(Number(sf?.openHour)) ? Number(sf.openHour) : Number(fallbackOpenHour),
+      closeHour: Number.isFinite(Number(sf?.closeHour)) ? Number(sf.closeHour) : Number(fallbackCloseHour),
+      status: String(sf?.status || 'Active')
+    }));
+  };
+
+  const applyFieldUpdateToLocalState = (fieldId, updatedData) => {
+    setFields(prev => prev.map(field => (
+      field.id === fieldId ? { ...field, ...updatedData } : field
+    )));
+  };
+
   const handleAddOwnerSubField = () => {
     if (!newSubFieldName || !newSubFieldPrice) {
       alert('ကွင်းခွဲအမည်နှင့် ဈေးနှုန်း ထည့်ပါ။');
@@ -1476,12 +1496,11 @@ export default function FieldBookingApp() {
     setEditFieldCloseHour(field.closeHour ?? 22);
     setEditFieldKpay(field.paymentInfo?.kpay || '');
     setEditFieldWave(field.paymentInfo?.wave || '');
-    setEditSubFields(field.subFields.map(sf => ({
-      ...sf,
-      openHour: sf.openHour !== undefined ? sf.openHour : (field.openHour ?? 8),
-      closeHour: sf.closeHour !== undefined ? sf.closeHour : (field.closeHour ?? 22),
-      status: sf.status ?? 'Active'
-    })));
+    setEditSubFields(normalizeFieldSubFields(
+      field.subFields,
+      field.openHour ?? 8,
+      field.closeHour ?? 22
+    ));
   };
 
   const handleSaveEditedField = async () => {
@@ -1491,19 +1510,70 @@ export default function FieldBookingApp() {
       return;
     }
 
+    const cleanSubFields = normalizeFieldSubFields(
+      editSubFields,
+      Number(editFieldOpenHour) || 8,
+      Number(editFieldCloseHour) || 22
+    );
+
     const updatedData = {
-      name: editFieldName,
-      location: editFieldLocation,
-      address: editFieldAddress || editFieldLocation,
-      phone: editFieldPhone || '09-XXXXXXXXX',
-      openHour: parseInt(editFieldOpenHour),
-      closeHour: parseInt(editFieldCloseHour),
-      subFields: editSubFields,
-      paymentInfo: { kpay: editFieldKpay, wave: editFieldWave }
+      name: String(editFieldName),
+      location: String(editFieldLocation),
+      address: String(editFieldAddress || editFieldLocation),
+      phone: String(editFieldPhone || '09-XXXXXXXXX'),
+      openHour: Number(editFieldOpenHour) || 8,
+      closeHour: Number(editFieldCloseHour) || 22,
+      subFields: cleanSubFields,
+      paymentInfo: {
+        kpay: String(editFieldKpay || ''),
+        wave: String(editFieldWave || '')
+      }
     };
 
     try {
       await updateDoc(doc(db, "fields", editingFieldId), updatedData);
+      applyFieldUpdateToLocalState(editingFieldId, updatedData);
+
+      const originalField = fields.find(f => f.id === editingFieldId) || {};
+      const changes = [];
+      if (originalField.name !== editFieldName) changes.push(`ကွင်းအမည် (${originalField.name || 'မရှိ'} -> ${editFieldName})`);
+      if (originalField.location !== editFieldLocation) changes.push(`မြို့နယ် (${originalField.location || 'မရှိ'} -> ${editFieldLocation})`);
+      if ((originalField.address || originalField.location) !== editFieldAddress) changes.push(`လိပ်စာ`);
+      if ((originalField.phone || '09-XXXXXXXXX') !== editFieldPhone) changes.push(`ဖုန်းနံပါတ် (${originalField.phone || 'မရှိ'} -> ${editFieldPhone})`);
+      if (Number(originalField.openHour ?? 8) !== Number(editFieldOpenHour) || Number(originalField.closeHour ?? 22) !== Number(editFieldCloseHour)) {
+        changes.push(`ဖွင့်ပိတ်ချိန် (${originalField.openHour ?? 8}:00 ~ ${originalField.closeHour ?? 22}:00 -> ${editFieldOpenHour}:00 ~ ${editFieldCloseHour}:00)`);
+      }
+      if ((originalField.paymentInfo?.kpay || '') !== editFieldKpay || (originalField.paymentInfo?.wave || '') !== editFieldWave) {
+        changes.push(`ငွေပေးချေမှုအချက်အလက် (KPay/Wave)`);
+      }
+      const origSubs = originalField.subFields || [];
+      if (origSubs.length !== editSubFields.length) {
+        changes.push(`ကွင်းခွဲအရေအတွက် (${origSubs.length} ခု -> ${editSubFields.length} ခု)`);
+      } else {
+        let subChanged = false;
+        for (let i = 0; i < origSubs.length; i++) {
+          const o = origSubs[i];
+          const n = editSubFields[i];
+          if (o.name !== n.name || Number(o.price) !== Number(n.price) || o.status !== n.status || Number(o.openHour) !== Number(n.openHour) || Number(o.closeHour) !== Number(n.closeHour)) {
+            subChanged = true;
+            break;
+          }
+        }
+        if (subChanged) changes.push(`ကွင်းခွဲများ (Sub-fields အချက်အလက် သို့မဟုတ် Status/ဈေးနှုန်း)`);
+      }
+      const changeText = changes.length > 0 ? changes.join(', ') : 'အထွေထွေအချက်အလက်များ';
+
+      try {
+        await triggerSmsNotification(
+          `🔔 [Admin Update] Admin မှ (${editFieldName}) တွင် ${changeText} ကို ပြင်ဆင်သွားပါသည်။`,
+          'owner_update',
+          'admin_field_update',
+          editingFieldId
+        );
+      } catch (notifErr) {
+        console.error("Non-fatal admin update notification error:", notifErr);
+      }
+
       alert('ကွင်းအချက်အလက် ပြင်ဆင်မှု အောင်မြင်ပါသည်။');
       setEditingFieldId(null);
     } catch (error) {
@@ -1523,14 +1593,11 @@ export default function FieldBookingApp() {
     setOwnerEditFieldKpay(field.paymentInfo?.kpay || '');
     setOwnerEditFieldWave(field.paymentInfo?.wave || '');
     setOwnerEditFieldStatus(field.ownerStatus || 'Active');
-    setOwnerEditSubFields((field.subFields || []).map(sf => ({
-      id: sf.id || String(Date.now() + Math.random()),
-      name: sf.name || '',
-      price: sf.price !== undefined ? Number(sf.price) : 0,
-      openHour: sf.openHour !== undefined ? Number(sf.openHour) : (field.openHour ?? 8),
-      closeHour: sf.closeHour !== undefined ? Number(sf.closeHour) : (field.closeHour ?? 22),
-      status: sf.status || 'Active'
-    })));
+    setOwnerEditSubFields(normalizeFieldSubFields(
+      field.subFields,
+      field.openHour ?? 8,
+      field.closeHour ?? 22
+    ));
   };
 
   const handleSaveOwnerEditedField = async () => {
@@ -1540,14 +1607,11 @@ export default function FieldBookingApp() {
       return;
     }
 
-    const cleanSubFields = ownerEditSubFields.map(sf => ({
-      id: sf.id || String(Date.now() + Math.random()),
-      name: String(sf.name || 'ကွင်းခွဲ'),
-      price: Number(sf.price) || 0,
-      openHour: Number(sf.openHour) || 8,
-      closeHour: Number(sf.closeHour) || 22,
-      status: String(sf.status || 'Active')
-    }));
+    const cleanSubFields = normalizeFieldSubFields(
+      ownerEditSubFields,
+      Number(ownerEditFieldOpenHour) || 8,
+      Number(ownerEditFieldCloseHour) || 22
+    );
 
     const updatedData = {
       name: String(ownerEditFieldName),
@@ -1566,10 +1630,43 @@ export default function FieldBookingApp() {
 
     try {
       await updateDoc(doc(db, "fields", editingOwnerFieldId), updatedData);
+      applyFieldUpdateToLocalState(editingOwnerFieldId, updatedData);
       
+      const originalOwnerField = fields.find(f => f.id === editingOwnerFieldId) || {};
+      const ownerChanges = [];
+      if (originalOwnerField.name !== ownerEditFieldName) ownerChanges.push(`ကွင်းအမည် (${originalOwnerField.name || 'မရှိ'} -> ${ownerEditFieldName})`);
+      if (originalOwnerField.location !== ownerEditFieldLocation) ownerChanges.push(`မြို့နယ် (${originalOwnerField.location || 'မရှိ'} -> ${ownerEditFieldLocation})`);
+      if ((originalOwnerField.address || originalOwnerField.location) !== ownerEditFieldAddress) ownerChanges.push(`လိပ်စာ`);
+      if ((originalOwnerField.phone || '09-XXXXXXXXX') !== ownerEditFieldPhone) ownerChanges.push(`ဖုန်းနံပါတ် (${originalOwnerField.phone || 'မရှိ'} -> ${ownerEditFieldPhone})`);
+      if (Number(originalOwnerField.openHour ?? 8) !== Number(ownerEditFieldOpenHour) || Number(originalOwnerField.closeHour ?? 22) !== Number(ownerEditFieldCloseHour)) {
+        ownerChanges.push(`ဖွင့်ပိတ်ချိန် (${originalOwnerField.openHour ?? 8}:00 ~ ${originalOwnerField.closeHour ?? 22}:00 -> ${ownerEditFieldOpenHour}:00 ~ ${ownerEditFieldCloseHour}:00)`);
+      }
+      if ((originalOwnerField.paymentInfo?.kpay || '') !== ownerEditFieldKpay || (originalOwnerField.paymentInfo?.wave || '') !== ownerEditFieldWave) {
+        ownerChanges.push(`ငွေပေးချေမှုအချက်အလက် (KPay/Wave)`);
+      }
+      if ((originalOwnerField.ownerStatus || 'Active') !== ownerEditFieldStatus) {
+        ownerChanges.push(`ကွင်း Status (${originalOwnerField.ownerStatus || 'Active'} -> ${ownerEditFieldStatus})`);
+      }
+      const origOwnerSubs = originalOwnerField.subFields || [];
+      if (origOwnerSubs.length !== ownerEditSubFields.length) {
+        ownerChanges.push(`ကွင်းခွဲအရေအတွက် (${origOwnerSubs.length} ခု -> ${ownerEditSubFields.length} ခု)`);
+      } else {
+        let subChanged = false;
+        for (let i = 0; i < origOwnerSubs.length; i++) {
+          const o = origOwnerSubs[i];
+          const n = ownerEditSubFields[i];
+          if (o.name !== n.name || Number(o.price) !== Number(n.price) || o.status !== n.status || Number(o.openHour) !== Number(n.openHour) || Number(o.closeHour) !== Number(n.closeHour)) {
+            subChanged = true;
+            break;
+          }
+        }
+        if (subChanged) ownerChanges.push(`ကွင်းခွဲများ (Sub-fields အချက်အလက် သို့မဟုတ် Status/ဈေးနှုန်း)`);
+      }
+      const ownerChangeText = ownerChanges.length > 0 ? ownerChanges.join(', ') : 'အထွေထွေအချက်အလက်များ';
+
       try {
         await triggerSmsNotification(
-          `🔔 [Owner Update] ${currentUser.name} (${ownerEditFieldName}) မှ ကွင်းအချက်အလက်များကို ပြင်ဆင်သွားပါသည်။`,
+          `🔔 [Owner Update] Owner (${currentUser?.name || ownerEditFieldName}) မှ (${ownerEditFieldName}) တွင် ${ownerChangeText} ကို ပြင်ဆင်သွားပါသည်။`,
           'owner_update',
           'owner_update_info',
           editingOwnerFieldId
