@@ -372,6 +372,7 @@ export default function FieldBookingApp() {
   const [selectedStartSlot, setSelectedStartSlot] = useState('');
   const [selectedEndSlot, setSelectedEndSlot] = useState('');
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState('');
+  const [paymentPlan, setPaymentPlan] = useState('100');
   const [paymentScreenshot, setPaymentScreenshot] = useState(null);
   const [transactionLast5, setTransactionLast5] = useState('');
   const [customerName, setCustomerName] = useState('');
@@ -1080,6 +1081,18 @@ export default function FieldBookingApp() {
   const calculatedTotalPrice = selectedSubField && calculatedDuration > 0 
     ? calculatedDuration * selectedSubField.price 
     : 0;
+  const paymentPlanPercent = paymentPlan === '50' ? 50 : 100;
+  const calculatedPayableAmount = calculatedTotalPrice > 0
+    ? Math.round(calculatedTotalPrice * paymentPlanPercent / 100)
+    : 0;
+  const getBookingPaymentPlanPercent = (booking) => {
+    const rawPlan = booking?.paymentPercent ?? booking?.paymentPlan;
+    return String(rawPlan || '').startsWith('50') || Number(rawPlan) === 50 ? 50 : 100;
+  };
+  const getBookingPayableAmount = (booking) => {
+    const total = Number(booking?.totalPrice || 0);
+    return total > 0 ? Math.round(total * getBookingPaymentPlanPercent(booking) / 100) : 0;
+  };
 
   const handleBookingSubmit = async (e) => {
     e.preventDefault();
@@ -1216,6 +1229,9 @@ export default function FieldBookingApp() {
           fullTimeSlot: overallTimeSlotText,
           duration: `${totalDurationHours} Hr`,
           totalPrice: totalPrice,
+          paymentPlan: `${paymentPlanPercent}%`,
+          paymentPercent: paymentPlanPercent,
+          payableAmount: Math.round(totalPrice * paymentPlanPercent / 100),
           bookedAt: bookedTimeFormatted,
           createdAtTime: timestampMillis,
           userEmail: currentUser.email,
@@ -1276,6 +1292,7 @@ export default function FieldBookingApp() {
       setSelectedStartSlot('');
       setSelectedEndSlot('');
       setSelectedPaymentMethod('');
+      setPaymentPlan('100');
       setPaymentScreenshot(null);
       setTransactionLast5('');
       setCustomerName('');
@@ -1681,8 +1698,10 @@ export default function FieldBookingApp() {
       Duration: booking?.duration || `${getBookingDurationHours(booking)} Hr`,
       'Booked At': booking?.bookedAt || '-',
       'Payment Method': booking?.paymentMethod || '-',
+      'Payment Plan': `${getBookingPaymentPlanPercent(booking)}%`,
       Transaction: booking?.transactionLast5 || '-',
       Amount: getBookingRevenue(booking),
+      'Payable Amount': getBookingPayableAmount(booking),
       Status: booking?.status || 'Pending'
     };
   });
@@ -2685,7 +2704,8 @@ export default function FieldBookingApp() {
                                 <span className="font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded">{item.duration || '1 Hr'}</span>
                               </td>
                               <td className="p-3 text-xs">
-                                <span className="font-bold text-emerald-700 bg-emerald-50 px-2 py-1 rounded">{item.totalPrice ? `${item.totalPrice.toLocaleString()} ကျပ်` : '-'}</span>
+                                <div className="font-bold text-emerald-700 bg-emerald-50 px-2 py-1 rounded">{item.totalPrice ? `${Number(item.totalPrice).toLocaleString()} ကျပ်` : '-'}</div>
+                                <div className="mt-1 text-[11px] font-bold text-amber-700">{getBookingPaymentPlanPercent(item)}% ပေးချေ · {getBookingPayableAmount(item) ? `${getBookingPayableAmount(item).toLocaleString()} ကျပ်` : '-'}</div>
                               </td>
                               <td className="p-3 text-xs">
                                 <div className="uppercase font-bold">{item.paymentMethod}</div>
@@ -3539,10 +3559,24 @@ export default function FieldBookingApp() {
                       </select>
                     </div>
 
+
+                    <div>
+                      <label className="block text-xs font-bold text-gray-700 mb-1">ငွေပေးချေမည့် အစီအစဉ်</label>
+                      <select
+                        value={paymentPlan}
+                        onChange={(e) => setPaymentPlan(e.target.value)}
+                        className="w-full border rounded-lg p-2.5 text-sm bg-white font-bold"
+                      >
+                        <option value="50">50% ငွေပေးချေရန် ({calculatedTotalPrice > 0 ? Math.round(calculatedTotalPrice * 0.5).toLocaleString() : 0} ကျပ်)</option>
+                        <option value="100">100% ငွေပေးချေရန် ({calculatedTotalPrice > 0 ? calculatedTotalPrice.toLocaleString() : 0} ကျပ်)</option>
+                      </select>
+                    </div>
+
                     {calculatedDuration > 0 && (
                       <div className="bg-emerald-50 border border-emerald-200 p-3 rounded-xl text-xs space-y-1 font-bold text-emerald-900">
                         <p>⏱️ ကြာချိန်: {calculatedDuration} နာရီ</p>
-                        <p>💵 စုစုပေါင်း ကျသင့်ငွေ: {calculatedTotalPrice.toLocaleString()} ကျပ်</p>
+                        <p>💵 စုစုပေါင်းကျသင့်ငွေ: {calculatedTotalPrice.toLocaleString()} ကျပ်</p>
+                            <p className="text-amber-700">💳 {paymentPlanPercent}% ပေးချေရန်: {calculatedPayableAmount.toLocaleString()} ကျပ်</p>
                       </div>
                     )}
 
@@ -3661,7 +3695,10 @@ export default function FieldBookingApp() {
                                 <td className="p-3 text-xs font-bold text-emerald-700 whitespace-nowrap">{displayTimeRange}</td>
                                 <td className="p-3 text-xs whitespace-nowrap"><span className="bg-blue-50 text-blue-600 font-bold px-2 py-0.5 rounded">{item.duration || '-'}</span></td>
                                 <td className="p-3 text-xs font-mono text-gray-500 whitespace-nowrap">{item.bookedAt || '-'}</td>
-                                <td className="p-3 text-xs font-bold text-emerald-700 whitespace-nowrap">{item.totalPrice?.toLocaleString() || '-'} ကျပ်</td>
+                                <td className="p-3 text-xs whitespace-nowrap">
+                                  <div className="font-bold text-emerald-700">{item.totalPrice ? `${Number(item.totalPrice).toLocaleString()} ကျပ်` : '-'}</div>
+                                  <div className="mt-1 text-[11px] font-bold text-amber-700">{getBookingPaymentPlanPercent(item)}% ပေးချေ · {getBookingPayableAmount(item) ? `${getBookingPayableAmount(item).toLocaleString()} ကျပ်` : '-'}</div>
+                                </td>
                                 <td className="p-3 text-xs font-bold align-top">
                                   <div className="space-y-2">
                                     <div className="uppercase whitespace-nowrap">{item.paymentMethod || '-'}</div>
@@ -3984,6 +4021,19 @@ export default function FieldBookingApp() {
                               <option value="Wave">Wave</option>
                             </select>
 
+
+                            <div className="mt-3">
+                              <label className="block text-xs font-bold text-gray-700 mb-1">ငွေပေးချေမည့် အစီအစဉ်</label>
+                              <select
+                                value={paymentPlan}
+                                onChange={(e) => setPaymentPlan(e.target.value)}
+                                className="w-full border rounded-lg p-2.5 text-sm bg-white font-bold"
+                              >
+                                <option value="50">50% ငွေပေးချေရန် ({calculatedTotalPrice > 0 ? Math.round(calculatedTotalPrice * 0.5).toLocaleString() : 0} ကျပ်)</option>
+                                <option value="100">100% ငွေပေးချေရန် ({calculatedTotalPrice > 0 ? calculatedTotalPrice.toLocaleString() : 0} ကျပ်)</option>
+                              </select>
+                            </div>
+
                             {/* Dedicated Payment Account Box below dropdown */}
                             {selectedPaymentMethod && (
                               <div className="mt-2.5 p-3 bg-emerald-50/70 border border-emerald-300 rounded-lg flex items-center justify-between shadow-sm">
@@ -4057,7 +4107,8 @@ export default function FieldBookingApp() {
                         {calculatedDuration > 0 && (
                           <div className="bg-emerald-100 border border-emerald-300 p-3 rounded-xl text-xs space-y-1 font-bold text-emerald-900">
                             <p>⏱️ ကြာချိန်: {calculatedDuration} နာရီ ({format12Hour(parseInt(selectedStartSlot))} ~ {format12Hour(parseInt(selectedEndSlot))})</p>
-                            <p>💵 စုစုပေါင်း ကျသင့်ငွေ: {calculatedTotalPrice.toLocaleString()} ကျပ်</p>
+                            <p>💵 စုစုပေါင်းကျသင့်ငွေ: {calculatedTotalPrice.toLocaleString()} ကျပ်</p>
+                            <p className="text-amber-700">💳 {paymentPlanPercent}% ပေးချေရန်: {calculatedPayableAmount.toLocaleString()} ကျပ်</p>
                           </div>
                         )}
 
@@ -4222,7 +4273,10 @@ export default function FieldBookingApp() {
                                 <td className="p-3 text-xs font-bold text-emerald-700 whitespace-nowrap">{displayTimeRange}</td>
                                 <td className="p-3 text-xs whitespace-nowrap"><span className="bg-blue-50 text-blue-600 font-bold px-2 py-0.5 rounded">{item.duration || '-'}</span></td>
                                 <td className="p-3 text-xs font-mono text-gray-500 whitespace-nowrap">{item.bookedAt || '-'}</td>
-                                <td className="p-3 text-xs font-bold text-emerald-700 whitespace-nowrap">{item.totalPrice?.toLocaleString() || '-'} ကျပ်</td>
+                                <td className="p-3 text-xs whitespace-nowrap">
+                                  <div className="font-bold text-emerald-700">{item.totalPrice ? `${Number(item.totalPrice).toLocaleString()} ကျပ်` : '-'}</div>
+                                  <div className="mt-1 text-[11px] font-bold text-amber-700">{getBookingPaymentPlanPercent(item)}% ပေးချေ · {getBookingPayableAmount(item) ? `${getBookingPayableAmount(item).toLocaleString()} ကျပ်` : '-'}</div>
+                                </td>
                                 <td className="p-3 text-xs whitespace-nowrap">
                                   <div className="uppercase font-bold">{item.paymentMethod || '-'}</div>
                                   <div className="font-mono text-gray-600">Txn: {item.transactionLast5 || '-'}</div>
