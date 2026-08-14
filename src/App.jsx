@@ -1,3 +1,4 @@
+/* Field Booking UI style: Compact Operations Console inspired by the supplied TikTok POS reference. Dark slate shell, light data workspace, Field Coral active navigation, Burmese-first responsive density. Preserve booking/auth/payment/history business logic. */
 import React, { useState, useEffect, useRef } from 'react';
 import { db } from './firebase'; 
 import { collection, getDoc, getDocs, addDoc, updateDoc, deleteDoc, doc, setDoc, runTransaction, onSnapshot, query, where, limit, startAfter, orderBy } from 'firebase/firestore';
@@ -1827,8 +1828,8 @@ export default function FieldBookingApp() {
 
   if (!currentUser) {
     return (
-      <div className="min-h-screen bg-gray-100 flex items-center justify-center p-4 font-sans">
-        <div className="bg-white rounded-2xl shadow-xl max-w-md w-full p-8">
+      <div className="field-auth-shell min-h-screen bg-slate-950 flex items-center justify-center p-4 font-sans">
+        <div className="field-auth-card bg-white rounded-[1.35rem] shadow-2xl max-w-md w-full p-6 sm:p-8 ring-1 ring-white/10">
           <div className="text-center mb-6">
             <span className="text-3xl">⚽</span>
             <h1 className="text-2xl font-bold text-gray-800 mt-1">Field Booking App</h1>
@@ -1838,14 +1839,14 @@ export default function FieldBookingApp() {
             <button 
               type="button" 
               onClick={() => setAuthMode('login')} 
-              className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${authMode === 'login' ? 'bg-white text-emerald-700 shadow-sm' : 'text-gray-500'}`}
+              className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${authMode === 'login' ? 'bg-white text-[#ff4f70] shadow-sm' : 'text-gray-500'}`}
             >
               Login ဝင်ရန်
             </button>
             <button 
               type="button" 
               onClick={() => setAuthMode('signup')} 
-              className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${authMode === 'signup' ? 'bg-white text-emerald-700 shadow-sm' : 'text-gray-500'}`}
+              className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${authMode === 'signup' ? 'bg-white text-[#ff4f70] shadow-sm' : 'text-gray-500'}`}
             >
               Sign Up (အကောင့်သစ်ဖွင့်ရန်)
             </button>
@@ -1952,7 +1953,7 @@ export default function FieldBookingApp() {
   // If forced update is required, block entire app usage with a non-dismissible screen
   if (forceUpdate) {
     return (
-      <div className="fixed inset-0 bg-gray-900 z-50 flex items-center justify-center p-4">
+      <div className="fixed inset-0 bg-slate-950 z-50 flex items-center justify-center p-4">
         <div className="bg-white rounded-2xl max-w-md w-full p-8 shadow-2xl border text-center space-y-6 animate-in fade-in zoom-in duration-300">
           <div className="w-20 h-20 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto text-3xl font-bold shadow-inner">
             🚀
@@ -1989,6 +1990,87 @@ export default function FieldBookingApp() {
 
   return (
     <>
+      <style>{`
+        :root {
+          --field-coral: #ff4f70;
+          --field-coral-soft: #fff0f3;
+          --field-ink: #0f172a;
+          --field-panel: #f8fafc;
+          --field-line: #dbe3ec;
+        }
+        .field-auth-shell {
+          position: relative;
+          overflow: hidden;
+          background-image: radial-gradient(circle at 18% 16%, rgba(255,79,112,.16), transparent 30%), radial-gradient(circle at 86% 84%, rgba(14,165,233,.12), transparent 32%);
+        }
+        .field-auth-shell::before, .field-app-shell::before {
+          content: '';
+          position: fixed;
+          inset: 0;
+          pointer-events: none;
+          opacity: .22;
+          background-image: linear-gradient(rgba(255,255,255,.035) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.035) 1px, transparent 1px);
+          background-size: 28px 28px;
+          mask-image: linear-gradient(to bottom, black, transparent 82%);
+        }
+        .field-auth-card {
+          position: relative;
+          z-index: 1;
+        }
+        .field-app-shell {
+          position: relative;
+          min-height: 100vh;
+          background-image: radial-gradient(circle at 0% 0%, rgba(255,79,112,.16), transparent 26%), radial-gradient(circle at 100% 100%, rgba(14,165,233,.12), transparent 30%);
+        }
+        .field-app-header {
+          background: linear-gradient(112deg, #0b1220 0%, #172033 58%, #241523 100%) !important;
+          border-bottom: 1px solid rgba(255,255,255,.1);
+        }
+        .field-app-header-inner {
+          min-height: 4.25rem;
+        }
+        .field-app-main {
+          position: relative;
+          z-index: 1;
+        }
+        .field-app-main > div {
+          border-color: var(--field-line);
+          box-shadow: 0 18px 42px rgba(15,23,42,.10);
+        }
+        .field-role-drawer {
+          background: linear-gradient(180deg, #0b1220 0%, #101827 48%, #0f172a 100%) !important;
+        }
+        .field-drawer-hero {
+          border-bottom: 1px solid rgba(255,255,255,.12);
+          background: radial-gradient(circle at 100% 0%, rgba(255,79,112,.2), transparent 42%), #0b1220 !important;
+        }
+        .field-role-nav button {
+          border-color: rgba(255,255,255,.08) !important;
+          color: #cbd5e1;
+        }
+        .field-role-nav button:hover, .field-role-nav button:active {
+          color: #fff;
+        }
+        .field-role-nav button[class*="bg-[#fff0f3]"] {
+          color: var(--field-coral) !important;
+          background: rgba(255,79,112,.12) !important;
+        }
+        @media (max-width: 640px) {
+          .field-app-main > div {
+            border-radius: 1rem;
+            box-shadow: 0 12px 28px rgba(15,23,42,.12);
+          }
+          .field-app-header-inner {
+            min-height: 3.8rem;
+          }
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .field-app-shell *, .field-auth-shell * {
+            animation-duration: .01ms !important;
+            transition-duration: .01ms !important;
+          }
+        }
+      `}</style>
       {/* iOS Safari Install Guide Modal */}
       {showIosInstallModal && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
@@ -2044,9 +2126,9 @@ export default function FieldBookingApp() {
         </div>
       )}
 
-    <div className="min-h-screen bg-gray-50 font-sans pb-12">
-      <header className="bg-emerald-700 text-white shadow-md sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-3 py-2.5 sm:px-4 sm:py-3 flex items-center gap-2">
+    <div data-ui-shell="compact-console" className="field-app-shell min-h-screen bg-slate-950 font-sans pb-12 text-slate-900">
+      <header className="field-app-header bg-slate-950 text-white shadow-md sticky top-0 z-50">
+        <div className="field-app-header-inner max-w-7xl mx-auto px-3 py-2.5 sm:px-4 sm:py-3 flex items-center gap-2">
           <button
             type="button"
             onClick={() => setMobileHeaderMenuOpen(true)}
@@ -2151,9 +2233,9 @@ export default function FieldBookingApp() {
             role="dialog"
             aria-modal="true"
             aria-label={`${currentUser.role} menu`}
-            className={`absolute inset-y-0 left-0 flex w-[min(88vw,22rem)] max-w-full flex-col bg-white text-slate-800 shadow-2xl transition-transform duration-300 ease-out ${mobileHeaderMenuOpen ? 'translate-x-0' : '-translate-x-full'}`}
+            className={`field-role-drawer absolute inset-y-0 left-0 flex w-[min(88vw,22rem)] max-w-full flex-col bg-slate-900 text-slate-100 shadow-2xl transition-transform duration-300 ease-out ${mobileHeaderMenuOpen ? 'translate-x-0' : '-translate-x-full'}`}
           >
-            <div className="relative overflow-hidden bg-gradient-to-br from-emerald-800 via-emerald-700 to-teal-600 px-5 pb-5 pt-5 text-white">
+            <div className="field-drawer-hero relative overflow-hidden bg-slate-950 px-5 pb-5 pt-5 text-white">
               <div className="absolute -right-10 -top-12 h-36 w-36 rounded-full border-[18px] border-white/10" />
               <div className="relative flex items-start justify-between gap-3">
                 <div className="min-w-0">
@@ -2176,7 +2258,7 @@ export default function FieldBookingApp() {
               </div>
             </div>
 
-            <nav className="min-h-0 flex-1 overflow-y-auto py-2" aria-label="Role functions">
+            <nav className="field-role-nav min-h-0 flex-1 overflow-y-auto py-2" aria-label="Role functions">
               <p className="px-5 pb-2 pt-3 text-[10px] font-extrabold uppercase tracking-[0.18em] text-slate-400">Functions</p>
               <button
                 type="button"
@@ -2190,7 +2272,7 @@ export default function FieldBookingApp() {
                 <button
                   type="button"
                   onClick={() => { setActiveTab('history'); setMobileHeaderMenuOpen(false); }}
-                  className={`flex w-full items-center gap-3 border-b border-slate-100 px-5 py-3.5 text-left text-sm font-bold transition ${activeTab === 'history' ? 'bg-emerald-50 text-emerald-800' : 'hover:bg-emerald-50 active:bg-emerald-100'}`}
+                  className={`flex w-full items-center gap-3 border-b border-slate-100 px-5 py-3.5 text-left text-sm font-bold transition ${activeTab === 'history' ? 'bg-[#fff0f3] text-[#c92f51] shadow-[inset_3px_0_0_#ff4f70]' : 'hover:bg-slate-800 active:bg-slate-700'}`}
                 >
                   <span className="w-7 text-center text-xl">📋</span><span>Booking History</span>
                 </button>
@@ -2198,23 +2280,23 @@ export default function FieldBookingApp() {
 
               {currentUser.role === 'admin' && (
                 <>
-                  <button type="button" onClick={() => { setActiveTab('dashboard'); setAdminTab('pending'); setMobileHeaderMenuOpen(false); }} className={`flex w-full items-center gap-3 border-b border-slate-100 px-5 py-3.5 text-left text-sm font-bold transition ${activeTab === 'dashboard' && adminTab === 'pending' ? 'bg-emerald-50 text-emerald-800' : 'hover:bg-emerald-50 active:bg-emerald-100'}`}><span className="w-7 text-center text-xl">📋</span><span>Bookings အားလုံး</span></button>
-                  <button type="button" onClick={() => { setActiveTab('dashboard'); setAdminTab('manage_fields'); setMobileHeaderMenuOpen(false); }} className={`flex w-full items-center gap-3 border-b border-slate-100 px-5 py-3.5 text-left text-sm font-bold transition ${activeTab === 'dashboard' && adminTab === 'manage_fields' ? 'bg-emerald-50 text-emerald-800' : 'hover:bg-emerald-50 active:bg-emerald-100'}`}><span className="w-7 text-center text-xl">🏗️</span><span>Manage Fields</span></button>
-                  <button type="button" onClick={() => { setActiveTab('dashboard'); setAdminTab('report'); setMobileHeaderMenuOpen(false); }} className={`flex w-full items-center gap-3 border-b border-slate-100 px-5 py-3.5 text-left text-sm font-bold transition ${activeTab === 'dashboard' && adminTab === 'report' ? 'bg-emerald-50 text-emerald-800' : 'hover:bg-emerald-50 active:bg-emerald-100'}`}><span className="w-7 text-center text-xl">📊</span><span>Booking Report</span></button>
-                  <button type="button" onClick={() => { setActiveTab('dashboard'); setAdminTab('manage_owners'); setMobileHeaderMenuOpen(false); }} className={`flex w-full items-center gap-3 border-b border-slate-100 px-5 py-3.5 text-left text-sm font-bold transition ${activeTab === 'dashboard' && adminTab === 'manage_owners' ? 'bg-emerald-50 text-emerald-800' : 'hover:bg-emerald-50 active:bg-emerald-100'}`}><span className="w-7 text-center text-xl">🔑</span><span>Manage Owners</span></button>
-                  <button type="button" onClick={() => { setActiveTab('dashboard'); setAdminTab('notifications_page'); setMobileHeaderMenuOpen(false); }} className={`flex w-full items-center gap-3 border-b border-slate-100 px-5 py-3.5 text-left text-sm font-bold transition ${activeTab === 'dashboard' && adminTab === 'notifications_page' ? 'bg-emerald-50 text-emerald-800' : 'hover:bg-emerald-50 active:bg-emerald-100'}`}><span className="w-7 text-center text-xl">🔔</span><span>Notifications</span></button>
-                  <button type="button" onClick={() => { setActiveTab('dashboard'); setAdminTab('change_password'); setMobileHeaderMenuOpen(false); }} className={`flex w-full items-center gap-3 border-b border-slate-100 px-5 py-3.5 text-left text-sm font-bold transition ${activeTab === 'dashboard' && adminTab === 'change_password' ? 'bg-emerald-50 text-emerald-800' : 'hover:bg-emerald-50 active:bg-emerald-100'}`}><span className="w-7 text-center text-xl">🔒</span><span>Password ပြောင်းရန်</span></button>
+                  <button type="button" onClick={() => { setActiveTab('dashboard'); setAdminTab('pending'); setMobileHeaderMenuOpen(false); }} className={`flex w-full items-center gap-3 border-b border-slate-100 px-5 py-3.5 text-left text-sm font-bold transition ${activeTab === 'dashboard' && adminTab === 'pending' ? 'bg-[#fff0f3] text-[#c92f51] shadow-[inset_3px_0_0_#ff4f70]' : 'hover:bg-slate-800 active:bg-slate-700'}`}><span className="w-7 text-center text-xl">📋</span><span>Bookings အားလုံး</span></button>
+                  <button type="button" onClick={() => { setActiveTab('dashboard'); setAdminTab('manage_fields'); setMobileHeaderMenuOpen(false); }} className={`flex w-full items-center gap-3 border-b border-slate-100 px-5 py-3.5 text-left text-sm font-bold transition ${activeTab === 'dashboard' && adminTab === 'manage_fields' ? 'bg-[#fff0f3] text-[#c92f51] shadow-[inset_3px_0_0_#ff4f70]' : 'hover:bg-slate-800 active:bg-slate-700'}`}><span className="w-7 text-center text-xl">🏗️</span><span>Manage Fields</span></button>
+                  <button type="button" onClick={() => { setActiveTab('dashboard'); setAdminTab('report'); setMobileHeaderMenuOpen(false); }} className={`flex w-full items-center gap-3 border-b border-slate-100 px-5 py-3.5 text-left text-sm font-bold transition ${activeTab === 'dashboard' && adminTab === 'report' ? 'bg-[#fff0f3] text-[#c92f51] shadow-[inset_3px_0_0_#ff4f70]' : 'hover:bg-slate-800 active:bg-slate-700'}`}><span className="w-7 text-center text-xl">📊</span><span>Booking Report</span></button>
+                  <button type="button" onClick={() => { setActiveTab('dashboard'); setAdminTab('manage_owners'); setMobileHeaderMenuOpen(false); }} className={`flex w-full items-center gap-3 border-b border-slate-100 px-5 py-3.5 text-left text-sm font-bold transition ${activeTab === 'dashboard' && adminTab === 'manage_owners' ? 'bg-[#fff0f3] text-[#c92f51] shadow-[inset_3px_0_0_#ff4f70]' : 'hover:bg-slate-800 active:bg-slate-700'}`}><span className="w-7 text-center text-xl">🔑</span><span>Manage Owners</span></button>
+                  <button type="button" onClick={() => { setActiveTab('dashboard'); setAdminTab('notifications_page'); setMobileHeaderMenuOpen(false); }} className={`flex w-full items-center gap-3 border-b border-slate-100 px-5 py-3.5 text-left text-sm font-bold transition ${activeTab === 'dashboard' && adminTab === 'notifications_page' ? 'bg-[#fff0f3] text-[#c92f51] shadow-[inset_3px_0_0_#ff4f70]' : 'hover:bg-slate-800 active:bg-slate-700'}`}><span className="w-7 text-center text-xl">🔔</span><span>Notifications</span></button>
+                  <button type="button" onClick={() => { setActiveTab('dashboard'); setAdminTab('change_password'); setMobileHeaderMenuOpen(false); }} className={`flex w-full items-center gap-3 border-b border-slate-100 px-5 py-3.5 text-left text-sm font-bold transition ${activeTab === 'dashboard' && adminTab === 'change_password' ? 'bg-[#fff0f3] text-[#c92f51] shadow-[inset_3px_0_0_#ff4f70]' : 'hover:bg-slate-800 active:bg-slate-700'}`}><span className="w-7 text-center text-xl">🔒</span><span>Password ပြောင်းရန်</span></button>
                 </>
               )}
 
               {currentUser.role === 'owner' && (
                 <>
-                  <button type="button" onClick={() => { setActiveTab('owner_manage'); setOwnerActiveTab('pending'); setMobileHeaderMenuOpen(false); }} className={`flex w-full items-center gap-3 border-b border-slate-100 px-5 py-3.5 text-left text-sm font-bold transition ${activeTab === 'owner_manage' && ownerActiveTab === 'pending' ? 'bg-emerald-50 text-emerald-800' : 'hover:bg-emerald-50 active:bg-emerald-100'}`}><span className="w-7 text-center text-xl">📝</span><span>Direct Booking</span></button>
-                  <button type="button" onClick={() => { setActiveTab('owner_manage'); setOwnerActiveTab('history'); setMobileHeaderMenuOpen(false); }} className={`flex w-full items-center gap-3 border-b border-slate-100 px-5 py-3.5 text-left text-sm font-bold transition ${activeTab === 'owner_manage' && ownerActiveTab === 'history' ? 'bg-emerald-50 text-emerald-800' : 'hover:bg-emerald-50 active:bg-emerald-100'}`}><span className="w-7 text-center text-xl">📋</span><span>Booking History</span></button>
-                  <button type="button" onClick={() => { setActiveTab('owner_manage'); setOwnerActiveTab('report'); setMobileHeaderMenuOpen(false); }} className={`flex w-full items-center gap-3 border-b border-slate-100 px-5 py-3.5 text-left text-sm font-bold transition ${activeTab === 'owner_manage' && ownerActiveTab === 'report' ? 'bg-emerald-50 text-emerald-800' : 'hover:bg-emerald-50 active:bg-emerald-100'}`}><span className="w-7 text-center text-xl">📊</span><span>My Fields Report</span></button>
-                  <button type="button" onClick={() => { setActiveTab('owner_manage'); setOwnerActiveTab('notifications_page'); setMobileHeaderMenuOpen(false); }} className={`flex w-full items-center gap-3 border-b border-slate-100 px-5 py-3.5 text-left text-sm font-bold transition ${activeTab === 'owner_manage' && ownerActiveTab === 'notifications_page' ? 'bg-emerald-50 text-emerald-800' : 'hover:bg-emerald-50 active:bg-emerald-100'}`}><span className="w-7 text-center text-xl">🔔</span><span>Notifications</span></button>
-                  <button type="button" onClick={() => { setActiveTab('owner_manage'); setOwnerActiveTab('fields_edit'); setMobileHeaderMenuOpen(false); }} className={`flex w-full items-center gap-3 border-b border-slate-100 px-5 py-3.5 text-left text-sm font-bold transition ${activeTab === 'owner_manage' && ownerActiveTab === 'fields_edit' ? 'bg-emerald-50 text-emerald-800' : 'hover:bg-emerald-50 active:bg-emerald-100'}`}><span className="w-7 text-center text-xl">🏟️</span><span>ကွင်းအချိန် / KPay / Wave</span></button>
-                  <button type="button" onClick={() => { setActiveTab('owner_manage'); setOwnerActiveTab('password'); setMobileHeaderMenuOpen(false); }} className={`flex w-full items-center gap-3 border-b border-slate-100 px-5 py-3.5 text-left text-sm font-bold transition ${activeTab === 'owner_manage' && ownerActiveTab === 'password' ? 'bg-emerald-50 text-emerald-800' : 'hover:bg-emerald-50 active:bg-emerald-100'}`}><span className="w-7 text-center text-xl">🔒</span><span>Password ပြောင်းရန်</span></button>
+                  <button type="button" onClick={() => { setActiveTab('owner_manage'); setOwnerActiveTab('pending'); setMobileHeaderMenuOpen(false); }} className={`flex w-full items-center gap-3 border-b border-slate-100 px-5 py-3.5 text-left text-sm font-bold transition ${activeTab === 'owner_manage' && ownerActiveTab === 'pending' ? 'bg-[#fff0f3] text-[#c92f51] shadow-[inset_3px_0_0_#ff4f70]' : 'hover:bg-slate-800 active:bg-slate-700'}`}><span className="w-7 text-center text-xl">📝</span><span>Direct Booking</span></button>
+                  <button type="button" onClick={() => { setActiveTab('owner_manage'); setOwnerActiveTab('history'); setMobileHeaderMenuOpen(false); }} className={`flex w-full items-center gap-3 border-b border-slate-100 px-5 py-3.5 text-left text-sm font-bold transition ${activeTab === 'owner_manage' && ownerActiveTab === 'history' ? 'bg-[#fff0f3] text-[#c92f51] shadow-[inset_3px_0_0_#ff4f70]' : 'hover:bg-slate-800 active:bg-slate-700'}`}><span className="w-7 text-center text-xl">📋</span><span>Booking History</span></button>
+                  <button type="button" onClick={() => { setActiveTab('owner_manage'); setOwnerActiveTab('report'); setMobileHeaderMenuOpen(false); }} className={`flex w-full items-center gap-3 border-b border-slate-100 px-5 py-3.5 text-left text-sm font-bold transition ${activeTab === 'owner_manage' && ownerActiveTab === 'report' ? 'bg-[#fff0f3] text-[#c92f51] shadow-[inset_3px_0_0_#ff4f70]' : 'hover:bg-slate-800 active:bg-slate-700'}`}><span className="w-7 text-center text-xl">📊</span><span>My Fields Report</span></button>
+                  <button type="button" onClick={() => { setActiveTab('owner_manage'); setOwnerActiveTab('notifications_page'); setMobileHeaderMenuOpen(false); }} className={`flex w-full items-center gap-3 border-b border-slate-100 px-5 py-3.5 text-left text-sm font-bold transition ${activeTab === 'owner_manage' && ownerActiveTab === 'notifications_page' ? 'bg-[#fff0f3] text-[#c92f51] shadow-[inset_3px_0_0_#ff4f70]' : 'hover:bg-slate-800 active:bg-slate-700'}`}><span className="w-7 text-center text-xl">🔔</span><span>Notifications</span></button>
+                  <button type="button" onClick={() => { setActiveTab('owner_manage'); setOwnerActiveTab('fields_edit'); setMobileHeaderMenuOpen(false); }} className={`flex w-full items-center gap-3 border-b border-slate-100 px-5 py-3.5 text-left text-sm font-bold transition ${activeTab === 'owner_manage' && ownerActiveTab === 'fields_edit' ? 'bg-[#fff0f3] text-[#c92f51] shadow-[inset_3px_0_0_#ff4f70]' : 'hover:bg-slate-800 active:bg-slate-700'}`}><span className="w-7 text-center text-xl">🏟️</span><span>ကွင်းအချိန် / KPay / Wave</span></button>
+                  <button type="button" onClick={() => { setActiveTab('owner_manage'); setOwnerActiveTab('password'); setMobileHeaderMenuOpen(false); }} className={`flex w-full items-center gap-3 border-b border-slate-100 px-5 py-3.5 text-left text-sm font-bold transition ${activeTab === 'owner_manage' && ownerActiveTab === 'password' ? 'bg-[#fff0f3] text-[#c92f51] shadow-[inset_3px_0_0_#ff4f70]' : 'hover:bg-slate-800 active:bg-slate-700'}`}><span className="w-7 text-center text-xl">🔒</span><span>Password ပြောင်းရန်</span></button>
                 </>
               )}
             </nav>
@@ -2233,7 +2315,7 @@ export default function FieldBookingApp() {
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-4 mt-6">
+      <main className="field-app-main max-w-7xl mx-auto px-3 sm:px-4 mt-4 sm:mt-6">
         {currentUser.role === 'admin' && activeTab === 'dashboard' ? (
           <div className="bg-white rounded-xl shadow p-4 sm:p-6">
             <div className="flex flex-col items-start gap-3 mb-6 border-b pb-4 sm:flex-row sm:justify-between sm:items-center">
@@ -2242,22 +2324,22 @@ export default function FieldBookingApp() {
             </div>
 
             <div className="hidden sm:flex flex-wrap gap-2 mb-6">
-              <button onClick={() => setAdminTab('pending')} className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${adminTab === 'pending' ? 'bg-emerald-600 text-white shadow' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}>
+              <button onClick={() => setAdminTab('pending')} className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${adminTab === 'pending' ? 'bg-[#ff4f70] text-white shadow-[0_8px_20px_rgba(255,79,112,0.22)]' : 'bg-slate-100 text-slate-700 hover:bg-[#fff0f3]'}`}>
                 Bookings အားလုံး ({adminHistoryBookings.length}{historyHasMore ? '+' : ''})
               </button>
-              <button onClick={() => setAdminTab('manage_fields')} className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${adminTab === 'manage_fields' ? 'bg-emerald-600 text-white shadow' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}>
+              <button onClick={() => setAdminTab('manage_fields')} className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${adminTab === 'manage_fields' ? 'bg-[#ff4f70] text-white shadow-[0_8px_20px_rgba(255,79,112,0.22)]' : 'bg-slate-100 text-slate-700 hover:bg-[#fff0f3]'}`}>
                 Manage Fields & Add Field
               </button>
-              <button onClick={() => setAdminTab('report')} className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${adminTab === 'report' ? 'bg-emerald-600 text-white shadow' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}>
+              <button onClick={() => setAdminTab('report')} className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${adminTab === 'report' ? 'bg-[#ff4f70] text-white shadow-[0_8px_20px_rgba(255,79,112,0.22)]' : 'bg-slate-100 text-slate-700 hover:bg-[#fff0f3]'}`}>
                 📊 Booking Report
               </button>
-              <button onClick={() => setAdminTab('manage_owners')} className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${adminTab === 'manage_owners' ? 'bg-emerald-600 text-white shadow' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}>
+              <button onClick={() => setAdminTab('manage_owners')} className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${adminTab === 'manage_owners' ? 'bg-[#ff4f70] text-white shadow-[0_8px_20px_rgba(255,79,112,0.22)]' : 'bg-slate-100 text-slate-700 hover:bg-[#fff0f3]'}`}>
                 🔑 Manage Owners & Passwords
               </button>
-              <button onClick={() => setAdminTab('notifications_page')} className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${adminTab === 'notifications_page' ? 'bg-emerald-600 text-white shadow' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}>
+              <button onClick={() => setAdminTab('notifications_page')} className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${adminTab === 'notifications_page' ? 'bg-[#ff4f70] text-white shadow-[0_8px_20px_rgba(255,79,112,0.22)]' : 'bg-slate-100 text-slate-700 hover:bg-[#fff0f3]'}`}>
                 🔔 Notifications & Filter Page
               </button>
-              <button onClick={() => setAdminTab('change_password')} className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${adminTab === 'change_password' ? 'bg-emerald-600 text-white shadow' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}>
+              <button onClick={() => setAdminTab('change_password')} className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${adminTab === 'change_password' ? 'bg-[#ff4f70] text-white shadow-[0_8px_20px_rgba(255,79,112,0.22)]' : 'bg-slate-100 text-slate-700 hover:bg-[#fff0f3]'}`}>
                 🔒 ကိုယ်ပိုင် Password ပြောင်းရန်
               </button>
             </div>
@@ -2275,12 +2357,12 @@ export default function FieldBookingApp() {
               </button>
               {adminMobileMenuOpen && (
                 <div className="mt-2 grid gap-2 rounded-xl border border-emerald-100 bg-emerald-50 p-2">
-                  <button type="button" onClick={() => { setAdminTab('pending'); setAdminMobileMenuOpen(false); }} className={`w-full rounded-lg px-3 py-2.5 text-left text-xs font-bold ${adminTab === 'pending' ? 'bg-emerald-600 text-white' : 'bg-white text-gray-700'}`}>Bookings အားလုံး ({adminHistoryBookings.length}{historyHasMore ? '+' : ''})</button>
-                  <button type="button" onClick={() => { setAdminTab('manage_fields'); setAdminMobileMenuOpen(false); }} className={`w-full rounded-lg px-3 py-2.5 text-left text-xs font-bold ${adminTab === 'manage_fields' ? 'bg-emerald-600 text-white' : 'bg-white text-gray-700'}`}>Manage Fields & Add Field</button>
-                  <button type="button" onClick={() => { setAdminTab('report'); setAdminMobileMenuOpen(false); }} className={`w-full rounded-lg px-3 py-2.5 text-left text-xs font-bold ${adminTab === 'report' ? 'bg-emerald-600 text-white' : 'bg-white text-gray-700'}`}>📊 Booking Report</button>
-                  <button type="button" onClick={() => { setAdminTab('manage_owners'); setAdminMobileMenuOpen(false); }} className={`w-full rounded-lg px-3 py-2.5 text-left text-xs font-bold ${adminTab === 'manage_owners' ? 'bg-emerald-600 text-white' : 'bg-white text-gray-700'}`}>🔑 Manage Owners & Passwords</button>
-                  <button type="button" onClick={() => { setAdminTab('notifications_page'); setAdminMobileMenuOpen(false); }} className={`w-full rounded-lg px-3 py-2.5 text-left text-xs font-bold ${adminTab === 'notifications_page' ? 'bg-emerald-600 text-white' : 'bg-white text-gray-700'}`}>🔔 Notifications & Filter Page</button>
-                  <button type="button" onClick={() => { setAdminTab('change_password'); setAdminMobileMenuOpen(false); }} className={`w-full rounded-lg px-3 py-2.5 text-left text-xs font-bold ${adminTab === 'change_password' ? 'bg-emerald-600 text-white' : 'bg-white text-gray-700'}`}>🔒 ကိုယ်ပိုင် Password ပြောင်းရန်</button>
+                  <button type="button" onClick={() => { setAdminTab('pending'); setAdminMobileMenuOpen(false); }} className={`w-full rounded-lg px-3 py-2.5 text-left text-xs font-bold ${adminTab === 'pending' ? 'bg-[#ff4f70] text-white shadow-[0_8px_20px_rgba(255,79,112,0.22)]' : 'bg-slate-800 text-slate-200'}`}>Bookings အားလုံး ({adminHistoryBookings.length}{historyHasMore ? '+' : ''})</button>
+                  <button type="button" onClick={() => { setAdminTab('manage_fields'); setAdminMobileMenuOpen(false); }} className={`w-full rounded-lg px-3 py-2.5 text-left text-xs font-bold ${adminTab === 'manage_fields' ? 'bg-[#ff4f70] text-white shadow-[0_8px_20px_rgba(255,79,112,0.22)]' : 'bg-slate-800 text-slate-200'}`}>Manage Fields & Add Field</button>
+                  <button type="button" onClick={() => { setAdminTab('report'); setAdminMobileMenuOpen(false); }} className={`w-full rounded-lg px-3 py-2.5 text-left text-xs font-bold ${adminTab === 'report' ? 'bg-[#ff4f70] text-white shadow-[0_8px_20px_rgba(255,79,112,0.22)]' : 'bg-slate-800 text-slate-200'}`}>📊 Booking Report</button>
+                  <button type="button" onClick={() => { setAdminTab('manage_owners'); setAdminMobileMenuOpen(false); }} className={`w-full rounded-lg px-3 py-2.5 text-left text-xs font-bold ${adminTab === 'manage_owners' ? 'bg-[#ff4f70] text-white shadow-[0_8px_20px_rgba(255,79,112,0.22)]' : 'bg-slate-800 text-slate-200'}`}>🔑 Manage Owners & Passwords</button>
+                  <button type="button" onClick={() => { setAdminTab('notifications_page'); setAdminMobileMenuOpen(false); }} className={`w-full rounded-lg px-3 py-2.5 text-left text-xs font-bold ${adminTab === 'notifications_page' ? 'bg-[#ff4f70] text-white shadow-[0_8px_20px_rgba(255,79,112,0.22)]' : 'bg-slate-800 text-slate-200'}`}>🔔 Notifications & Filter Page</button>
+                  <button type="button" onClick={() => { setAdminTab('change_password'); setAdminMobileMenuOpen(false); }} className={`w-full rounded-lg px-3 py-2.5 text-left text-xs font-bold ${adminTab === 'change_password' ? 'bg-[#ff4f70] text-white shadow-[0_8px_20px_rgba(255,79,112,0.22)]' : 'bg-slate-800 text-slate-200'}`}>🔒 ကိုယ်ပိုင် Password ပြောင်းရန်</button>
                 </div>
               )}
             </div>
@@ -2914,12 +2996,12 @@ export default function FieldBookingApp() {
               </button>
               {ownerMobileMenuOpen && (
                 <div className="mt-2 grid gap-2 rounded-xl border border-emerald-100 bg-emerald-50 p-2">
-                  <button type="button" onClick={() => { setOwnerActiveTab('pending'); setOwnerMobileMenuOpen(false); }} className={`w-full rounded-lg px-3 py-2.5 text-left text-xs font-bold ${ownerActiveTab === 'pending' ? 'bg-emerald-600 text-white' : 'bg-white text-gray-700'}`}>Booking တင်ရန် (Direct Booking)</button>
-                  <button type="button" onClick={() => { setOwnerActiveTab('history'); setOwnerMobileMenuOpen(false); }} className={`w-full rounded-lg px-3 py-2.5 text-left text-xs font-bold ${ownerActiveTab === 'history' ? 'bg-emerald-600 text-white' : 'bg-white text-gray-700'}`}>Booking မှတ်တမ်းများ</button>
-                  <button type="button" onClick={() => { setOwnerActiveTab('report'); setOwnerMobileMenuOpen(false); }} className={`w-full rounded-lg px-3 py-2.5 text-left text-xs font-bold ${ownerActiveTab === 'report' ? 'bg-emerald-600 text-white' : 'bg-white text-gray-700'}`}>📊 My Fields Report</button>
-                  <button type="button" onClick={() => { setOwnerActiveTab('notifications_page'); setOwnerMobileMenuOpen(false); }} className={`w-full rounded-lg px-3 py-2.5 text-left text-xs font-bold ${ownerActiveTab === 'notifications_page' ? 'bg-emerald-600 text-white' : 'bg-white text-gray-700'}`}>🔔 Notifications Page (Pending/New/Reject)</button>
-                  <button type="button" onClick={() => { setOwnerActiveTab('password'); setOwnerMobileMenuOpen(false); }} className={`w-full rounded-lg px-3 py-2.5 text-left text-xs font-bold ${ownerActiveTab === 'password' ? 'bg-emerald-600 text-white' : 'bg-white text-gray-700'}`}>🔒 Password ချိန်းရန်</button>
-                  <button type="button" onClick={() => { setOwnerActiveTab('fields_edit'); setOwnerMobileMenuOpen(false); }} className={`w-full rounded-lg px-3 py-2.5 text-left text-xs font-bold ${ownerActiveTab === 'fields_edit' ? 'bg-emerald-600 text-white' : 'bg-white text-gray-700'}`}>🏟️ ကွင်းအချိန်များနှင့် KPay/Wave နံပါတ်များ ပြင်ဆင်ရန်</button>
+                  <button type="button" onClick={() => { setOwnerActiveTab('pending'); setOwnerMobileMenuOpen(false); }} className={`w-full rounded-lg px-3 py-2.5 text-left text-xs font-bold ${ownerActiveTab === 'pending' ? 'bg-[#ff4f70] text-white shadow-[0_8px_20px_rgba(255,79,112,0.22)]' : 'bg-slate-800 text-slate-200'}`}>Booking တင်ရန် (Direct Booking)</button>
+                  <button type="button" onClick={() => { setOwnerActiveTab('history'); setOwnerMobileMenuOpen(false); }} className={`w-full rounded-lg px-3 py-2.5 text-left text-xs font-bold ${ownerActiveTab === 'history' ? 'bg-[#ff4f70] text-white shadow-[0_8px_20px_rgba(255,79,112,0.22)]' : 'bg-slate-800 text-slate-200'}`}>Booking မှတ်တမ်းများ</button>
+                  <button type="button" onClick={() => { setOwnerActiveTab('report'); setOwnerMobileMenuOpen(false); }} className={`w-full rounded-lg px-3 py-2.5 text-left text-xs font-bold ${ownerActiveTab === 'report' ? 'bg-[#ff4f70] text-white shadow-[0_8px_20px_rgba(255,79,112,0.22)]' : 'bg-slate-800 text-slate-200'}`}>📊 My Fields Report</button>
+                  <button type="button" onClick={() => { setOwnerActiveTab('notifications_page'); setOwnerMobileMenuOpen(false); }} className={`w-full rounded-lg px-3 py-2.5 text-left text-xs font-bold ${ownerActiveTab === 'notifications_page' ? 'bg-[#ff4f70] text-white shadow-[0_8px_20px_rgba(255,79,112,0.22)]' : 'bg-slate-800 text-slate-200'}`}>🔔 Notifications Page (Pending/New/Reject)</button>
+                  <button type="button" onClick={() => { setOwnerActiveTab('password'); setOwnerMobileMenuOpen(false); }} className={`w-full rounded-lg px-3 py-2.5 text-left text-xs font-bold ${ownerActiveTab === 'password' ? 'bg-[#ff4f70] text-white shadow-[0_8px_20px_rgba(255,79,112,0.22)]' : 'bg-slate-800 text-slate-200'}`}>🔒 Password ချိန်းရန်</button>
+                  <button type="button" onClick={() => { setOwnerActiveTab('fields_edit'); setOwnerMobileMenuOpen(false); }} className={`w-full rounded-lg px-3 py-2.5 text-left text-xs font-bold ${ownerActiveTab === 'fields_edit' ? 'bg-[#ff4f70] text-white shadow-[0_8px_20px_rgba(255,79,112,0.22)]' : 'bg-slate-800 text-slate-200'}`}>🏟️ ကွင်းအချိန်များနှင့် KPay/Wave နံပါတ်များ ပြင်ဆင်ရန်</button>
                 </div>
               )}
             </div>
