@@ -1934,6 +1934,16 @@ export default function FieldBookingApp() {
     if (method === 'cash' || method === 'ငွေသား') return 'cash';
     return 'other';
   };
+  // Always resolve payment numbers from the currently selected field only.
+  // Never fall back to another field's account number when the selected field has no number.
+  const getSelectedFieldPaymentNumber = (field, method) => {
+    const rawValue = method === 'KPay' ? field?.paymentInfo?.kpay : field?.paymentInfo?.wave;
+    if (rawValue === undefined || rawValue === null) return '';
+    return String(rawValue)
+      .replace(/\((?:KPay|Wave)\)/gi, '')
+      .trim();
+  };
+
   const getBookingTimeParts = (booking) => {
     const rawRange = String(booking?.fullTimeSlot || booking?.timeSlot || '').trim();
     const parts = rawRange.split(/\s*-\s*/).filter(Boolean);
@@ -4483,12 +4493,8 @@ export default function FieldBookingApp() {
                     <div className="bg-gray-50 p-3.5 rounded-xl border text-xs space-y-2">
                       <p className="font-bold text-gray-800 mb-1">💳 ငွေပေးချေရန် Account များ</p>
                       {(() => {
-                        const cleanNum = (str) => {
-                          if (!str) return '09795562378';
-                          return str.replace(/\(KPay|Wave|kpay|wave\)/gi, '').trim();
-                        };
-                        const kpayNum = cleanNum(userSelectedField.paymentInfo?.kpay);
-                        const waveNum = cleanNum(userSelectedField.paymentInfo?.wave);
+                        const kpayNum = getSelectedFieldPaymentNumber(userSelectedField, 'KPay');
+                        const waveNum = getSelectedFieldPaymentNumber(userSelectedField, 'Wave');
 
                         if (selectedPaymentMethod === 'KPay') {
                           return (
@@ -4711,30 +4717,17 @@ export default function FieldBookingApp() {
                                     {selectedPaymentMethod === 'KPay' ? 'KPay ငွေလွှဲရန် နံပါတ်' : 'Wave ငွေလွှဲရန် နံပါတ်'}
                                   </p>
                                   <p className="text-base font-extrabold text-gray-900 tracking-wide font-mono">
-                                    {(() => {
-                                      const cleanNum = (str) => {
-                                        if (!str) return '09795562378';
-                                        return str.replace(/\(KPay|Wave|kpay|wave\)/gi, '').trim();
-                                      };
-                                      if (selectedPaymentMethod === 'KPay') {
-                                        return cleanNum(userSelectedField.paymentInfo?.kpay);
-                                      } else if (selectedPaymentMethod === 'Wave') {
-                                        return cleanNum(userSelectedField.paymentInfo?.wave);
-                                      }
-                                      return '09795562378';
-                                    })()}
+                                    {getSelectedFieldPaymentNumber(userSelectedField, selectedPaymentMethod)}
                                   </p>
                                 </div>
                                 <button
                                   type="button"
                                   onClick={() => {
-                                    const cleanNum = (str) => {
-                                      if (!str) return '09795562378';
-                                      return str.replace(/\(KPay|Wave|kpay|wave\)/gi, '').trim();
-                                    };
-                                    const num = selectedPaymentMethod === 'KPay' 
-                                      ? cleanNum(userSelectedField.paymentInfo?.kpay) 
-                                      : cleanNum(userSelectedField.paymentInfo?.wave);
+                                    const num = getSelectedFieldPaymentNumber(userSelectedField, selectedPaymentMethod);
+                                    if (!num) {
+                                      alert(`${selectedPaymentMethod} နံပါတ်ကို ဒီကွင်းအတွက် မထည့်ရသေးပါ။`);
+                                      return;
+                                    }
                                     navigator.clipboard.writeText(num);
                                     alert(selectedPaymentMethod + ' နံပါတ် (' + num + ') ကို Copy ကူးယူပြီးပါပြီ!');
                                   }}
