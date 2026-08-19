@@ -165,9 +165,9 @@ const getSubscriptionMeta = (field, now = new Date()) => {
   const daysRemaining = Math.ceil((endDay.getTime() - today.getTime()) / 86400000);
   return {
     hasSubscription: true,
-    expired: daysRemaining <= 0,
+    expired: daysRemaining < 0,
     daysRemaining,
-    warning: daysRemaining > 0 && daysRemaining <= 7
+    warning: daysRemaining >= 0 && daysRemaining <= 7
   };
 };
 
@@ -632,9 +632,9 @@ export default function FieldBookingApp() {
       if (!snapshot.empty) {
         setFields(snapshot.docs.map(d => ({ id: d.id, ...d.data() })));
       } else if (currentUser.role === 'admin') {
-        const seedBatch = writeBatch(db);
-        defaultFields.forEach((f) => seedBatch.set(doc(db, "fields", f.id), f));
-        seedBatch.commit().catch((error) => console.error('Default field seed failed:', error));
+        defaultFields.forEach(async (f) => {
+          await setDoc(doc(db, "fields", f.id), f);
+        });
       }
     });
 
@@ -772,11 +772,9 @@ export default function FieldBookingApp() {
     setSmsNotifications(prev => prev.map(n => ({ ...n, read: true })));
 
     try {
-      const readBatch = writeBatch(db);
-      unreadNotis.forEach((n) => {
-        readBatch.update(doc(db, "notifications", n.id), { read: true });
-      });
-      await readBatch.commit();
+      for (const n of unreadNotis) {
+        await updateDoc(doc(db, "notifications", n.id), { read: true });
+      }
     } catch (error) {
       console.error("Error updating notification read status: ", error);
     }
@@ -2166,6 +2164,49 @@ export default function FieldBookingApp() {
   const ownerHistoryBookings = currentUser?.role === 'owner' ? historyBookings : [];
   const userHistoryBookings = currentUser?.role === 'user' ? historyBookings : [];
 
+  // Persist expiry as Disabled once per field, while the derived check below blocks access immediately.
+  useEffect(() => {
+    if (!currentUser || autoDisableSubscriptionRef.current) return undefined;
+    const eligibleFields = currentUser.role === 'admin'
+      ? fields
+      : currentUser.role === 'owner'
+        ? fields.filter((field) => (
+          field.ownerEmail === currentUser.email
+          || field.ownerEmail?.toLowerCase() === currentUser.email?.toLowerCase()
+          || field.ownerUid === currentUser.uid
+          || field.ownerId === currentUser.uid
+        ))
+        : [];
+    const expiredFields = eligibleFields.filter((field) => (
+      isSubscriptionExpired(field)
+      && String(field.ownerStatus || '').trim().toLowerCase() !== 'disabled'
+    ));
+    if (expiredFields.length === 0) return undefined;
+
+    autoDisableSubscriptionRef.current = true;
+    const disableExpiredFields = async () => {
+      try {
+        const batch = writeBatch(db);
+        expiredFields.forEach((field) => batch.update(doc(db, 'fields', field.id), {
+          ownerStatus: 'Disabled',
+          subscriptionExpiredAt: new Date().toISOString()
+        }));
+        await batch.commit();
+        setFields((previous) => previous.map((field) => (
+          expiredFields.some((expiredField) => expiredField.id === field.id)
+            ? { ...field, ownerStatus: 'Disabled' }
+            : field
+        )));
+      } catch (error) {
+        console.error('Automatic subscription disable failed:', error);
+      } finally {
+        autoDisableSubscriptionRef.current = false;
+      }
+    };
+    disableExpiredFields();
+    return undefined;
+  }, [currentUser?.role, currentUser?.uid, currentUser?.email, fields]);
+
   if (!currentUser) {
     return (
       <div className="field-auth-shell min-h-screen bg-slate-950 flex items-center justify-center p-4 font-sans">
@@ -2321,49 +2362,6 @@ export default function FieldBookingApp() {
       </div>
     );
   }
-
-  // Persist expiry as Disabled once per field, while the derived check below blocks access immediately.
-  useEffect(() => {
-    if (!currentUser || autoDisableSubscriptionRef.current) return undefined;
-    const eligibleFields = currentUser.role === 'admin'
-      ? fields
-      : currentUser.role === 'owner'
-        ? fields.filter((field) => (
-          field.ownerEmail === currentUser.email
-          || field.ownerEmail?.toLowerCase() === currentUser.email?.toLowerCase()
-          || field.ownerUid === currentUser.uid
-          || field.ownerId === currentUser.uid
-        ))
-        : [];
-    const expiredFields = eligibleFields.filter((field) => (
-      isSubscriptionExpired(field)
-      && String(field.ownerStatus || '').trim().toLowerCase() !== 'disabled'
-    ));
-    if (expiredFields.length === 0) return undefined;
-
-    autoDisableSubscriptionRef.current = true;
-    const disableExpiredFields = async () => {
-      try {
-        const batch = writeBatch(db);
-        expiredFields.forEach((field) => batch.update(doc(db, 'fields', field.id), {
-          ownerStatus: 'Disabled',
-          subscriptionExpiredAt: new Date().toISOString()
-        }));
-        await batch.commit();
-        setFields((previous) => previous.map((field) => (
-          expiredFields.some((expiredField) => expiredField.id === field.id)
-            ? { ...field, ownerStatus: 'Disabled' }
-            : field
-        )));
-      } catch (error) {
-        console.error('Automatic subscription disable failed:', error);
-      } finally {
-        autoDisableSubscriptionRef.current = false;
-      }
-    };
-    disableExpiredFields();
-    return undefined;
-  }, [currentUser?.role, currentUser?.uid, currentUser?.email, fields]);
 
   // If owner account is disabled by admin, lock entire owner view in real-time with Logout only
   const isOwnerDisabled = currentUser?.role === 'owner' && fields.some(f => 
