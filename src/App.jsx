@@ -18,7 +18,7 @@ const app = !getApps().length ? initializeApp(firebaseConfig) : getApps()[0];
 export const db = getFirestore(app);
 export const auth = getAuth(app);
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged, updatePassword, sendPasswordResetEmail, EmailAuthProvider, reauthenticateWithCredential } from 'firebase/auth'; 
-import { collection, getDoc, getDocs, addDoc, updateDoc, deleteDoc, doc, setDoc, runTransaction, onSnapshot, query, where, limit, startAfter, orderBy, writeBatch } from 'firebase/firestore';
+import { collection, getDoc, getDocs, addDoc, updateDoc, deleteDoc, doc, setDoc, runTransaction, onSnapshot, query, where, limit, startAfter, orderBy } from 'firebase/firestore';
 
 const defaultUsers = [
   { email: 'admin@gmail.com', password: 'admin123', name: 'System Admin', role: 'admin' }
@@ -67,14 +67,6 @@ const generateSingleTimeSlots = (openHour, closeHour, includeClosingTime = false
 // temporary File object from the browser input.
 const HISTORY_PAGE_SIZE = 50;
 const REMEMBERED_LOGIN_STORAGE_KEY = 'fieldBookingRememberedLogin';
-
-const deleteRefsInBatches = async (refs, batchSize = 450) => {
-  for (let index = 0; index < refs.length; index += batchSize) {
-    const batch = writeBatch(db);
-    refs.slice(index, index + batchSize).forEach((ref) => batch.delete(ref));
-    await batch.commit();
-  }
-};
 
 const detectMobileDevice = () => {
   if (typeof navigator === 'undefined') return false;
@@ -128,50 +120,6 @@ const getBookingSlotLockId = (fieldId, subFieldId, date, hour) => [
   date || 'unknown-date',
   Number(hour)
 ].join('__').replace(/[^A-Za-z0-9_-]/g, '-');
-
-const parseDateKey = (value) => {
-  const match = String(value || '').match(/^(\d{4})-(\d{2})-(\d{2})$/);
-  if (!match) return null;
-  const date = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
-  return Number.isNaN(date.getTime()) ? null : date;
-};
-
-const formatSubscriptionDate = (value) => {
-  const date = parseDateKey(value);
-  if (!date) return 'မသတ်မှတ်ရသေးပါ';
-  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-  return `${String(date.getDate()).padStart(2, '0')}-${months[date.getMonth()]}-${date.getFullYear()}`;
-};
-
-const getSubscriptionDurationLabel = (startValue, endValue) => {
-  const start = parseDateKey(startValue);
-  const end = parseDateKey(endValue);
-  if (!start || !end || end < start) return 'မသတ်မှတ်ရသေးပါ';
-  const exactYears = end.getDate() === start.getDate() && end.getMonth() === start.getMonth()
-    ? end.getFullYear() - start.getFullYear()
-    : 0;
-  if (exactYears > 0) return exactYears === 1 ? '1 Year' : `${exactYears} Years`;
-  const exactMonths = (end.getFullYear() - start.getFullYear()) * 12 + (end.getMonth() - start.getMonth());
-  if (exactMonths > 0 && end.getDate() === start.getDate()) return exactMonths === 1 ? '1 Month' : `${exactMonths} Months`;
-  const days = Math.ceil((end.getTime() - start.getTime()) / 86400000) + 1;
-  return `${days} Days`;
-};
-
-const getSubscriptionMeta = (field, now = new Date()) => {
-  const end = parseDateKey(field?.subscriptionEndDate);
-  if (!end) return { hasSubscription: false, expired: false, daysRemaining: null, warning: false };
-  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const endDay = new Date(end.getFullYear(), end.getMonth(), end.getDate());
-  const daysRemaining = Math.ceil((endDay.getTime() - today.getTime()) / 86400000);
-  return {
-    hasSubscription: true,
-    expired: daysRemaining < 0,
-    daysRemaining,
-    warning: daysRemaining >= 0 && daysRemaining <= 7
-  };
-};
-
-const isSubscriptionExpired = (field) => getSubscriptionMeta(field).expired;
 
 const getBookingSlotLockRefs = (booking) => {
   const startHour = Number(booking?.startHour);
@@ -263,33 +211,60 @@ export default function FieldBookingApp() {
   const [latestVersionName, setLatestVersionName] = useState('v1.1');
   const [downloadUrl, setDownloadUrl] = useState('#');
 
-  // One startup read supplies both forced-update and optional-update state.
-  const [updateAvailable, setUpdateAvailable] = useState(false);
-
   useEffect(() => {
-    let cancelled = false;
-    const checkAppConfig = async () => {
+    const checkVersion = async () => {
       try {
-        const configSnap = await getDoc(doc(db, 'appConfig', 'settings'));
-        if (cancelled || !configSnap.exists()) return;
-        const data = configSnap.data();
-        const minVersion = Number(data.minVersion || 1);
-        const remoteVersionName = data.versionName || 'v1.1';
-        const configuredAdminPassword = typeof data.adminPassword === 'string' ? data.adminPassword.trim() : '';
-        setLatestVersionName(remoteVersionName);
-        setDownloadUrl(data.apkUrl || '#');
-        if (configuredAdminPassword) setAdminPassword(configuredAdminPassword);
-        if (currentAppVersion < minVersion) {
-          setForceUpdate(true);
-          setUpdateAvailable(true);
+        const docRef = doc(db, 'appConfig', 'settings');
+        const docSnap = await getDoc(docRef);
+        if (docSnap.exists()) {
+          const data = docSnap.data();
+          const configuredAdminPassword = typeof data.adminPassword === 'string' ? data.adminPassword.trim() : '';
+          if (configuredAdminPassword) {
+            setAdminPassword(configuredAdminPassword);
+          }
+          const minVersion = data.minVersion || 1;
+          const remoteVersionName = data.versionName || 'v1.1';
+          const apkUrl = data.apkUrl || '#';
+          
+          setLatestVersionName(remoteVersionName);
+          setDownloadUrl(apkUrl);
+
+          if (currentAppVersion < minVersion) {
+            setForceUpdate(true);
+          }
         }
-      } catch (error) {
-        console.log('Version check offline or appConfig is not available yet.', error);
+      } catch (e) {
+        console.log('Version check offline or collection not created yet, defaulting to normal', e);
       }
     };
-    checkAppConfig();
-    return () => { cancelled = true; };
-  }, [currentAppVersion]);
+    checkVersion();
+  }, []);
+
+
+  // App Version & Update Check State
+  const CURRENT_APP_VERSION = 1; // Increase this when building new APK release
+  const [updateAvailable, setUpdateAvailable] = useState(false);
+  // latestVersionName is shared with the forced-update state above.
+
+  useEffect(() => {
+    // Check Firestore app config for latest version
+    const checkAppVersion = async () => {
+      try {
+        const configRef = doc(db, 'appConfig', 'settings');
+        const configSnap = await getDoc(configRef);
+        if (configSnap.exists()) {
+          const data = configSnap.data();
+          if (data.minVersion && data.minVersion > CURRENT_APP_VERSION) {
+            setUpdateAvailable(true);
+            setLatestVersionName(data.versionName || 'v1.1');
+          }
+        }
+      } catch (err) {
+        console.log('Version check offline or not set up yet', err);
+      }
+    };
+    checkAppVersion();
+  }, []);
 
   const [currentUser, setCurrentUser] = useState(() => {
     const savedUser = sessionStorage.getItem('currentUser');
@@ -500,7 +475,6 @@ export default function FieldBookingApp() {
   const [adminMobileMenuOpen, setAdminMobileMenuOpen] = useState(false);
   const [ownerMobileMenuOpen, setOwnerMobileMenuOpen] = useState(false);
   const historyRequestRef = useRef(0);
-  const autoDisableSubscriptionRef = useRef(false);
 
   // Mobile navigation follows the reference pattern: one left-side drawer for every role.
   // Keep the existing desktop tabs and role-specific inner menus unchanged.
@@ -574,23 +548,17 @@ export default function FieldBookingApp() {
           setCurrentUser({ name: 'System Admin', role: 'admin', email: 'admin@gmail.com', uid: firebaseUser.uid });
           return;
         }
-        // User documents are normally keyed by Firebase Auth UID, so use one direct read first.
+        // Check users collection
         try {
-          const userDocSnap = await getDoc(doc(db, 'users', firebaseUser.uid));
-          if (userDocSnap.exists()) {
-            const uData = userDocSnap.data();
-            setCurrentUser({ name: uData.name, role: uData.role || 'user', email: uData.email || email, uid: firebaseUser.uid });
-            return;
-          }
-          // Compatibility fallback for older records that were not keyed by UID.
-          const userSnap = await getDocs(query(collection(db, 'users'), where('email', '==', email), limit(1)));
+          const userQuery = query(collection(db, 'users'), where('email', '==', email));
+          const userSnap = await getDocs(userQuery);
           if (!userSnap.empty) {
             const uData = userSnap.docs[0].data();
-            setCurrentUser({ name: uData.name, role: uData.role || 'user', email: uData.email || email, uid: firebaseUser.uid });
+            setCurrentUser({ name: uData.name, role: uData.role || 'user', email: uData.email, uid: firebaseUser.uid });
             return;
           }
           // Check fields collection for owner
-          const fieldSnap = await getDocs(query(collection(db, 'fields'), where('ownerEmail', '==', email), limit(1)));
+          const fieldSnap = await getDocs(query(collection(db, 'fields'), where('ownerEmail', '==', email)));
           if (!fieldSnap.empty) {
             const fData = fieldSnap.docs[0].data();
             if (fData.ownerStatus !== 'Disabled') {
@@ -619,14 +587,9 @@ export default function FieldBookingApp() {
       return undefined;
     }
 
-    let unsubUsers = () => {};
-    if (currentUser.role === 'admin') {
-      unsubUsers = onSnapshot(collection(db, "users"), (snapshot) => {
-        setUsersList(snapshot.docs.map(d => ({ id: d.id, ...d.data() })));
-      });
-    } else {
-      setUsersList(defaultUsers);
-    }
+    const unsubUsers = onSnapshot(collection(db, "users"), (snapshot) => {
+      setUsersList(snapshot.docs.map(d => ({ id: d.id, ...d.data() })));
+    });
 
     const unsubFields = onSnapshot(collection(db, "fields"), (snapshot) => {
       if (!snapshot.empty) {
@@ -1766,26 +1729,14 @@ export default function FieldBookingApp() {
     }
   };
 
-  const handleAdminUpdateOwnerInfo = async (fieldId, newEmail, newPass, newStatus, startDate, endDate) => {
-    const start = parseDateKey(startDate);
-    const end = parseDateKey(endDate);
-    if ((startDate && !start) || (endDate && !end) || (start && end && end < start)) {
-      alert('Start Date နှင့် End Date ကို မှန်ကန်စွာ ရွေးချယ်ပါ။ End Date သည် Start Date ထက် နောက်မကျရပါ။');
-      return;
-    }
-    const expired = endDate && isSubscriptionExpired({ subscriptionEndDate: endDate });
-    const updatedData = {
-      ownerEmail: newEmail,
-      ownerPassword: newPass,
-      ownerStatus: expired ? 'Disabled' : newStatus,
-      subscriptionStartDate: startDate || null,
-      subscriptionEndDate: endDate || null,
-      subscriptionDuration: getSubscriptionDurationLabel(startDate, endDate)
-    };
+  const handleAdminUpdateOwnerInfo = async (fieldId, newEmail, newPass, newStatus) => {
     try {
-      await updateDoc(doc(db, "fields", fieldId), updatedData);
-      applyFieldUpdateToLocalState(fieldId, updatedData);
-      alert('Owner အချက်အလက်များနှင့် သက်တမ်းအချက်အလက်များကို သိမ်းဆည်းပြီးပါပြီ။');
+      await updateDoc(doc(db, "fields", fieldId), {
+        ownerEmail: newEmail,
+        ownerPassword: newPass,
+        ownerStatus: newStatus
+      });
+      alert('Owner အချက်အလက်များကို သိမ်းဆည်းပြီးပါပြီ။');
     } catch (error) {
       console.error("Error updating owner info: ", error);
       alert('အချက်အလက် သိမ်းဆည်းရာတွင် အမှားအယွင်းရှိပါသည်။');
@@ -1911,7 +1862,7 @@ export default function FieldBookingApp() {
 
   const activeFieldsForUser = fields.filter(f => {
     const status = f.ownerStatus ? f.ownerStatus.trim().toLowerCase() : '';
-    return status !== 'disabled' && !isSubscriptionExpired(f);
+    return status !== 'disabled';
   });
 
   const baseFieldsList = currentUser?.role === 'owner'
@@ -2164,49 +2115,6 @@ export default function FieldBookingApp() {
   const ownerHistoryBookings = currentUser?.role === 'owner' ? historyBookings : [];
   const userHistoryBookings = currentUser?.role === 'user' ? historyBookings : [];
 
-  // Persist expiry as Disabled once per field, while the derived check below blocks access immediately.
-  useEffect(() => {
-    if (!currentUser || autoDisableSubscriptionRef.current) return undefined;
-    const eligibleFields = currentUser.role === 'admin'
-      ? fields
-      : currentUser.role === 'owner'
-        ? fields.filter((field) => (
-          field.ownerEmail === currentUser.email
-          || field.ownerEmail?.toLowerCase() === currentUser.email?.toLowerCase()
-          || field.ownerUid === currentUser.uid
-          || field.ownerId === currentUser.uid
-        ))
-        : [];
-    const expiredFields = eligibleFields.filter((field) => (
-      isSubscriptionExpired(field)
-      && String(field.ownerStatus || '').trim().toLowerCase() !== 'disabled'
-    ));
-    if (expiredFields.length === 0) return undefined;
-
-    autoDisableSubscriptionRef.current = true;
-    const disableExpiredFields = async () => {
-      try {
-        const batch = writeBatch(db);
-        expiredFields.forEach((field) => batch.update(doc(db, 'fields', field.id), {
-          ownerStatus: 'Disabled',
-          subscriptionExpiredAt: new Date().toISOString()
-        }));
-        await batch.commit();
-        setFields((previous) => previous.map((field) => (
-          expiredFields.some((expiredField) => expiredField.id === field.id)
-            ? { ...field, ownerStatus: 'Disabled' }
-            : field
-        )));
-      } catch (error) {
-        console.error('Automatic subscription disable failed:', error);
-      } finally {
-        autoDisableSubscriptionRef.current = false;
-      }
-    };
-    disableExpiredFields();
-    return undefined;
-  }, [currentUser?.role, currentUser?.uid, currentUser?.email, fields]);
-
   if (!currentUser) {
     return (
       <div className="field-auth-shell min-h-screen bg-slate-950 flex items-center justify-center p-4 font-sans">
@@ -2366,7 +2274,7 @@ export default function FieldBookingApp() {
   // If owner account is disabled by admin, lock entire owner view in real-time with Logout only
   const isOwnerDisabled = currentUser?.role === 'owner' && fields.some(f => 
     (f.ownerEmail === currentUser.email || f.ownerEmail?.toLowerCase() === currentUser.email?.toLowerCase() || f.ownerUid === currentUser.uid || f.ownerId === currentUser.uid) &&
-    (String(f.ownerStatus || '').trim().toLowerCase() === 'disabled' || isSubscriptionExpired(f))
+    String(f.ownerStatus || '').trim().toLowerCase() === 'disabled'
   );
 
   if (isOwnerDisabled) {
@@ -2377,9 +2285,9 @@ export default function FieldBookingApp() {
             🚫
           </div>
           <div className="space-y-2">
-            <h2 className="text-xl font-bold text-gray-900">လက်တလော အသုံးပြု၍မရပါ</h2>
-            <p className="text-base font-bold text-red-700 leading-relaxed">
-              Admin ဘက်သို့ ဆက်သွယ်ပါ။
+            <h2 className="text-xl font-bold text-gray-900">Admin မှ ပိတ်ထားပါသည်</h2>
+            <p className="text-sm text-gray-600 leading-relaxed">
+              သင့်၏ Owner အကောင့်နှင့် ကွင်းများကို System Administrator မှ ပိတ်ပင်ထားခြင်း (Disabled) ဖြစ်ပါသည်။ လုပ်ဆောင်ချက်များကို ဆက်လက်အသုံးပြု၍မရပါ။
             </p>
           </div>
           <div className="pt-2">
@@ -3597,16 +3505,9 @@ export default function FieldBookingApp() {
                 <div className="space-y-4">
                   {fields.map(f => (
                     <div key={f.id} className="bg-gray-50 border rounded-xl p-4 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-                      <div className="min-w-0">
+                      <div>
                         <h4 className="font-bold text-sm text-gray-800">{f.name} ({f.location})</h4>
                         <p className="text-xs text-gray-500">Current Owner Email: {f.ownerEmail || 'None'}</p>
-                        <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px]">
-                          <span className="font-bold text-slate-600">Start: {formatSubscriptionDate(f.subscriptionStartDate)}</span>
-                          <span className="font-bold text-slate-600">End: {formatSubscriptionDate(f.subscriptionEndDate)}</span>
-                          <span className="font-bold text-blue-700">Duration: {getSubscriptionDurationLabel(f.subscriptionStartDate, f.subscriptionEndDate)}</span>
-                          {getSubscriptionMeta(f).warning && <span className="font-extrabold text-amber-700">သက်တမ်းကုန်ရန် {getSubscriptionMeta(f).daysRemaining} ရက်</span>}
-                          {getSubscriptionMeta(f).expired && <span className="font-extrabold text-red-700">သက်တမ်းကုန်ပြီး Disabled</span>}
-                        </div>
                       </div>
                       <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
                         <input 
@@ -3623,13 +3524,7 @@ export default function FieldBookingApp() {
                           placeholder="Password" 
                           className="border rounded px-2 py-1 text-xs bg-white" 
                         />
-                        <label className="text-[10px] font-bold text-gray-600">Start Date
-                          <input type="date" defaultValue={f.subscriptionStartDate || ''} id={`start_date_${f.id}`} className="mt-0.5 border rounded px-2 py-1 text-xs bg-white" />
-                        </label>
-                        <label className="text-[10px] font-bold text-gray-600">End Date
-                          <input type="date" defaultValue={f.subscriptionEndDate || ''} id={`end_date_${f.id}`} className="mt-0.5 border rounded px-2 py-1 text-xs bg-white" />
-                        </label>
-                        <select defaultValue={isSubscriptionExpired(f) ? 'Disabled' : (f.ownerStatus || 'Active')} id={`status_${f.id}`} className="border rounded px-2 py-1 text-xs bg-white">
+                        <select defaultValue={f.ownerStatus || 'Active'} id={`status_${f.id}`} className="border rounded px-2 py-1 text-xs bg-white">
                           <option value="Active">Active</option>
                           <option value="Disabled">Disabled</option>
                         </select>
@@ -3638,9 +3533,7 @@ export default function FieldBookingApp() {
                             const eVal = document.getElementById(`email_${f.id}`).value;
                             const pVal = document.getElementById(`pass_${f.id}`).value;
                             const sVal = document.getElementById(`status_${f.id}`).value;
-                            const startDateVal = document.getElementById(`start_date_${f.id}`).value;
-                            const endDateVal = document.getElementById(`end_date_${f.id}`).value;
-                            handleAdminUpdateOwnerInfo(f.id, eVal, pVal, sVal, startDateVal, endDateVal);
+                            handleAdminUpdateOwnerInfo(f.id, eVal, pVal, sVal);
                           }} 
                           className="bg-emerald-600 text-white px-3 py-1 rounded text-xs font-bold"
                         >
@@ -3702,20 +3595,18 @@ export default function FieldBookingApp() {
                         onClick={async () => {
                           if (window.confirm('ရက်လွန်/ဟောင်းနေသော Booking အားလုံးကို ဖျက်ဆီးရန် သေချာပါသလား?')) {
                             try {
-                              const today = new Date();
-                              const todayKey = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
-                              const [expiredDateSnap, rejectedSnap] = await Promise.all([
-                                getDocs(query(collection(db, 'bookings'), where('date', '<=', todayKey))),
-                                getDocs(query(collection(db, 'bookings'), where('status', '==', 'Rejected'), limit(500)))
-                              ]);
-                              const candidateDocs = new Map();
-                              [...expiredDateSnap.docs, ...rejectedSnap.docs].forEach((dSnap) => candidateDocs.set(dSnap.id, dSnap));
-                              const bookingRefs = [...candidateDocs.values()]
-                                .filter((dSnap) => isBookingExpired(dSnap.data()) || dSnap.data().status === 'Rejected')
-                                .map((dSnap) => doc(db, 'bookings', dSnap.id));
-                              await deleteRefsInBatches(bookingRefs);
-                              setHistoryRefreshToken((token) => token + 1);
-                              alert(`${bookingRefs.length} ခုသော ရက်လွန်/Reject ဖြစ်ပြီးသော Booking များ ကို အောင်မြင်စွာ ဖျက်ဆီးပြီးပါပြီ။`);
+                              const qSnap = await getDocs(collection(db, 'bookings'));
+                              let count = 0;
+                              for (const dSnap of qSnap.docs) {
+                                const bData = dSnap.data();
+                                const expired = isBookingExpired(bData) || bData.status === 'Rejected';
+                                if (expired) {
+                                  await deleteDoc(doc(db, 'bookings', dSnap.id));
+                                  count++;
+                                }
+                              }
+                              alert(`${count} ခုသော ရက်လွန်/Reject ဖြစ်ပြီးသော Booking များ ကို အောင်မြင်စွာ ဖျက်ဆီးပြီးပါပြီ။`);
+                              window.location.reload();
                             } catch (err) {
                               console.error(err);
                               alert('Booking ရှင်းလင်းရာတွင် အမှားအယွင်းရှိပါသည်။');
@@ -3750,7 +3641,7 @@ export default function FieldBookingApp() {
                               const cutoffTargetTime = new Date(cY, cM - 1, cD).getTime();
 
                               const qSnap = await getDocs(collection(db, 'notifications'));
-                              const notificationRefsToDelete = [];
+                              let count = 0;
                               for (const dSnap of qSnap.docs) {
                                 const nData = dSnap.data();
                                 let match = false;
@@ -3788,11 +3679,13 @@ export default function FieldBookingApp() {
                                   }
                                 }
 
-                                if (match) notificationRefsToDelete.push(doc(db, 'notifications', dSnap.id));
+                                if (match) {
+                                  await deleteDoc(doc(db, 'notifications', dSnap.id));
+                                  count++;
+                                }
                               }
-                              await deleteRefsInBatches(notificationRefsToDelete);
-                              setSmsNotifications((previous) => previous.filter((item) => !notificationRefsToDelete.some((ref) => ref.id === item.id)));
-                              alert(`အောင်မြင်ပါသည်! Firebase မှ Notification ${notificationRefsToDelete.length} ခုကို အပြီးအပိုင် ဖျက်ဆီးပြီးပါပြီ။`);
+                              alert(`အောင်မြင်ပါသည်! Firebase မှ Notification ${count} ခုကို အပြီးအပိုင် ဖျက်ဆီးပြီးပါပြီ။`);
+                              window.location.reload();
                             } catch (err) {
                               console.error(err);
                               alert('Notification ဖျက်ဆီးရာတွင် အမှားအယွင်းရှိပါသည်။');
@@ -3825,14 +3718,18 @@ export default function FieldBookingApp() {
                           }
                           if (window.confirm(`${targetDate} ရက်စွဲပါရှိသော Booking အားလုံးကို Firebase မှ အပြီးအပိုင် ဖျက်ဆီးရန် သေချာပါသလား?`)) {
                             try {
-                              const qSnap = await getDocs(query(
-                                collection(db, 'bookings'),
-                                where('date', '==', targetDate)
-                              ));
-                              const bookingRefs = qSnap.docs.map((dSnap) => doc(db, 'bookings', dSnap.id));
-                              await deleteRefsInBatches(bookingRefs);
-                              setHistoryRefreshToken((token) => token + 1);
-                              alert(`အောင်မြင်ပါသည်! ရက်စွဲ ${targetDate} ပါ Bookings ${bookingRefs.length} ခုကို Firebase မှ ဖျက်ဆီးပြီးပါပြီ။`);
+                              const qSnap = await getDocs(collection(db, 'bookings'));
+                              let count = 0;
+                              for (const dSnap of qSnap.docs) {
+                                const bData = dSnap.data();
+                                const bDate = String(bData.date || '').trim();
+                                if (bDate === targetDate) {
+                                  await deleteDoc(doc(db, 'bookings', dSnap.id));
+                                  count++;
+                                }
+                              }
+                              alert(`အောင်မြင်ပါသည်! ရက်စွဲ ${targetDate} ပါ Bookings ${count} ခုကို Firebase မှ ဖျက်ဆီးပြီးပါပြီ။`);
+                              window.location.reload();
                             } catch (err) {
                               console.error(err);
                               alert('Booking များကို ဖျက်ဆီးရာတွင် အမှားအယွင်းရှိပါသည်။');
@@ -3855,29 +3752,6 @@ export default function FieldBookingApp() {
               <h2 className="text-lg sm:text-xl font-bold text-gray-800">🏟️ Owner Dashboard & Direct Booking</h2>
               <button onClick={() => { setActiveTab('fields'); setOwnerMobileMenuOpen(false); }} className="hidden sm:inline-flex w-full sm:w-auto bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-bold">← ကွင်းများသို့ ပြန်ရန်</button>
             </div>
-
-            {currentUser.role === 'owner' && (() => {
-              const mySubscriptionFields = fields.filter((field) => (
-                field.ownerEmail === currentUser.email
-                || field.ownerEmail?.toLowerCase() === currentUser.email?.toLowerCase()
-                || field.ownerUid === currentUser.uid
-                || field.ownerId === currentUser.uid
-              ));
-              const expiringFields = mySubscriptionFields
-                .map((field) => ({ field, meta: getSubscriptionMeta(field) }))
-                .filter(({ meta }) => meta.warning || meta.expired);
-              return expiringFields.length > 0 ? (
-                <div className="mb-5 space-y-2">
-                  {expiringFields.map(({ field, meta }) => (
-                    <div key={`subscription-warning-${field.id}`} className={`rounded-xl border p-4 text-sm font-bold ${meta.expired ? 'border-red-300 bg-red-50 text-red-800' : 'border-amber-300 bg-amber-50 text-amber-800'}`}>
-                      {meta.expired
-                        ? `⛔ ${field.name} ၏ သက်တမ်းကုန်ဆုံးသွားပါပြီ။ Owner status သည် Disabled ဖြစ်သွားပါမည်။`
-                        : `⚠️ ${field.name} ၏ သက်တမ်းကုန်ဆုံးရန် ${meta.daysRemaining} ရက်သာ လိုပါတော့သည်။ End Date: ${formatSubscriptionDate(field.subscriptionEndDate)}`}
-                    </div>
-                  ))}
-                </div>
-              ) : null;
-            })()}
 
             <div className="field-mobile-duplicate-meta mb-6 rounded-xl border border-emerald-100 bg-emerald-50 px-4 py-3">
               <p className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-emerald-700">လက်ရှိရွေးချယ်ထားသော Function</p>
@@ -4213,7 +4087,6 @@ export default function FieldBookingApp() {
                         <div>
                           <h4 className="font-bold text-sm text-gray-800">{f.name} ({f.location})</h4>
                           <p className="text-xs text-gray-500">KPay: {f.paymentInfo?.kpay} | Wave: {f.paymentInfo?.wave}</p>
-                          <p className="mt-1 text-[11px] font-bold text-slate-600">Start: {formatSubscriptionDate(f.subscriptionStartDate)} | End: {formatSubscriptionDate(f.subscriptionEndDate)} | Duration: {getSubscriptionDurationLabel(f.subscriptionStartDate, f.subscriptionEndDate)}</p>
                         </div>
                         <button onClick={() => handleStartEditOwnerField(f)} className="bg-emerald-600 text-white px-3 py-1.5 rounded text-xs font-bold">✏️ အချိန်နှင့် အချက်အလက် ပြင်ဆင်ရန်</button>
                       </div>
