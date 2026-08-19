@@ -618,6 +618,73 @@ export default function FieldBookingApp() {
   }, []);
 
   useEffect(() => {
+    if (!currentUser?.uid || !auth.currentUser) return undefined;
+    let cancelled = false;
+    let accountDocUnsubscribe = () => {};
+
+    const forceDeletedAccountLogout = async () => {
+      if (cancelled) return;
+      cancelled = true;
+      setCurrentUser(null);
+      sessionStorage.removeItem('currentUser');
+      sessionStorage.removeItem('activeTab');
+      sessionStorage.removeItem('adminTab');
+      sessionStorage.removeItem('ownerActiveTab');
+      try {
+        localStorage.removeItem(`userLoginEmail:${String(currentUser.email || '').split('@')[0].toLowerCase()}`);
+      } catch (storageError) {
+        console.warn('Unable to clear deleted-account username cache.', storageError);
+      }
+      try {
+        clearRememberedLogin();
+      } catch (rememberedLoginError) {
+        console.warn('Unable to clear deleted-account remembered login.', rememberedLoginError);
+      }
+      try {
+        await signOut(auth);
+      } catch (signOutError) {
+        console.warn('Deleted-account signout completed with auth cleanup warning.', signOutError);
+      }
+    };
+
+    const checkAuthAccount = async () => {
+      const firebaseUser = auth.currentUser;
+      if (!firebaseUser || cancelled) return;
+      try {
+        await firebaseUser.reload();
+      } catch (error) {
+        if (['auth/user-not-found', 'auth/user-disabled', 'auth/user-token-expired'].includes(error?.code)) {
+          await forceDeletedAccountLogout();
+        } else {
+          console.warn('Auth account check temporarily unavailable.', error);
+        }
+      }
+    };
+
+    if (currentUser.role === 'user') {
+      accountDocUnsubscribe = onSnapshot(doc(db, 'users', currentUser.uid), (snapshot) => {
+        if (!snapshot.exists()) forceDeletedAccountLogout();
+      }, (error) => {
+        console.warn('User account document listener unavailable.', error);
+      });
+    }
+
+    checkAuthAccount();
+    const accountCheckInterval = window.setInterval(checkAuthAccount, 15000);
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') checkAuthAccount();
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      cancelled = true;
+      accountDocUnsubscribe();
+      window.clearInterval(accountCheckInterval);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [currentUser?.uid, currentUser?.role, currentUser?.email]);
+
+  useEffect(() => {
     if (!currentUser?.uid) {
       setUsersList(defaultUsers);
       setFields([]);
@@ -1042,10 +1109,10 @@ export default function FieldBookingApp() {
           } else if (matchedField?.ownerEmail) {
             loginEmail = matchedField.ownerEmail;
           } else {
-            // New User signups always use this deterministic Firebase Auth email.
-            // Do not read private Firestore collections before authentication:
-            // that causes Phone-only delays/permission failures and is unnecessary.
-            loginEmail = `${loginKey}_user@gmail.com`;
+            // New User signups use username@gmail.com as the deterministic
+            // Firebase Auth email. Do not read private Firestore collections
+            // before authentication, especially on Phone.
+            loginEmail = `${loginKey}@gmail.com`;
           }
         }
       }
@@ -1096,7 +1163,7 @@ export default function FieldBookingApp() {
       return;
     }
 
-    const signupEmail = `${usernameKey}_user@gmail.com`;
+    const signupEmail = `${usernameKey}@gmail.com`;
     const newUserObj = {
       email: signupEmail,
       name: signupName.trim(),
