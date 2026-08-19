@@ -18,7 +18,7 @@ const app = !getApps().length ? initializeApp(firebaseConfig) : getApps()[0];
 export const db = getFirestore(app);
 export const auth = getAuth(app);
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged, updatePassword, sendPasswordResetEmail, EmailAuthProvider, reauthenticateWithCredential } from 'firebase/auth'; 
-import { collection, getDoc, getDocs, addDoc, updateDoc, deleteDoc, doc, setDoc, runTransaction, onSnapshot, query, where, limit, startAfter, orderBy, writeBatch } from 'firebase/firestore';
+import { collection, getDoc, getDocs, addDoc, updateDoc, deleteDoc, doc, setDoc, runTransaction, onSnapshot, query, where, limit, startAfter, orderBy } from 'firebase/firestore';
 
 const defaultUsers = [
   { email: 'admin@gmail.com', password: 'admin123', name: 'System Admin', role: 'admin' }
@@ -67,14 +67,6 @@ const generateSingleTimeSlots = (openHour, closeHour, includeClosingTime = false
 // temporary File object from the browser input.
 const HISTORY_PAGE_SIZE = 50;
 const REMEMBERED_LOGIN_STORAGE_KEY = 'fieldBookingRememberedLogin';
-
-const deleteRefsInBatches = async (refs, batchSize = 450) => {
-  for (let index = 0; index < refs.length; index += batchSize) {
-    const batch = writeBatch(db);
-    refs.slice(index, index + batchSize).forEach((ref) => batch.delete(ref));
-    await batch.commit();
-  }
-};
 
 const detectMobileDevice = () => {
   if (typeof navigator === 'undefined') return false;
@@ -219,33 +211,60 @@ export default function FieldBookingApp() {
   const [latestVersionName, setLatestVersionName] = useState('v1.1');
   const [downloadUrl, setDownloadUrl] = useState('#');
 
-  // One startup read supplies both forced-update and optional-update state.
-  const [updateAvailable, setUpdateAvailable] = useState(false);
-
   useEffect(() => {
-    let cancelled = false;
-    const checkAppConfig = async () => {
+    const checkVersion = async () => {
       try {
-        const configSnap = await getDoc(doc(db, 'appConfig', 'settings'));
-        if (cancelled || !configSnap.exists()) return;
-        const data = configSnap.data();
-        const minVersion = Number(data.minVersion || 1);
-        const remoteVersionName = data.versionName || 'v1.1';
-        const configuredAdminPassword = typeof data.adminPassword === 'string' ? data.adminPassword.trim() : '';
-        setLatestVersionName(remoteVersionName);
-        setDownloadUrl(data.apkUrl || '#');
-        if (configuredAdminPassword) setAdminPassword(configuredAdminPassword);
-        if (currentAppVersion < minVersion) {
-          setForceUpdate(true);
-          setUpdateAvailable(true);
+        const docRef = doc(db, 'appConfig', 'settings');
+        const docSnap = await getDoc(docRef);
+        if (docSnap.exists()) {
+          const data = docSnap.data();
+          const configuredAdminPassword = typeof data.adminPassword === 'string' ? data.adminPassword.trim() : '';
+          if (configuredAdminPassword) {
+            setAdminPassword(configuredAdminPassword);
+          }
+          const minVersion = data.minVersion || 1;
+          const remoteVersionName = data.versionName || 'v1.1';
+          const apkUrl = data.apkUrl || '#';
+          
+          setLatestVersionName(remoteVersionName);
+          setDownloadUrl(apkUrl);
+
+          if (currentAppVersion < minVersion) {
+            setForceUpdate(true);
+          }
         }
-      } catch (error) {
-        console.log('Version check offline or appConfig is not available yet.', error);
+      } catch (e) {
+        console.log('Version check offline or collection not created yet, defaulting to normal', e);
       }
     };
-    checkAppConfig();
-    return () => { cancelled = true; };
-  }, [currentAppVersion]);
+    checkVersion();
+  }, []);
+
+
+  // App Version & Update Check State
+  const CURRENT_APP_VERSION = 1; // Increase this when building new APK release
+  const [updateAvailable, setUpdateAvailable] = useState(false);
+  // latestVersionName is shared with the forced-update state above.
+
+  useEffect(() => {
+    // Check Firestore app config for latest version
+    const checkAppVersion = async () => {
+      try {
+        const configRef = doc(db, 'appConfig', 'settings');
+        const configSnap = await getDoc(configRef);
+        if (configSnap.exists()) {
+          const data = configSnap.data();
+          if (data.minVersion && data.minVersion > CURRENT_APP_VERSION) {
+            setUpdateAvailable(true);
+            setLatestVersionName(data.versionName || 'v1.1');
+          }
+        }
+      } catch (err) {
+        console.log('Version check offline or not set up yet', err);
+      }
+    };
+    checkAppVersion();
+  }, []);
 
   const [currentUser, setCurrentUser] = useState(() => {
     const savedUser = sessionStorage.getItem('currentUser');
@@ -529,23 +548,17 @@ export default function FieldBookingApp() {
           setCurrentUser({ name: 'System Admin', role: 'admin', email: 'admin@gmail.com', uid: firebaseUser.uid });
           return;
         }
-        // User documents are normally keyed by Firebase Auth UID, so use one direct read first.
+        // Check users collection
         try {
-          const userDocSnap = await getDoc(doc(db, 'users', firebaseUser.uid));
-          if (userDocSnap.exists()) {
-            const uData = userDocSnap.data();
-            setCurrentUser({ name: uData.name, role: uData.role || 'user', email: uData.email || email, uid: firebaseUser.uid });
-            return;
-          }
-          // Compatibility fallback for older records that were not keyed by UID.
-          const userSnap = await getDocs(query(collection(db, 'users'), where('email', '==', email), limit(1)));
+          const userQuery = query(collection(db, 'users'), where('email', '==', email));
+          const userSnap = await getDocs(userQuery);
           if (!userSnap.empty) {
             const uData = userSnap.docs[0].data();
-            setCurrentUser({ name: uData.name, role: uData.role || 'user', email: uData.email || email, uid: firebaseUser.uid });
+            setCurrentUser({ name: uData.name, role: uData.role || 'user', email: uData.email, uid: firebaseUser.uid });
             return;
           }
           // Check fields collection for owner
-          const fieldSnap = await getDocs(query(collection(db, 'fields'), where('ownerEmail', '==', email), limit(1)));
+          const fieldSnap = await getDocs(query(collection(db, 'fields'), where('ownerEmail', '==', email)));
           if (!fieldSnap.empty) {
             const fData = fieldSnap.docs[0].data();
             if (fData.ownerStatus !== 'Disabled') {
@@ -574,22 +587,17 @@ export default function FieldBookingApp() {
       return undefined;
     }
 
-    let unsubUsers = () => {};
-    if (currentUser.role === 'admin') {
-      unsubUsers = onSnapshot(collection(db, "users"), (snapshot) => {
-        setUsersList(snapshot.docs.map(d => ({ id: d.id, ...d.data() })));
-      });
-    } else {
-      setUsersList(defaultUsers);
-    }
+    const unsubUsers = onSnapshot(collection(db, "users"), (snapshot) => {
+      setUsersList(snapshot.docs.map(d => ({ id: d.id, ...d.data() })));
+    });
 
     const unsubFields = onSnapshot(collection(db, "fields"), (snapshot) => {
       if (!snapshot.empty) {
         setFields(snapshot.docs.map(d => ({ id: d.id, ...d.data() })));
       } else if (currentUser.role === 'admin') {
-        const seedBatch = writeBatch(db);
-        defaultFields.forEach((f) => seedBatch.set(doc(db, "fields", f.id), f));
-        seedBatch.commit().catch((error) => console.error('Default field seed failed:', error));
+        defaultFields.forEach(async (f) => {
+          await setDoc(doc(db, "fields", f.id), f);
+        });
       }
     });
 
@@ -727,11 +735,9 @@ export default function FieldBookingApp() {
     setSmsNotifications(prev => prev.map(n => ({ ...n, read: true })));
 
     try {
-      const readBatch = writeBatch(db);
-      unreadNotis.forEach((n) => {
-        readBatch.update(doc(db, "notifications", n.id), { read: true });
-      });
-      await readBatch.commit();
+      for (const n of unreadNotis) {
+        await updateDoc(doc(db, "notifications", n.id), { read: true });
+      }
     } catch (error) {
       console.error("Error updating notification read status: ", error);
     }
@@ -3589,20 +3595,18 @@ export default function FieldBookingApp() {
                         onClick={async () => {
                           if (window.confirm('ရက်လွန်/ဟောင်းနေသော Booking အားလုံးကို ဖျက်ဆီးရန် သေချာပါသလား?')) {
                             try {
-                              const today = new Date();
-                              const todayKey = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
-                              const [expiredDateSnap, rejectedSnap] = await Promise.all([
-                                getDocs(query(collection(db, 'bookings'), where('date', '<=', todayKey))),
-                                getDocs(query(collection(db, 'bookings'), where('status', '==', 'Rejected'), limit(500)))
-                              ]);
-                              const candidateDocs = new Map();
-                              [...expiredDateSnap.docs, ...rejectedSnap.docs].forEach((dSnap) => candidateDocs.set(dSnap.id, dSnap));
-                              const bookingRefs = [...candidateDocs.values()]
-                                .filter((dSnap) => isBookingExpired(dSnap.data()) || dSnap.data().status === 'Rejected')
-                                .map((dSnap) => doc(db, 'bookings', dSnap.id));
-                              await deleteRefsInBatches(bookingRefs);
-                              setHistoryRefreshToken((token) => token + 1);
-                              alert(`${bookingRefs.length} ခုသော ရက်လွန်/Reject ဖြစ်ပြီးသော Booking များ ကို အောင်မြင်စွာ ဖျက်ဆီးပြီးပါပြီ။`);
+                              const qSnap = await getDocs(collection(db, 'bookings'));
+                              let count = 0;
+                              for (const dSnap of qSnap.docs) {
+                                const bData = dSnap.data();
+                                const expired = isBookingExpired(bData) || bData.status === 'Rejected';
+                                if (expired) {
+                                  await deleteDoc(doc(db, 'bookings', dSnap.id));
+                                  count++;
+                                }
+                              }
+                              alert(`${count} ခုသော ရက်လွန်/Reject ဖြစ်ပြီးသော Booking များ ကို အောင်မြင်စွာ ဖျက်ဆီးပြီးပါပြီ။`);
+                              window.location.reload();
                             } catch (err) {
                               console.error(err);
                               alert('Booking ရှင်းလင်းရာတွင် အမှားအယွင်းရှိပါသည်။');
@@ -3637,7 +3641,7 @@ export default function FieldBookingApp() {
                               const cutoffTargetTime = new Date(cY, cM - 1, cD).getTime();
 
                               const qSnap = await getDocs(collection(db, 'notifications'));
-                              const notificationRefsToDelete = [];
+                              let count = 0;
                               for (const dSnap of qSnap.docs) {
                                 const nData = dSnap.data();
                                 let match = false;
@@ -3675,11 +3679,13 @@ export default function FieldBookingApp() {
                                   }
                                 }
 
-                                if (match) notificationRefsToDelete.push(doc(db, 'notifications', dSnap.id));
+                                if (match) {
+                                  await deleteDoc(doc(db, 'notifications', dSnap.id));
+                                  count++;
+                                }
                               }
-                              await deleteRefsInBatches(notificationRefsToDelete);
-                              setSmsNotifications((previous) => previous.filter((item) => !notificationRefsToDelete.some((ref) => ref.id === item.id)));
-                              alert(`အောင်မြင်ပါသည်! Firebase မှ Notification ${notificationRefsToDelete.length} ခုကို အပြီးအပိုင် ဖျက်ဆီးပြီးပါပြီ။`);
+                              alert(`အောင်မြင်ပါသည်! Firebase မှ Notification ${count} ခုကို အပြီးအပိုင် ဖျက်ဆီးပြီးပါပြီ။`);
+                              window.location.reload();
                             } catch (err) {
                               console.error(err);
                               alert('Notification ဖျက်ဆီးရာတွင် အမှားအယွင်းရှိပါသည်။');
@@ -3712,14 +3718,18 @@ export default function FieldBookingApp() {
                           }
                           if (window.confirm(`${targetDate} ရက်စွဲပါရှိသော Booking အားလုံးကို Firebase မှ အပြီးအပိုင် ဖျက်ဆီးရန် သေချာပါသလား?`)) {
                             try {
-                              const qSnap = await getDocs(query(
-                                collection(db, 'bookings'),
-                                where('date', '==', targetDate)
-                              ));
-                              const bookingRefs = qSnap.docs.map((dSnap) => doc(db, 'bookings', dSnap.id));
-                              await deleteRefsInBatches(bookingRefs);
-                              setHistoryRefreshToken((token) => token + 1);
-                              alert(`အောင်မြင်ပါသည်! ရက်စွဲ ${targetDate} ပါ Bookings ${bookingRefs.length} ခုကို Firebase မှ ဖျက်ဆီးပြီးပါပြီ။`);
+                              const qSnap = await getDocs(collection(db, 'bookings'));
+                              let count = 0;
+                              for (const dSnap of qSnap.docs) {
+                                const bData = dSnap.data();
+                                const bDate = String(bData.date || '').trim();
+                                if (bDate === targetDate) {
+                                  await deleteDoc(doc(db, 'bookings', dSnap.id));
+                                  count++;
+                                }
+                              }
+                              alert(`အောင်မြင်ပါသည်! ရက်စွဲ ${targetDate} ပါ Bookings ${count} ခုကို Firebase မှ ဖျက်ဆီးပြီးပါပြီ။`);
+                              window.location.reload();
                             } catch (err) {
                               console.error(err);
                               alert('Booking များကို ဖျက်ဆီးရာတွင် အမှားအယွင်းရှိပါသည်။');
