@@ -1037,24 +1037,14 @@ export default function FieldBookingApp() {
           } catch (storageError) {
             console.warn('Username login cache unavailable.', storageError);
           }
-          if (!matchedUser && !matchedField) {
-            const userKeySnapshot = await getDocs(query(collection(db, 'users'), where('usernameKey', '==', loginKey), limit(1)));
-            if (!userKeySnapshot.empty) matchedUser = userKeySnapshot.docs[0].data();
-          }
-          if (!matchedUser && !matchedField) {
-            const legacyUserSnapshot = await getDocs(query(collection(db, 'users'), where('name', '==', rawInput.trim()), limit(1)));
-            if (!legacyUserSnapshot.empty) matchedUser = legacyUserSnapshot.docs[0].data();
-          }
-          if (!matchedUser && !matchedField) {
-            const fieldSnapshot = await getDocs(collection(db, 'fields'));
-            const fieldRecords = fieldSnapshot.docs.map((snapshot) => ({ id: snapshot.id, ...snapshot.data() }));
-            matchedField = fieldRecords.find((field) => String(field.name || '').trim().toLowerCase() === loginKey || String(field.ownerEmail || '').split('@')[0].toLowerCase() === loginKey);
-          }
           if (matchedUser?.email) {
             loginEmail = matchedUser.email;
           } else if (matchedField?.ownerEmail) {
             loginEmail = matchedField.ownerEmail;
           } else {
+            // New User signups always use this deterministic Firebase Auth email.
+            // Do not read private Firestore collections before authentication:
+            // that causes Phone-only delays/permission failures and is unnecessary.
             loginEmail = `${loginKey}_user@gmail.com`;
           }
         }
