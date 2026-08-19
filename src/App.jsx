@@ -1031,40 +1031,31 @@ export default function FieldBookingApp() {
           const loginKey = rawInput.trim().toLowerCase();
           let matchedUser = usersList.find(u => String(u.name || '').trim().toLowerCase() === loginKey || String(u.usernameKey || '').trim().toLowerCase() === loginKey);
           let matchedField = fields.find(f => String(f.name || '').trim().toLowerCase() === loginKey || (f.ownerEmail && f.ownerEmail.split('@')[0].toLowerCase() === loginKey));
-          if (!matchedUser) {
-            const keyedUserSnapshot = await getDocs(query(collection(db, 'users'), where('usernameKey', '==', loginKey), limit(1)));
-            if (!keyedUserSnapshot.empty) matchedUser = keyedUserSnapshot.docs[0].data();
-          }
-          if (!matchedUser) {
-            const exactNameSnapshot = await getDocs(query(collection(db, 'users'), where('name', '==', rawInput.trim()), limit(1)));
-            if (!exactNameSnapshot.empty) matchedUser = exactNameSnapshot.docs[0].data();
+          try {
+            const cachedEmail = localStorage.getItem(`userLoginEmail:${loginKey}`);
+            if (!matchedUser?.email && cachedEmail) matchedUser = { email: cachedEmail };
+          } catch (storageError) {
+            console.warn('Username login cache unavailable.', storageError);
           }
           if (!matchedUser && !matchedField) {
-            // Legacy records may differ in capitalization and may use a real
-            // Firebase email such as myo@gmail.com. Read the small user/field
-            // catalogs once and resolve the actual stored email.
-            const [userSnapshot, fieldSnapshot] = await Promise.all([
-              getDocs(collection(db, 'users')),
-              getDocs(collection(db, 'fields'))
-            ]);
-            if (!userSnapshot.empty) {
-              const userRecord = userSnapshot.docs
-                .map((snapshot) => ({ id: snapshot.id, ...snapshot.data() }))
-                .find((user) => String(user.name || '').trim().toLowerCase() === loginKey || String(user.usernameKey || '').trim().toLowerCase() === loginKey || String(user.email || '').split('@')[0].toLowerCase() === loginKey);
-              if (userRecord) matchedUser = userRecord;
-            }
-            if (!fieldSnapshot.empty) {
-              matchedField = fieldSnapshot.docs
-                .map((snapshot) => ({ id: snapshot.id, ...snapshot.data() }))
-                .find((field) => String(field.name || '').trim().toLowerCase() === loginKey || String(field.ownerEmail || '').split('@')[0].toLowerCase() === loginKey);
-            }
+            const userKeySnapshot = await getDocs(query(collection(db, 'users'), where('usernameKey', '==', loginKey), limit(1)));
+            if (!userKeySnapshot.empty) matchedUser = userKeySnapshot.docs[0].data();
+          }
+          if (!matchedUser && !matchedField) {
+            const legacyUserSnapshot = await getDocs(query(collection(db, 'users'), where('name', '==', rawInput.trim()), limit(1)));
+            if (!legacyUserSnapshot.empty) matchedUser = legacyUserSnapshot.docs[0].data();
+          }
+          if (!matchedUser && !matchedField) {
+            const fieldSnapshot = await getDocs(collection(db, 'fields'));
+            const fieldRecords = fieldSnapshot.docs.map((snapshot) => ({ id: snapshot.id, ...snapshot.data() }));
+            matchedField = fieldRecords.find((field) => String(field.name || '').trim().toLowerCase() === loginKey || String(field.ownerEmail || '').split('@')[0].toLowerCase() === loginKey);
           }
           if (matchedUser?.email) {
             loginEmail = matchedUser.email;
           } else if (matchedField?.ownerEmail) {
             loginEmail = matchedField.ownerEmail;
           } else {
-            loginEmail = `${loginEmail}_user@gmail.com`;
+            loginEmail = `${loginKey}_user@gmail.com`;
           }
         }
       }
@@ -1127,6 +1118,11 @@ export default function FieldBookingApp() {
       const userCredential = await createUserWithEmailAndPassword(auth, signupEmail, signupPassword);
       await setDoc(doc(db, "users", userCredential.user.uid), newUserObj);
       setUsersList(prev => [...prev, { id: userCredential.user.uid, ...newUserObj }]);
+      try {
+        localStorage.setItem(`userLoginEmail:${usernameKey}`, signupEmail);
+      } catch (storageError) {
+        console.warn('Unable to save username login mapping on this device.', storageError);
+      }
       // Firebase signs a newly-created account in automatically. Explicitly
       // sign it out so Signup never opens the app without a deliberate Login.
       await signOut(auth);
@@ -2356,11 +2352,11 @@ export default function FieldBookingApp() {
                 />
               </div>
               <div>
-                <label className="block text-xs font-bold text-gray-700 mb-1">Password (ဂဏန်းသီးသန့်)</label>
+                <label className="block text-xs font-bold text-gray-700 mb-1">Password</label>
                 <div className="relative">
                   <input 
                     type={showLoginPassword ? 'text' : 'password'} 
-                    placeholder="ဂဏန်းများသာ (ဥပမာ - 123456)" 
+                    placeholder="ဥပမာ - pass-123456" 
                     autoComplete="current-password"
                     value={password} 
                     onChange={(e) => setPassword(e.target.value)} 
@@ -2402,18 +2398,13 @@ export default function FieldBookingApp() {
                 />
               </div>
               <div>
-                <label className="block text-xs font-bold text-gray-700 mb-1">Password (ဂဏန်းသီးသန့်)</label>
+                <label className="block text-xs font-bold text-gray-700 mb-1">Password (အနည်းဆုံး ၆ လုံး)</label>
                 <div className="relative">
                   <input 
-                    type={showSignupPassword ? 'text' : 'password'} 
-                    inputMode="numeric"
-                    pattern="[0-9]*"
-                    placeholder="ဂဏန်းများသာ (ဥပမာ - 123456)" 
+                    type={showSignupPassword ? 'text' : 'password'}
+                    placeholder="ဥပမာ - pass-123456" 
                     value={signupPassword} 
-                    onChange={(e) => {
-                      const numericValue = e.target.value.replace(/[^0-9]/g, '');
-                      setSignupPassword(numericValue);
-                    }} 
+                    onChange={(e) => setSignupPassword(e.target.value)} 
                     className="w-full border rounded-lg p-2.5 pr-12 text-sm bg-gray-50 focus:bg-white focus:outline-none focus:border-emerald-600 font-mono" 
                     required 
                   />
