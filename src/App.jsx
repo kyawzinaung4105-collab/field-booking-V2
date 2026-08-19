@@ -587,9 +587,9 @@ export default function FieldBookingApp() {
       if (!snapshot.empty) {
         setFields(snapshot.docs.map(d => ({ id: d.id, ...d.data() })));
       } else if (currentUser.role === 'admin') {
-        defaultFields.forEach(async (f) => {
-          await setDoc(doc(db, "fields", f.id), f);
-        });
+        const seedBatch = writeBatch(db);
+        defaultFields.forEach((f) => seedBatch.set(doc(db, "fields", f.id), f));
+        seedBatch.commit().catch((error) => console.error('Default field seed failed:', error));
       }
     });
 
@@ -727,9 +727,11 @@ export default function FieldBookingApp() {
     setSmsNotifications(prev => prev.map(n => ({ ...n, read: true })));
 
     try {
-      for (const n of unreadNotis) {
-        await updateDoc(doc(db, "notifications", n.id), { read: true });
-      }
+      const readBatch = writeBatch(db);
+      unreadNotis.forEach((n) => {
+        readBatch.update(doc(db, "notifications", n.id), { read: true });
+      });
+      await readBatch.commit();
     } catch (error) {
       console.error("Error updating notification read status: ", error);
     }
