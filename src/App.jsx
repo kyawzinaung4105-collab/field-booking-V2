@@ -165,9 +165,9 @@ const getSubscriptionMeta = (field, now = new Date()) => {
   const daysRemaining = Math.ceil((endDay.getTime() - today.getTime()) / 86400000);
   return {
     hasSubscription: true,
-    expired: daysRemaining < 0,
+    expired: daysRemaining <= 0,
     daysRemaining,
-    warning: daysRemaining >= 0 && daysRemaining <= 7
+    warning: daysRemaining > 0 && daysRemaining <= 7
   };
 };
 
