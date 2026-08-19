@@ -65,7 +65,9 @@ const generateSingleTimeSlots = (openHour, closeHour, includeClosingTime = false
 // Payment screenshots must be available to the Owner on another device, so keep an
 // optimized image data URL in the booking document instead of only keeping the
 // temporary File object from the browser input.
-const HISTORY_PAGE_SIZE = 50;
+const HISTORY_PAGE_SIZE = 20;
+const NOTIFICATION_PAGE_SIZE = 20;
+const NOTIFICATION_QUERY_LIMIT = 100;
 const REMEMBERED_LOGIN_STORAGE_KEY = 'fieldBookingRememberedLogin';
 
 const deleteRefsInBatches = async (refs, batchSize = 450) => {
@@ -371,6 +373,7 @@ export default function FieldBookingApp() {
   const [historyRefreshToken, setHistoryRefreshToken] = useState(0);
   const [reportBookings, setReportBookings] = useState([]);
   const [smsNotifications, setSmsNotifications] = useState([]);
+  const [notificationPage, setNotificationPage] = useState(0);
   const [showNotiDropdown, setShowNotiDropdown] = useState(false);
 
   // Notification Filter state for Admin Page
@@ -638,10 +641,12 @@ export default function FieldBookingApp() {
       }
     });
 
+    const currentYearStartTime = new Date(new Date().getFullYear(), 0, 1).getTime();
     const recentNotificationsQuery = query(
       collection(db, 'notifications'),
+      where('createdAtTime', '>=', currentYearStartTime),
       orderBy('createdAtTime', 'desc'),
-      limit(500)
+      limit(NOTIFICATION_QUERY_LIMIT)
     );
     const unsubNoti = onSnapshot(recentNotificationsQuery, (snapshot) => {
       const rawNotis = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
@@ -772,9 +777,11 @@ export default function FieldBookingApp() {
     setSmsNotifications(prev => prev.map(n => ({ ...n, read: true })));
 
     try {
-      for (const n of unreadNotis) {
-        await updateDoc(doc(db, "notifications", n.id), { read: true });
-      }
+      const batch = writeBatch(db);
+      unreadNotis.forEach((notification) => {
+        batch.update(doc(db, 'notifications', notification.id), { read: true });
+      });
+      await batch.commit();
     } catch (error) {
       console.error("Error updating notification read status: ", error);
     }
@@ -791,6 +798,10 @@ export default function FieldBookingApp() {
       document.removeEventListener('mousedown', handleClickOutside);
     };
   }, []);
+
+  useEffect(() => {
+    setNotificationPage(0);
+  }, [notiFilterType, adminNotiDate, adminNotiFieldId, ownerNotiFilterType, ownerNotiDate, ownerNotiFieldId]);
 
   const normalizedCurrentEmail = String(currentUser?.email || '').trim().toLowerCase();
   const ownerFieldIds = fields
@@ -1953,6 +1964,50 @@ export default function FieldBookingApp() {
       : String(b.id || '').localeCompare(String(a.id || ''));
   });
 
+  const adminFilteredNotifications = sortedNotifications.filter((notification) => {
+    if (notiFilterType !== 'all' && notification.type !== notiFilterType) return false;
+    if (adminNotiFieldId !== 'all' && notification.fieldId && notification.fieldId !== adminNotiFieldId) return false;
+    if (adminNotiDate && notification.date !== adminNotiDate) return false;
+    return true;
+  });
+  const ownerNotificationFieldIds = fields
+    .filter((field) => (
+      field.ownerEmail === currentUser?.email
+      || field.ownerEmail?.toLowerCase() === currentUser?.email?.toLowerCase()
+      || field.ownerUid === currentUser?.uid
+      || field.ownerId === currentUser?.uid
+    ))
+    .map((field) => field.id);
+  const ownerFilteredNotifications = sortedNotifications.filter((notification) => {
+    const isBookingRelated = notification.type === 'booking'
+      || notification.subType === 'new_booking'
+      || notification.subType === 'booking_pending'
+      || notification.subType === 'booking_reject';
+    if (!isBookingRelated) return false;
+    if (notification.fieldId && !ownerNotificationFieldIds.includes(notification.fieldId)) return false;
+    if (ownerNotiFieldId !== 'all' && notification.fieldId && notification.fieldId !== ownerNotiFieldId) return false;
+    if (ownerNotiDate && notification.date !== ownerNotiDate) return false;
+    if (ownerNotiFilterType === 'all') {
+      return notification.subType === 'new_booking'
+        || notification.subType === 'booking_pending'
+        || notification.subType === 'booking_reject'
+        || !notification.subType;
+    }
+    return notification.subType === ownerNotiFilterType;
+  });
+  const notificationPageItems = sortedNotifications.slice(
+    notificationPage * NOTIFICATION_PAGE_SIZE,
+    (notificationPage + 1) * NOTIFICATION_PAGE_SIZE
+  );
+  const adminNotificationPageItems = adminFilteredNotifications.slice(
+    notificationPage * NOTIFICATION_PAGE_SIZE,
+    (notificationPage + 1) * NOTIFICATION_PAGE_SIZE
+  );
+  const ownerNotificationPageItems = ownerFilteredNotifications.slice(
+    notificationPage * NOTIFICATION_PAGE_SIZE,
+    (notificationPage + 1) * NOTIFICATION_PAGE_SIZE
+  );
+
   const getBookingStatusKey = (booking) => String(booking?.status || 'Pending').trim().toLowerCase();
   const getBookingDurationHours = (booking) => {
     const start = Number(booking?.startHour);
@@ -2804,7 +2859,7 @@ export default function FieldBookingApp() {
                       {sortedNotifications.length === 0 ? (
                         <p className="text-xs text-gray-500 text-center py-4">အကြောင်းကြားစာ မရှိသေးပါ။</p>
                       ) : (
-                        sortedNotifications.map(n => {
+                        notificationPageItems.map(n => {
                           const isRejected = n.subType === 'booking_reject' || /reject/i.test(n.message || '');
                           return (
                             <div key={n.id} className={`text-xs p-2.5 rounded-lg border-l-4 shadow-sm ${isRejected ? 'bg-red-50 border-red-500' : 'bg-gray-50 border-emerald-600'}`}>
@@ -3168,22 +3223,8 @@ export default function FieldBookingApp() {
                 </div>
 
                 <div className="space-y-3">
-                  {smsNotifications
-                    .filter(n => {
-                      if (notiFilterType !== 'all' && n.type !== notiFilterType) return false;
-                      if (adminNotiFieldId !== 'all' && n.fieldId && n.fieldId !== adminNotiFieldId) return false;
-                      if (adminNotiDate && n.date !== adminNotiDate) return false;
-                      return true;
-                    })
-                    .length > 0 ? (
-                      sortedNotifications
-                        .filter(n => {
-                          if (notiFilterType !== 'all' && n.type !== notiFilterType) return false;
-                          if (adminNotiFieldId !== 'all' && n.fieldId && n.fieldId !== adminNotiFieldId) return false;
-                          if (adminNotiDate && n.date !== adminNotiDate) return false;
-                          return true;
-                        })
-                        .map(n => (
+                  {adminFilteredNotifications.length > 0 ? (
+                      adminNotificationPageItems.map(n => (
                           <div key={n.id} className="bg-white border rounded-xl p-4 shadow-sm flex justify-between items-start">
                             <div>
                               <p className="text-sm font-medium text-gray-800">{n.message}</p>
@@ -3203,6 +3244,13 @@ export default function FieldBookingApp() {
                       <p className="text-center py-12 text-gray-500 text-sm">ရွေးချယ်ထားသော Filter (ကွင်း၊ ရက်စွဲ၊ အမျိုးအစား) နှင့် ကိုက်ညီသော Notifications များ မရှိသေးပါ။</p>
                     )}
                 </div>
+                {adminFilteredNotifications.length > NOTIFICATION_PAGE_SIZE && (
+                  <div className="mt-4 flex items-center justify-center gap-3">
+                    <button type="button" disabled={notificationPage === 0} onClick={() => setNotificationPage((page) => Math.max(0, page - 1))} className="rounded-lg bg-white px-3 py-2 text-xs font-bold shadow-sm disabled:opacity-40">← Previous</button>
+                    <span className="text-xs font-bold text-gray-500">Page {notificationPage + 1}</span>
+                    <button type="button" disabled={(notificationPage + 1) * NOTIFICATION_PAGE_SIZE >= adminFilteredNotifications.length} onClick={() => setNotificationPage((page) => page + 1)} className="rounded-lg bg-white px-3 py-2 text-xs font-bold shadow-sm disabled:opacity-40">Next →</button>
+                  </div>
+                )}
               </div>
             )}
 
@@ -3986,40 +4034,8 @@ export default function FieldBookingApp() {
                 </div>
 
                 <div className="space-y-3">
-                  {smsNotifications
-                    .filter(n => {
-                      const isBookingRelated = n.type === 'booking' || n.subType === 'new_booking' || n.subType === 'booking_pending' || n.subType === 'booking_reject';
-                      if (!isBookingRelated) return false;
-
-                      const myFieldIds = fields.filter(f => (f.ownerEmail === currentUser.email || f.ownerEmail?.toLowerCase() === currentUser.email?.toLowerCase() || f.ownerUid === currentUser.uid || f.ownerId === currentUser.uid)).map(f => f.id);
-                      if (n.fieldId && !myFieldIds.includes(n.fieldId)) return false;
-                      if (ownerNotiFieldId !== 'all' && n.fieldId && n.fieldId !== ownerNotiFieldId) return false;
-
-                      if (ownerNotiDate && n.date !== ownerNotiDate) return false;
-
-                      if (ownerNotiFilterType === 'all') {
-                        return n.subType === 'new_booking' || n.subType === 'booking_pending' || n.subType === 'booking_reject' || !n.subType;
-                      }
-                      return n.subType === ownerNotiFilterType;
-                    })
-                    .length > 0 ? (
-                      sortedNotifications
-                        .filter(n => {
-                          const isBookingRelated = n.type === 'booking' || n.subType === 'new_booking' || n.subType === 'booking_pending' || n.subType === 'booking_reject';
-                          if (!isBookingRelated) return false;
-
-                          const myFieldIds = fields.filter(f => (f.ownerEmail === currentUser.email || f.ownerEmail?.toLowerCase() === currentUser.email?.toLowerCase() || f.ownerUid === currentUser.uid || f.ownerId === currentUser.uid)).map(f => f.id);
-                          if (n.fieldId && !myFieldIds.includes(n.fieldId)) return false;
-                          if (ownerNotiFieldId !== 'all' && n.fieldId && n.fieldId !== ownerNotiFieldId) return false;
-
-                          if (ownerNotiDate && n.date !== ownerNotiDate) return false;
-
-                          if (ownerNotiFilterType === 'all') {
-                            return n.subType === 'new_booking' || n.subType === 'booking_pending' || n.subType === 'booking_reject' || !n.subType;
-                          }
-                          return n.subType === ownerNotiFilterType;
-                        })
-                        .map(n => (
+                  {ownerFilteredNotifications.length > 0 ? (
+                      ownerNotificationPageItems.map(n => (
                           <div key={n.id} className="bg-white border rounded-xl p-4 shadow-sm flex justify-between items-start">
                             <div>
                               <p className="text-sm font-medium text-gray-800">{n.message}</p>
@@ -4039,6 +4055,13 @@ export default function FieldBookingApp() {
                       <p className="text-center py-12 text-gray-500 text-sm">ရွေးချယ်ထားသော Filter နှင့် ကိုက်ညီသော Notifications များ မရှိသေးပါ။</p>
                     )}
                 </div>
+                {ownerFilteredNotifications.length > NOTIFICATION_PAGE_SIZE && (
+                  <div className="mt-4 flex items-center justify-center gap-3">
+                    <button type="button" disabled={notificationPage === 0} onClick={() => setNotificationPage((page) => Math.max(0, page - 1))} className="rounded-lg bg-white px-3 py-2 text-xs font-bold shadow-sm disabled:opacity-40">← Previous</button>
+                    <span className="text-xs font-bold text-gray-500">Page {notificationPage + 1}</span>
+                    <button type="button" disabled={(notificationPage + 1) * NOTIFICATION_PAGE_SIZE >= ownerFilteredNotifications.length} onClick={() => setNotificationPage((page) => page + 1)} className="rounded-lg bg-white px-3 py-2 text-xs font-bold shadow-sm disabled:opacity-40">Next →</button>
+                  </div>
+                )}
               </div>
             )}
 
