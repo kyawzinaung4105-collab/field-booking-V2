@@ -358,7 +358,7 @@ export default function FieldBookingApp() {
   };
 
   const [usersList, setUsersList] = useState(defaultUsers);
-  const [fields, setFields] = useState(defaultFields);
+  const [fields, setFields] = useState([]);
   const [bookings, setBookings] = useState([]);
   // `bookings` is reserved for the small real-time availability window only.
   // History and reports use bounded server queries below instead of loading every booking.
@@ -614,7 +614,7 @@ export default function FieldBookingApp() {
   useEffect(() => {
     if (!currentUser?.uid) {
       setUsersList(defaultUsers);
-      setFields(defaultFields);
+      setFields([]);
       setSmsNotifications([]);
       return undefined;
     }
@@ -3596,7 +3596,7 @@ export default function FieldBookingApp() {
                 <h3 className="text-base font-bold mb-4 text-gray-800">🔑 Owner အကောင့်များနှင့် Status များ စီမံရန်</h3>
                 <div className="space-y-4">
                   {fields.map(f => (
-                    <div key={f.id} className="bg-gray-50 border rounded-xl p-4 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                    <div key={`${f.id}_${f.ownerEmail || ''}_${f.ownerPassword || ''}_${f.ownerStatus || ''}_${f.subscriptionStartDate || ''}_${f.subscriptionEndDate || ''}`} className="bg-gray-50 border rounded-xl p-4 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                       <div className="min-w-0">
                         <h4 className="font-bold text-sm text-gray-800">{f.name} ({f.location})</h4>
                         <p className="text-xs text-gray-500">Current Owner Email: {f.ownerEmail || 'None'}</p>
