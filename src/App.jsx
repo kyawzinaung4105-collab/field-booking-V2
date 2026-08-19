@@ -1913,7 +1913,7 @@ export default function FieldBookingApp() {
 
   const activeFieldsForUser = fields.filter(f => {
     const status = f.ownerStatus ? f.ownerStatus.trim().toLowerCase() : '';
-    return status !== 'disabled';
+    return status !== 'disabled' && !isSubscriptionExpired(f);
   });
 
   const baseFieldsList = currentUser?.role === 'owner'
