@@ -710,8 +710,12 @@ export default function FieldBookingApp() {
       if (!snapshot.empty) {
         setFields(snapshot.docs.map(d => ({ id: d.id, ...d.data() })));
       } else if (currentUser.role === 'admin') {
-        defaultFields.forEach(async (f) => {
-          await setDoc(doc(db, "fields", f.id), f);
+        // Seed defaults once with one commit. This preserves every document but
+        // avoids one network round-trip per default field.
+        const seedBatch = writeBatch(db);
+        defaultFields.forEach((f) => seedBatch.set(doc(db, "fields", f.id), f));
+        seedBatch.commit().catch((error) => {
+          console.error('Unable to seed default fields:', error);
         });
       }
     });
@@ -1904,6 +1908,19 @@ export default function FieldBookingApp() {
       subscriptionEndDate: endDate || null,
       subscriptionDuration: getSubscriptionDurationLabel(startDate, endDate)
     };
+    const currentField = fields.find((field) => field.id === fieldId);
+    const currentOwnerData = currentField ? {
+      ownerEmail: currentField.ownerEmail || null,
+      ownerPassword: currentField.ownerPassword || null,
+      ownerStatus: currentField.ownerStatus || null,
+      subscriptionStartDate: currentField.subscriptionStartDate || null,
+      subscriptionEndDate: currentField.subscriptionEndDate || null,
+      subscriptionDuration: currentField.subscriptionDuration || getSubscriptionDurationLabel(currentField.subscriptionStartDate, currentField.subscriptionEndDate)
+    } : null;
+    if (currentOwnerData && JSON.stringify(currentOwnerData) === JSON.stringify(updatedData)) {
+      alert('ပြောင်းလဲမှု မရှိသေးပါ။');
+      return;
+    }
     try {
       await updateDoc(doc(db, "fields", fieldId), updatedData);
       applyFieldUpdateToLocalState(fieldId, updatedData);
