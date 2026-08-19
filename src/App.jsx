@@ -300,11 +300,14 @@ export default function FieldBookingApp() {
 
   const [email, setEmail] = useState(() => readRememberedLogin().email);
   const [password, setPassword] = useState(() => readRememberedLogin().password);
+  const [showLoginPassword, setShowLoginPassword] = useState(false);
+  const [isLoggingIn, setIsLoggingIn] = useState(false);
   const [rememberLogin, setRememberLogin] = useState(() => readRememberedLogin().remember);
   
   const [authMode, setAuthMode] = useState('login'); 
   const [signupName, setSignupName] = useState('');
   const [signupPassword, setSignupPassword] = useState('');
+  const [showSignupPassword, setShowSignupPassword] = useState(false);
 
   const [myNewPassword, setMyNewPassword] = useState('');
   // The admin password is persisted in appConfig/settings and is loaded once at startup.
@@ -596,10 +599,10 @@ export default function FieldBookingApp() {
           const fieldSnap = await getDocs(query(collection(db, 'fields'), where('ownerEmail', '==', email), limit(1)));
           if (!fieldSnap.empty) {
             const fData = fieldSnap.docs[0].data();
-            if (fData.ownerStatus !== 'Disabled') {
-              setCurrentUser({ name: fData.name, role: 'owner', email: fData.ownerEmail, uid: firebaseUser.uid });
-              return;
-            }
+            // Disabled owners must still resolve as Owner so the existing
+            // logout-only Admin lock screen can render after successful Login.
+            setCurrentUser({ name: fData.name, role: 'owner', email: fData.ownerEmail, uid: firebaseUser.uid });
+            return;
           }
         } catch (err) {
           console.error("Error resolving auth role:", err);
@@ -1008,29 +1011,48 @@ export default function FieldBookingApp() {
 
   const handleLogin = async (e) => {
     e.preventDefault();
+    if (isLoggingIn) return;
     const rawInput = email.trim();
+    if (!rawInput || !password.trim()) {
+      alert('ကျေးဇူးပြု၍ Username နှင့် Password ကို ဖြည့်ပါ။');
+      return;
+    }
+    setIsLoggingIn(true);
     let loginEmail = rawInput.toLowerCase();
 
-    // Resolve username or owner name to email if needed
-    if (!loginEmail.includes('@')) {
-      if (loginEmail === 'admin') {
-        loginEmail = 'admin@gmail.com';
-      } else {
-        const matchedUser = usersList.find(u => u.name.toLowerCase() === loginEmail);
-        if (matchedUser) {
-          loginEmail = matchedUser.email;
+    try {
+      // Resolve username or owner name to email if needed. When the login page
+      // has not loaded its shared listeners yet, do a small one-time lookup so
+      // a correct username is not incorrectly converted to a non-existent email.
+      if (!loginEmail.includes('@')) {
+        if (loginEmail === 'admin') {
+          loginEmail = 'admin@gmail.com';
         } else {
-          const matchedField = fields.find(f => f.name.toLowerCase() === loginEmail || (f.ownerEmail && f.ownerEmail.split('@')[0].toLowerCase() === loginEmail));
-          if (matchedField) {
+          let matchedUser = usersList.find(u => String(u.name || '').trim().toLowerCase() === loginEmail);
+          let matchedField = fields.find(f => String(f.name || '').trim().toLowerCase() === loginEmail || (f.ownerEmail && f.ownerEmail.split('@')[0].toLowerCase() === loginEmail));
+          if (!matchedUser && !matchedField) {
+            const [userSnapshot, fieldSnapshot] = await Promise.all([
+              getDocs(query(collection(db, 'users'), where('name', '==', rawInput), limit(1))),
+              getDocs(collection(db, 'fields'))
+            ]);
+            if (!userSnapshot.empty) matchedUser = userSnapshot.docs[0].data();
+            if (!fieldSnapshot.empty) {
+              const loginKey = rawInput.trim().toLowerCase();
+              matchedField = fieldSnapshot.docs
+                .map((snapshot) => ({ id: snapshot.id, ...snapshot.data() }))
+                .find((field) => String(field.name || '').trim().toLowerCase() === loginKey || String(field.ownerEmail || '').split('@')[0].toLowerCase() === loginKey);
+            }
+          }
+          if (matchedUser?.email) {
+            loginEmail = matchedUser.email;
+          } else if (matchedField?.ownerEmail) {
             loginEmail = matchedField.ownerEmail;
           } else {
             loginEmail = `${loginEmail}_user@gmail.com`;
           }
         }
       }
-    }
 
-    try {
       await signInWithEmailAndPassword(auth, loginEmail, password);
       saveRememberedLogin();
       setActiveTab('fields');
@@ -1039,12 +1061,16 @@ export default function FieldBookingApp() {
     } catch (error) {
       console.error("Login error code:", error.code, "message:", error.message);
       if (error.code === 'auth/invalid-credential' || error.code === 'auth/wrong-password' || error.code === 'auth/user-not-found') {
-        alert('အကောင့် သို့မဟုတ် Password မှားယွင်းနေပါသည်။ Firebase တွင် ဤအကောင့်ရှိမရှိ သေချာစစ်ဆေးပါ။');
+        alert('Username သို့မဟုတ် Password မှားယွင်းနေပါသည်။ ထည့်ထားသောအချက်အလက်ကို ပြန်စစ်ပါ။');
       } else if (error.code === 'auth/invalid-email') {
-        alert('အီးမေးလ် ပုံစံ မှားယွင်းနေပါသည်။');
+        alert('Username/Email ပုံစံ မှားယွင်းနေပါသည်။');
+      } else if (error.code === 'auth/network-request-failed' || error.code === 'auth/timeout') {
+        alert('Internet ချိတ်ဆက်မှု မတည်ငြိမ်သေးပါ။ ခဏစောင့်ပြီး Login ပြန်နှိပ်ပါ။');
       } else {
-        alert(`Login ဝင်၍မရပါ: ${error.message}`);
+        alert(`Login ဝင်၍မရပါ: ${error.message || 'မသိရှိသောအမှား'}`);
       }
+    } finally {
+      setIsLoggingIn(false);
     }
   };
 
@@ -1101,6 +1127,8 @@ export default function FieldBookingApp() {
 
   const [oldPasswordInput, setOldPasswordInput] = useState('');
   const [newPasswordInput, setNewPasswordInput] = useState('');
+  const [showOldPassword, setShowOldPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
 
   const handleChangeMyPassword = async (e) => {
     e.preventDefault();
@@ -2304,15 +2332,18 @@ export default function FieldBookingApp() {
               </div>
               <div>
                 <label className="block text-xs font-bold text-gray-700 mb-1">Password</label>
-                <input 
-                  type="password" 
-                  placeholder="••••••" 
-                  autoComplete="current-password"
-                  value={password} 
-                  onChange={(e) => setPassword(e.target.value)} 
-                  className="w-full border rounded-lg p-2.5 text-sm bg-gray-50 focus:bg-white focus:outline-none focus:border-emerald-600" 
-                  required 
-                />
+                <div className="relative">
+                  <input 
+                    type={showLoginPassword ? 'text' : 'password'} 
+                    placeholder="••••••" 
+                    autoComplete="current-password"
+                    value={password} 
+                    onChange={(e) => setPassword(e.target.value)} 
+                    className="w-full border rounded-lg p-2.5 pr-12 text-sm bg-gray-50 focus:bg-white focus:outline-none focus:border-emerald-600" 
+                    required 
+                  />
+                  <button type="button" onClick={() => setShowLoginPassword((visible) => !visible)} className="absolute inset-y-0 right-0 px-3 text-gray-500 hover:text-emerald-700" aria-label={showLoginPassword ? 'Password ဖုံးမည်' : 'Password ပြမည်'}>{showLoginPassword ? '🙈' : '👁️'}</button>
+                </div>
               </div>
               <label className="flex cursor-pointer items-center gap-2 text-xs font-semibold text-gray-600 select-none">
                 <input
@@ -2327,7 +2358,7 @@ export default function FieldBookingApp() {
                 />
                 <span>Remember me (ဒီစက်မှာ မှတ်ထားမည်)</span>
               </label>
-              <button type="submit" className="w-full bg-emerald-600 text-white py-2.5 rounded-lg text-sm font-bold shadow hover:bg-emerald-700 transition-colors">Login ဝင်မည်</button>
+              <button type="submit" disabled={isLoggingIn} className="w-full bg-emerald-600 text-white py-2.5 rounded-lg text-sm font-bold shadow hover:bg-emerald-700 transition-colors disabled:cursor-wait disabled:opacity-60">{isLoggingIn ? 'Login ဝင်နေပါသည်...' : 'Login ဝင်မည်'}</button>
             </form>
           ) : (
             <form onSubmit={handleSignup} className="space-y-4">
@@ -2347,19 +2378,22 @@ export default function FieldBookingApp() {
               </div>
               <div>
                 <label className="block text-xs font-bold text-gray-700 mb-1">Password (ဂဏန်းသီးသန့်)</label>
-                <input 
-                  type="password" 
-                  inputMode="numeric"
-                  pattern="[0-9]*"
-                  placeholder="ဂဏန်းများသာ (ဥပမာ - 123456)" 
-                  value={signupPassword} 
-                  onChange={(e) => {
-                    const numericValue = e.target.value.replace(/[^0-9]/g, '');
-                    setSignupPassword(numericValue);
-                  }} 
-                  className="w-full border rounded-lg p-2.5 text-sm bg-gray-50 focus:bg-white focus:outline-none focus:border-emerald-600 font-mono" 
-                  required 
-                />
+                <div className="relative">
+                  <input 
+                    type={showSignupPassword ? 'text' : 'password'} 
+                    inputMode="numeric"
+                    pattern="[0-9]*"
+                    placeholder="ဂဏန်းများသာ (ဥပမာ - 123456)" 
+                    value={signupPassword} 
+                    onChange={(e) => {
+                      const numericValue = e.target.value.replace(/[^0-9]/g, '');
+                      setSignupPassword(numericValue);
+                    }} 
+                    className="w-full border rounded-lg p-2.5 pr-12 text-sm bg-gray-50 focus:bg-white focus:outline-none focus:border-emerald-600 font-mono" 
+                    required 
+                  />
+                  <button type="button" onClick={() => setShowSignupPassword((visible) => !visible)} className="absolute inset-y-0 right-0 px-3 text-gray-500 hover:text-emerald-700" aria-label={showSignupPassword ? 'Password ဖုံးမည်' : 'Password ပြမည်'}>{showSignupPassword ? '🙈' : '👁️'}</button>
+                </div>
               </div>
               <button type="submit" className="w-full bg-emerald-600 text-white py-2.5 rounded-lg text-sm font-bold shadow hover:bg-emerald-700 transition-colors">အကောင့်ဖန်တီးမည် (Sign Up)</button>
             </form>
@@ -3110,11 +3144,11 @@ export default function FieldBookingApp() {
                 <form onSubmit={handleChangeMyPassword} className="space-y-4">
                   <div>
                     <label className="block text-xs font-bold text-gray-700 mb-1">Password အဟောင်း (Current Password)</label>
-                    <input type="password" value={oldPasswordInput} onChange={(e) => setOldPasswordInput(e.target.value)} className="w-full border rounded-lg p-2.5 text-sm bg-white font-mono" required placeholder="••••••••" />
+                    <div className="relative"><input type={showOldPassword ? 'text' : 'password'} value={oldPasswordInput} onChange={(e) => setOldPasswordInput(e.target.value)} className="w-full border rounded-lg p-2.5 pr-12 text-sm bg-white font-mono" required placeholder="••••••••" /><button type="button" onClick={() => setShowOldPassword((visible) => !visible)} className="absolute inset-y-0 right-0 px-3 text-gray-500 hover:text-emerald-700" aria-label={showOldPassword ? 'Password ဖုံးမည်' : 'Password ပြမည်'}>{showOldPassword ? '🙈' : '👁️'}</button></div>
                   </div>
                   <div>
                     <label className="block text-xs font-bold text-gray-700 mb-1">Password အသစ် (New Password - အနည်းဆုံး ၆ လုံး)</label>
-                    <input type="password" value={newPasswordInput} onChange={(e) => setNewPasswordInput(e.target.value)} className="w-full border rounded-lg p-2.5 text-sm bg-white font-mono" required placeholder="••••••••" />
+                    <div className="relative"><input type={showNewPassword ? 'text' : 'password'} value={newPasswordInput} onChange={(e) => setNewPasswordInput(e.target.value)} className="w-full border rounded-lg p-2.5 pr-12 text-sm bg-white font-mono" required placeholder="••••••••" /><button type="button" onClick={() => setShowNewPassword((visible) => !visible)} className="absolute inset-y-0 right-0 px-3 text-gray-500 hover:text-emerald-700" aria-label={showNewPassword ? 'Password ဖုံးမည်' : 'Password ပြမည်'}>{showNewPassword ? '🙈' : '👁️'}</button></div>
                   </div>
                   <div className="flex items-center justify-between pt-2">
                     <button type="submit" className="bg-emerald-600 text-white px-4 py-2.5 rounded-lg text-xs font-bold hover:bg-emerald-700 transition">Password ပြောင်းမည်</button>
@@ -4071,11 +4105,11 @@ export default function FieldBookingApp() {
                 <form onSubmit={handleChangeMyPassword} className="space-y-4">
                   <div>
                     <label className="block text-xs font-bold text-gray-700 mb-1">Password အဟောင်း (Current Password)</label>
-                    <input type="password" value={oldPasswordInput} onChange={(e) => setOldPasswordInput(e.target.value)} className="w-full border rounded-lg p-2.5 text-sm bg-white font-mono" required placeholder="••••••••" />
+                    <div className="relative"><input type={showOldPassword ? 'text' : 'password'} value={oldPasswordInput} onChange={(e) => setOldPasswordInput(e.target.value)} className="w-full border rounded-lg p-2.5 pr-12 text-sm bg-white font-mono" required placeholder="••••••••" /><button type="button" onClick={() => setShowOldPassword((visible) => !visible)} className="absolute inset-y-0 right-0 px-3 text-gray-500 hover:text-emerald-700" aria-label={showOldPassword ? 'Password ဖုံးမည်' : 'Password ပြမည်'}>{showOldPassword ? '🙈' : '👁️'}</button></div>
                   </div>
                   <div>
                     <label className="block text-xs font-bold text-gray-700 mb-1">Password အသစ် (New Password - အနည်းဆုံး ၆ လုံး)</label>
-                    <input type="password" value={newPasswordInput} onChange={(e) => setNewPasswordInput(e.target.value)} className="w-full border rounded-lg p-2.5 text-sm bg-white font-mono" required placeholder="••••••••" />
+                    <div className="relative"><input type={showNewPassword ? 'text' : 'password'} value={newPasswordInput} onChange={(e) => setNewPasswordInput(e.target.value)} className="w-full border rounded-lg p-2.5 pr-12 text-sm bg-white font-mono" required placeholder="••••••••" /><button type="button" onClick={() => setShowNewPassword((visible) => !visible)} className="absolute inset-y-0 right-0 px-3 text-gray-500 hover:text-emerald-700" aria-label={showNewPassword ? 'Password ဖုံးမည်' : 'Password ပြမည်'}>{showNewPassword ? '🙈' : '👁️'}</button></div>
                   </div>
                   <div className="flex items-center justify-between pt-2">
                     <button type="submit" className="bg-emerald-600 text-white px-4 py-2.5 rounded-lg text-xs font-bold hover:bg-emerald-700 transition">Password ပြောင်းမည်</button>
@@ -5048,11 +5082,11 @@ export default function FieldBookingApp() {
                 <form onSubmit={handleChangeMyPassword} className="space-y-4">
                   <div>
                     <label className="block text-xs font-bold text-gray-700 mb-1">Password အဟောင်း (Current Password)</label>
-                    <input type="password" value={oldPasswordInput} onChange={(e) => setOldPasswordInput(e.target.value)} className="w-full border rounded-lg p-2.5 text-sm bg-white font-mono" required placeholder="••••••••" />
+                    <div className="relative"><input type={showOldPassword ? 'text' : 'password'} value={oldPasswordInput} onChange={(e) => setOldPasswordInput(e.target.value)} className="w-full border rounded-lg p-2.5 pr-12 text-sm bg-white font-mono" required placeholder="••••••••" /><button type="button" onClick={() => setShowOldPassword((visible) => !visible)} className="absolute inset-y-0 right-0 px-3 text-gray-500 hover:text-emerald-700" aria-label={showOldPassword ? 'Password ဖုံးမည်' : 'Password ပြမည်'}>{showOldPassword ? '🙈' : '👁️'}</button></div>
                   </div>
                   <div>
                     <label className="block text-xs font-bold text-gray-700 mb-1">Password အသစ် (New Password - အနည်းဆုံး ၆ လုံး)</label>
-                    <input type="password" value={newPasswordInput} onChange={(e) => setNewPasswordInput(e.target.value)} className="w-full border rounded-lg p-2.5 text-sm bg-white font-mono" required placeholder="••••••••" />
+                    <div className="relative"><input type={showNewPassword ? 'text' : 'password'} value={newPasswordInput} onChange={(e) => setNewPasswordInput(e.target.value)} className="w-full border rounded-lg p-2.5 pr-12 text-sm bg-white font-mono" required placeholder="••••••••" /><button type="button" onClick={() => setShowNewPassword((visible) => !visible)} className="absolute inset-y-0 right-0 px-3 text-gray-500 hover:text-emerald-700" aria-label={showNewPassword ? 'Password ဖုံးမည်' : 'Password ပြမည်'}>{showNewPassword ? '🙈' : '👁️'}</button></div>
                   </div>
                   <div className="flex items-center justify-between pt-2">
                     <button type="submit" className="bg-emerald-600 text-white px-4 py-2.5 rounded-lg text-xs font-bold hover:bg-emerald-700 transition">Password ပြောင်းမည်</button>
