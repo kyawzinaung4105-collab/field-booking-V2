@@ -2337,10 +2337,10 @@ export default function FieldBookingApp() {
           {authMode === 'login' ? (
             <form onSubmit={handleLogin} className="space-y-4">
               <div>
-                <label className="block text-xs font-bold text-gray-700 mb-1">Username သို့မဟုတ် Admin Email</label>
+                <label className="block text-xs font-bold text-gray-700 mb-1">Username သို့မဟုတ် Gmail Email</label>
                 <input 
                   type="text" 
-                  placeholder="admin@gmail.com သို့မဟုတ် ကိုယ့် Username" 
+                  placeholder="ဥပမာ - myname123 သို့မဟုတ် myo@gmail.com" 
                   autoComplete="username"
                   value={email} 
                   onChange={(e) => setEmail(e.target.value)} 
@@ -2349,11 +2349,11 @@ export default function FieldBookingApp() {
                 />
               </div>
               <div>
-                <label className="block text-xs font-bold text-gray-700 mb-1">Password</label>
+                <label className="block text-xs font-bold text-gray-700 mb-1">Password (ဂဏန်းသီးသန့်)</label>
                 <div className="relative">
                   <input 
                     type={showLoginPassword ? 'text' : 'password'} 
-                    placeholder="••••••" 
+                    placeholder="ဂဏန်းများသာ (ဥပမာ - 123456)" 
                     autoComplete="current-password"
                     value={password} 
                     onChange={(e) => setPassword(e.target.value)} 
