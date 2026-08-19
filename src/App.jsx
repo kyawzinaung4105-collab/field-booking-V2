@@ -623,21 +623,6 @@ export default function FieldBookingApp() {
   }, []);
 
   useEffect(() => {
-    const handlePageHide = () => {
-      // pagehide is fired when a tab/PWA page is closed or discarded. The
-      // browser-session persistence above also protects ordinary reloads.
-      signOut(auth).catch((error) => console.warn('Page-hide signout warning.', error));
-      setCurrentUser(null);
-      sessionStorage.removeItem('currentUser');
-      sessionStorage.removeItem('activeTab');
-      sessionStorage.removeItem('adminTab');
-      sessionStorage.removeItem('ownerActiveTab');
-    };
-    window.addEventListener('pagehide', handlePageHide);
-    return () => window.removeEventListener('pagehide', handlePageHide);
-  }, []);
-
-  useEffect(() => {
     if (!currentUser?.uid || !auth.currentUser) return undefined;
     let cancelled = false;
     let accountDocUnsubscribe = () => {};
