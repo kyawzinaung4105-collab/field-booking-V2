@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { initializeApp, getApps } from 'firebase/app';
 import { getFirestore } from 'firebase/firestore';
-import { getAuth } from 'firebase/auth';
+import { getAuth, setPersistence, browserSessionPersistence } from 'firebase/auth';
 
 const firebaseConfig = {
   apiKey: "AIzaSyCMuEbPcTT97j-WvNLAwcAX3nJr_-x1uFo",
@@ -17,6 +17,11 @@ const firebaseConfig = {
 const app = !getApps().length ? initializeApp(firebaseConfig) : getApps()[0];
 export const db = getFirestore(app);
 export const auth = getAuth(app);
+// Keep authentication only for the current browser tab/session. Closing the
+// tab or clearing the mobile page session will require Login again.
+setPersistence(auth, browserSessionPersistence).catch((error) => {
+  console.warn('Unable to set browser-session Auth persistence.', error);
+});
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged, updatePassword, sendPasswordResetEmail, EmailAuthProvider, reauthenticateWithCredential } from 'firebase/auth'; 
 import { collection, getDoc, getDocs, addDoc, updateDoc, deleteDoc, doc, setDoc, runTransaction, onSnapshot, query, where, limit, startAfter, orderBy, writeBatch } from 'firebase/firestore';
 
@@ -615,6 +620,21 @@ export default function FieldBookingApp() {
     });
 
     return () => unsubAuth();
+  }, []);
+
+  useEffect(() => {
+    const handlePageHide = () => {
+      // pagehide is fired when a tab/PWA page is closed or discarded. The
+      // browser-session persistence above also protects ordinary reloads.
+      signOut(auth).catch((error) => console.warn('Page-hide signout warning.', error));
+      setCurrentUser(null);
+      sessionStorage.removeItem('currentUser');
+      sessionStorage.removeItem('activeTab');
+      sessionStorage.removeItem('adminTab');
+      sessionStorage.removeItem('ownerActiveTab');
+    };
+    window.addEventListener('pagehide', handlePageHide);
+    return () => window.removeEventListener('pagehide', handlePageHide);
   }, []);
 
   useEffect(() => {
