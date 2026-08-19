@@ -1028,16 +1028,32 @@ export default function FieldBookingApp() {
         if (loginEmail === 'admin') {
           loginEmail = 'admin@gmail.com';
         } else {
-          let matchedUser = usersList.find(u => String(u.name || '').trim().toLowerCase() === loginEmail);
-          let matchedField = fields.find(f => String(f.name || '').trim().toLowerCase() === loginEmail || (f.ownerEmail && f.ownerEmail.split('@')[0].toLowerCase() === loginEmail));
+          const loginKey = rawInput.trim().toLowerCase();
+          let matchedUser = usersList.find(u => String(u.name || '').trim().toLowerCase() === loginKey || String(u.usernameKey || '').trim().toLowerCase() === loginKey);
+          let matchedField = fields.find(f => String(f.name || '').trim().toLowerCase() === loginKey || (f.ownerEmail && f.ownerEmail.split('@')[0].toLowerCase() === loginKey));
+          if (!matchedUser) {
+            const keyedUserSnapshot = await getDocs(query(collection(db, 'users'), where('usernameKey', '==', loginKey), limit(1)));
+            if (!keyedUserSnapshot.empty) matchedUser = keyedUserSnapshot.docs[0].data();
+          }
+          if (!matchedUser) {
+            const exactNameSnapshot = await getDocs(query(collection(db, 'users'), where('name', '==', rawInput.trim()), limit(1)));
+            if (!exactNameSnapshot.empty) matchedUser = exactNameSnapshot.docs[0].data();
+          }
           if (!matchedUser && !matchedField) {
+            // Legacy records may differ in capitalization and may use a real
+            // Firebase email such as myo@gmail.com. Read the small user/field
+            // catalogs once and resolve the actual stored email.
             const [userSnapshot, fieldSnapshot] = await Promise.all([
-              getDocs(query(collection(db, 'users'), where('name', '==', rawInput), limit(1))),
+              getDocs(collection(db, 'users')),
               getDocs(collection(db, 'fields'))
             ]);
-            if (!userSnapshot.empty) matchedUser = userSnapshot.docs[0].data();
+            if (!userSnapshot.empty) {
+              const userRecord = userSnapshot.docs
+                .map((snapshot) => ({ id: snapshot.id, ...snapshot.data() }))
+                .find((user) => String(user.name || '').trim().toLowerCase() === loginKey || String(user.usernameKey || '').trim().toLowerCase() === loginKey || String(user.email || '').split('@')[0].toLowerCase() === loginKey);
+              if (userRecord) matchedUser = userRecord;
+            }
             if (!fieldSnapshot.empty) {
-              const loginKey = rawInput.trim().toLowerCase();
               matchedField = fieldSnapshot.docs
                 .map((snapshot) => ({ id: snapshot.id, ...snapshot.data() }))
                 .find((field) => String(field.name || '').trim().toLowerCase() === loginKey || String(field.ownerEmail || '').split('@')[0].toLowerCase() === loginKey);
@@ -1092,16 +1108,18 @@ export default function FieldBookingApp() {
       return;
     }
 
-    const existing = usersList.find(u => u.name.toLowerCase() === signupName.trim().toLowerCase());
+    const usernameKey = signupName.trim().toLowerCase();
+    const existing = usersList.find(u => String(u.name || '').trim().toLowerCase() === usernameKey || String(u.usernameKey || '').trim().toLowerCase() === usernameKey);
     if (existing) {
       alert('ဤ Username ဖြင့် အကောင့်ရှိနှင့်ပြီးသား ဖြစ်ပါသည်။');
       return;
     }
 
-    const signupEmail = `${signupName.trim().toLowerCase()}_user@gmail.com`;
+    const signupEmail = `${usernameKey}_user@gmail.com`;
     const newUserObj = {
       email: signupEmail,
       name: signupName.trim(),
+      usernameKey,
       role: 'user'
     };
 
