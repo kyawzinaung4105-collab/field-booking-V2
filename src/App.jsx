@@ -1127,7 +1127,14 @@ export default function FieldBookingApp() {
       const userCredential = await createUserWithEmailAndPassword(auth, signupEmail, signupPassword);
       await setDoc(doc(db, "users", userCredential.user.uid), newUserObj);
       setUsersList(prev => [...prev, { id: userCredential.user.uid, ...newUserObj }]);
-      alert('အကောင့်ဖွင့်ခြင်း အောင်မြင်ပါသည်။ ကျေးဇူးပြု၍ Login ဝင်ပါ။');
+      // Firebase signs a newly-created account in automatically. Explicitly
+      // sign it out so Signup never opens the app without a deliberate Login.
+      await signOut(auth);
+      setCurrentUser(null);
+      sessionStorage.removeItem('currentUser');
+      setEmail(signupName.trim());
+      setPassword('');
+      alert('အကောင့်ဖွင့်ခြင်း အောင်မြင်ပါသည်။ ကျေးဇူးပြု၍ Login ပြန်ဝင်ပါ။');
       setAuthMode('login');
       setSignupName('');
       setSignupPassword('');
