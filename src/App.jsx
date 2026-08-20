@@ -748,10 +748,13 @@ export default function FieldBookingApp() {
     }
 
     if (currentUser.role === 'admin' || currentUser.role === 'owner') {
-      // Keep only a small unread badge listener always active. Full notification
-      // documents are fetched only while the Notifications page is open.
+      // Keep only a small unread badge listener for the current calendar month.
+      // The booking date may be in the future; createdAtTime is the notification date.
+      const now = new Date();
+      const calendarMonthStartTime = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
       const unreadBadgeQuery = query(
         collection(db, 'notifications'),
+        where('createdAtTime', '>=', calendarMonthStartTime),
         where('read', '==', false),
         orderBy('createdAtTime', 'desc'),
         limit(20)
@@ -777,10 +780,11 @@ export default function FieldBookingApp() {
     if (!isNotificationsPage) return undefined;
 
     let cancelled = false;
-    const currentYearStartTime = new Date(new Date().getFullYear(), 0, 1).getTime();
+    const now = new Date();
+    const calendarMonthStartTime = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
     const pageQuery = query(
       collection(db, 'notifications'),
-      where('createdAtTime', '>=', currentYearStartTime),
+      where('createdAtTime', '>=', calendarMonthStartTime),
       orderBy('createdAtTime', 'desc'),
       limit(NOTIFICATION_QUERY_LIMIT)
     );
