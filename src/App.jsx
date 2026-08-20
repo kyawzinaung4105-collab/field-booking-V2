@@ -3060,13 +3060,22 @@ export default function FieldBookingApp() {
               </button>
 
               {currentUser.role === 'user' && (
-                <button
-                  type="button"
-                  onClick={() => { setActiveTab('history'); setMobileHeaderMenuOpen(false); }}
-                  className={`flex w-full items-center gap-3 border-b border-slate-100 px-5 py-3.5 text-left text-sm font-bold transition ${activeTab === 'history' ? 'bg-[#fff0f3] text-[#c92f51] shadow-[inset_3px_0_0_#ff4f70]' : 'hover:bg-slate-800 active:bg-slate-700'}`}
-                >
-                  <span className="w-7 text-center text-xl">📋</span><span>Booking History</span>
-                </button>
+                <>
+                  <button
+                    type="button"
+                    onClick={() => { setActiveTab('history'); setMobileHeaderMenuOpen(false); }}
+                    className={`flex w-full items-center gap-3 border-b border-slate-100 px-5 py-3.5 text-left text-sm font-bold transition ${activeTab === 'history' ? 'bg-[#fff0f3] text-[#c92f51] shadow-[inset_3px_0_0_#ff4f70]' : 'hover:bg-slate-800 active:bg-slate-700'}`}
+                  >
+                    <span className="w-7 text-center text-xl">📋</span><span>Booking History</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setActiveTab('password'); setMobileHeaderMenuOpen(false); }}
+                    className={`flex w-full items-center gap-3 border-b border-slate-100 px-5 py-3.5 text-left text-sm font-bold transition ${activeTab === 'password' ? 'bg-[#fff0f3] text-[#c92f51] shadow-[inset_3px_0_0_#ff4f70]' : 'hover:bg-slate-800 active:bg-slate-700'}`}
+                  >
+                    <span className="w-7 text-center text-xl">🔒</span><span>Password ပြောင်းရန်</span>
+                  </button>
+                </>
               )}
 
               {currentUser.role === 'admin' && (
