@@ -375,7 +375,15 @@ export default function FieldBookingApp() {
   // `bookings` is reserved for the small real-time availability window only.
   // History and reports use bounded server queries below instead of loading every booking.
   const [historyBookings, setHistoryBookings] = useState([]);
-  const [historyDate, setHistoryDate] = useState('');
+  // History opens on today's local calendar date for every role. Users can still
+  // choose another date or press All Dates when they want older records.
+  const [historyDate, setHistoryDate] = useState(() => {
+    const today = new Date();
+    const yyyy = today.getFullYear();
+    const mm = String(today.getMonth() + 1).padStart(2, '0');
+    const dd = String(today.getDate()).padStart(2, '0');
+    return `${yyyy}-${mm}-${dd}`;
+  });
   const [historyPage, setHistoryPage] = useState(0);
   const [historyCursorStack, setHistoryCursorStack] = useState([]);
   const [historyHasMore, setHistoryHasMore] = useState(false);
@@ -3367,7 +3375,7 @@ export default function FieldBookingApp() {
                       </table>
                     </div>
                   ) : (
-                    <p className="p-8 text-center text-sm text-gray-500">ရွေးထားသောရက်တွင် Booking မရှိသေးပါ။</p>
+                      <p className="p-8 text-center text-sm text-gray-500">{historyDate ? `${historyDate} ရက်အတွက် Booking မရှိသေးပါ။ All Dates ကိုနှိပ်ပြီး အခြားရက်များကို ကြည့်နိုင်ပါသည်။` : 'Booking မှတ်တမ်း မရှိသေးပါ။'}</p>
                   )}
                 </div>
               </div>
@@ -3561,7 +3569,7 @@ export default function FieldBookingApp() {
                         })
                       ) : (
                         <tr>
-                          <td colSpan="10" className="text-center py-8 text-gray-500 text-sm">Booking များ မရှိသေးပါ။</td>
+                          <td colSpan="10" className="text-center py-8 text-gray-500 text-sm">{historyDate ? `${historyDate} ရက်အတွက် Booking မရှိသေးပါ။ All Dates ကိုနှိပ်ပြီး အခြားရက်များကို ကြည့်နိုင်ပါသည်။` : 'Booking မှတ်တမ်း မရှိသေးပါ။'}</td>
                         </tr>
                       )}
                     </tbody>
@@ -4177,7 +4185,7 @@ export default function FieldBookingApp() {
                       </table>
                     </div>
                   ) : (
-                    <p className="p-8 text-center text-sm text-gray-500">ရွေးထားသောရက်တွင် ကွင်းများအတွက် Booking မရှိသေးပါ။</p>
+                      <p className="p-8 text-center text-sm text-gray-500">{historyDate ? `${historyDate} ရက်အတွက် ကွင်းများ၏ Booking မရှိသေးပါ။ All Dates ကိုနှိပ်ပြီး အခြားရက်များကို ကြည့်နိုင်ပါသည်။` : 'Booking မှတ်တမ်း မရှိသေးပါ။'}</p>
                   )}
                 </div>
               </div>
@@ -4775,7 +4783,7 @@ export default function FieldBookingApp() {
                           })
                       ) : (
                         <tr>
-                          <td colSpan="11" className="text-center py-8 text-gray-500 text-sm">Booking များ မရှိသေးပါ။</td>
+                          <td colSpan="11" className="text-center py-8 text-gray-500 text-sm">{historyDate ? `${historyDate} ရက်အတွက် Booking မရှိသေးပါ။ All Dates ကိုနှိပ်ပြီး အခြားရက်များကို ကြည့်နိုင်ပါသည်။` : 'Booking မှတ်တမ်း မရှိသေးပါ။'}</td>
                         </tr>
                       )}
                     </tbody>
@@ -5336,7 +5344,7 @@ export default function FieldBookingApp() {
                           })
                       ) : (
                         <tr>
-                          <td colSpan="8" className="text-center py-8 text-gray-500 text-sm">သင်၏ Booking မှတ်တမ်းများ မရှိသေးပါ။</td>
+                          <td colSpan="8" className="text-center py-8 text-gray-500 text-sm">{historyDate ? `${historyDate} ရက်အတွက် သင်၏ Booking မှတ်တမ်း မရှိသေးပါ။ All Dates ကိုနှိပ်ပြီး အခြားရက်များကို ကြည့်နိုင်ပါသည်။` : 'သင်၏ Booking မှတ်တမ်း မရှိသေးပါ။'}</td>
                         </tr>
                       )}
                     </tbody>
