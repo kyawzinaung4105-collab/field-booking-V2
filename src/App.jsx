@@ -752,16 +752,24 @@ export default function FieldBookingApp() {
       // The booking date may be in the future; createdAtTime is the notification date.
       const now = new Date();
       const calendarMonthStartTime = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
+      // Keep the badge listener bounded to recent notifications. Filter `read`
+      // in memory instead of adding a second Firestore where-clause; this avoids
+      // a composite-index failure that otherwise resets the badge to zero.
       const unreadBadgeQuery = query(
         collection(db, 'notifications'),
         where('createdAtTime', '>=', calendarMonthStartTime),
-        where('read', '==', false),
         orderBy('createdAtTime', 'desc'),
-        limit(20)
+        limit(50)
       );
       unsubBadge = onSnapshot(unreadBadgeQuery, (snapshot) => {
-        setNotificationUnreadCount(snapshot.size);
-      }, () => setNotificationUnreadCount(0));
+        const unreadCount = snapshot.docs.reduce((count, notificationDoc) => {
+          return count + (notificationDoc.data()?.read === false ? 1 : 0);
+        }, 0);
+        setNotificationUnreadCount(unreadCount);
+      }, (error) => {
+        console.error('Unable to subscribe to notification badge:', error);
+        setNotificationUnreadCount(0);
+      });
     }
 
     return () => {
