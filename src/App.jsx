@@ -73,6 +73,8 @@ const generateSingleTimeSlots = (openHour, closeHour, includeClosingTime = false
 const HISTORY_PAGE_SIZE = 20;
 const NOTIFICATION_PAGE_SIZE = 20;
 const NOTIFICATION_QUERY_LIMIT = 100;
+const FIELD_CACHE_STORAGE_KEY = 'fieldBookingFieldsCache';
+const FIELD_CACHE_TTL_MS = 60 * 1000;
 const REMEMBERED_LOGIN_STORAGE_KEY = 'fieldBookingRememberedLogin';
 
 const deleteRefsInBatches = async (refs, batchSize = 450) => {
@@ -381,6 +383,7 @@ export default function FieldBookingApp() {
   const [historyRefreshToken, setHistoryRefreshToken] = useState(0);
   const [reportBookings, setReportBookings] = useState([]);
   const [smsNotifications, setSmsNotifications] = useState([]);
+  const [notificationUnreadCount, setNotificationUnreadCount] = useState(0);
   const [notificationPage, setNotificationPage] = useState(0);
   const [showNotiDropdown, setShowNotiDropdown] = useState(false);
 
@@ -694,80 +697,109 @@ export default function FieldBookingApp() {
       setUsersList(defaultUsers);
       setFields([]);
       setSmsNotifications([]);
+      setNotificationUnreadCount(0);
       return undefined;
     }
 
     let unsubUsers = () => {};
+    let unsubFields = () => {};
+    let unsubBadge = () => {};
+
     if (currentUser.role === 'admin') {
       unsubUsers = onSnapshot(collection(db, "users"), (snapshot) => {
         setUsersList(snapshot.docs.map(d => ({ id: d.id, ...d.data() })));
       });
+      unsubFields = onSnapshot(collection(db, "fields"), (snapshot) => {
+        if (!snapshot.empty) {
+          const nextFields = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+          setFields(nextFields);
+          try { sessionStorage.setItem(FIELD_CACHE_STORAGE_KEY, JSON.stringify({ savedAt: Date.now(), fields: nextFields })); } catch {}
+        } else {
+          // Seed defaults once with one commit, preserving the existing data.
+          const seedBatch = writeBatch(db);
+          defaultFields.forEach((f) => seedBatch.set(doc(db, "fields", f.id), f));
+          seedBatch.commit().catch((error) => console.error('Unable to seed default fields:', error));
+        }
+      });
+    } else if (currentUser.role === 'owner') {
+      // Owner needs real-time status/field updates, but only for owned fields.
+      const ownerFieldQuery = query(collection(db, 'fields'), where('ownerEmail', '==', currentUser.email));
+      unsubFields = onSnapshot(ownerFieldQuery, (snapshot) => {
+        const nextFields = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+        setFields(nextFields);
+        try { sessionStorage.setItem(FIELD_CACHE_STORAGE_KEY, JSON.stringify({ savedAt: Date.now(), fields: nextFields })); } catch {}
+      });
     } else {
       setUsersList(defaultUsers);
+      let cachedFields = null;
+      try {
+        const cached = JSON.parse(sessionStorage.getItem(FIELD_CACHE_STORAGE_KEY) || 'null');
+        if (cached && Date.now() - Number(cached.savedAt) < FIELD_CACHE_TTL_MS && Array.isArray(cached.fields)) cachedFields = cached.fields;
+      } catch {}
+      if (cachedFields) {
+        setFields(cachedFields);
+      } else {
+        getDocs(collection(db, 'fields')).then((snapshot) => {
+          const nextFields = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+          setFields(nextFields);
+          try { sessionStorage.setItem(FIELD_CACHE_STORAGE_KEY, JSON.stringify({ savedAt: Date.now(), fields: nextFields })); } catch {}
+        }).catch((error) => console.error('Unable to load cached fields:', error));
+      }
     }
 
-    const unsubFields = onSnapshot(collection(db, "fields"), (snapshot) => {
-      if (!snapshot.empty) {
-        setFields(snapshot.docs.map(d => ({ id: d.id, ...d.data() })));
-      } else if (currentUser.role === 'admin') {
-        // Seed defaults once with one commit. This preserves every document but
-        // avoids one network round-trip per default field.
-        const seedBatch = writeBatch(db);
-        defaultFields.forEach((f) => seedBatch.set(doc(db, "fields", f.id), f));
-        seedBatch.commit().catch((error) => {
-          console.error('Unable to seed default fields:', error);
-        });
-      }
-    });
+    if (currentUser.role === 'admin' || currentUser.role === 'owner') {
+      // Keep only a small unread badge listener always active. Full notification
+      // documents are fetched only while the Notifications page is open.
+      const unreadBadgeQuery = query(
+        collection(db, 'notifications'),
+        where('read', '==', false),
+        orderBy('createdAtTime', 'desc'),
+        limit(20)
+      );
+      unsubBadge = onSnapshot(unreadBadgeQuery, (snapshot) => {
+        setNotificationUnreadCount(snapshot.size);
+      }, () => setNotificationUnreadCount(0));
+    }
 
+    return () => {
+      unsubUsers();
+      unsubFields();
+      unsubBadge();
+    };
+  }, [currentUser?.uid, currentUser?.role, currentUser?.email]);
+
+  useEffect(() => {
+    const isNotificationsPage = currentUser?.role === 'admin'
+      ? activeTab === 'dashboard' && adminTab === 'notifications_page'
+      : currentUser?.role === 'owner'
+        ? activeTab === 'owner_manage' && ownerActiveTab === 'notifications_page'
+        : false;
+    if (!isNotificationsPage) return undefined;
+
+    let cancelled = false;
     const currentYearStartTime = new Date(new Date().getFullYear(), 0, 1).getTime();
-    const recentNotificationsQuery = query(
+    const pageQuery = query(
       collection(db, 'notifications'),
       where('createdAtTime', '>=', currentYearStartTime),
       orderBy('createdAtTime', 'desc'),
       limit(NOTIFICATION_QUERY_LIMIT)
     );
-    const unsubNoti = onSnapshot(recentNotificationsQuery, (snapshot) => {
+    getDocs(pageQuery).then((snapshot) => {
+      if (cancelled) return;
       const rawNotis = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
       const seen = new Set();
-      const uniqueNotis = rawNotis.filter(n => {
-        const key = [
-          n.bookingId || '',
-          n.type || '',
-          n.subType || '',
-          n.fieldId || '',
-          n.date || '',
-          n.time || '',
-          n.message || ''
-        ].join('|');
+      const uniqueNotis = rawNotis.filter((n) => {
+        const key = [n.bookingId || '', n.type || '', n.subType || '', n.fieldId || '', n.date || '', n.time || '', n.message || ''].join('|');
         if (seen.has(key)) return false;
         seen.add(key);
         return true;
       });
-      const getNotificationTime = (notification) => {
-        if (typeof notification.createdAtTime === 'number' && Number.isFinite(notification.createdAtTime)) {
-          return notification.createdAtTime;
-        }
-        if (notification.createdAt?.toMillis) return notification.createdAt.toMillis();
-        if (notification.createdAt?.seconds) return notification.createdAt.seconds * 1000;
-        const parsed = new Date(`${notification.date || ''} ${notification.time || ''}`).getTime();
-        return Number.isFinite(parsed) ? parsed : 0;
-      };
-      const sortedNotis = [...uniqueNotis].sort((a, b) => {
-        const timeDifference = getNotificationTime(b) - getNotificationTime(a);
-        return timeDifference !== 0
-          ? timeDifference
-          : String(b.id || '').localeCompare(String(a.id || ''));
-      });
-      setSmsNotifications(sortedNotis);
-    });
-
-    return () => {
-      unsubUsers();
-      unsubFields();
-      unsubNoti();
-    };
-  }, [currentUser?.uid, currentUser?.role]);
+      uniqueNotis.sort((a, b) => Number(b.createdAtTime || 0) - Number(a.createdAtTime || 0));
+      setSmsNotifications(uniqueNotis);
+      setNotificationPage(0);
+    }).catch((error) => console.error('Unable to load notification page:', error));
+    return () => { cancelled = true; };
+  }, [currentUser?.role, activeTab, adminTab, ownerActiveTab]);
 
   // Availability only needs bookings for the selected field and selected date.
   // This keeps the real-time listener bounded even when the historical collection is large.
@@ -908,9 +940,10 @@ export default function FieldBookingApp() {
     let cancelled = false;
 
     const loadHistoryPage = async () => {
-      if (!currentUser) {
+      if (!currentUser || !historyDate) {
         setHistoryBookings([]);
         setHistoryHasMore(false);
+        setHistoryCursorStack([]);
         return;
       }
 
@@ -2971,9 +3004,9 @@ export default function FieldBookingApp() {
                   aria-label="Notifications"
                 >
                   🔔
-                  {smsNotifications.filter(n => !n.read).length > 0 && (
+                  {notificationUnreadCount > 0 && (
                     <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] rounded-full h-4 w-4 flex items-center justify-center font-bold">
-                      {smsNotifications.filter(n => !n.read).length}
+                      {notificationUnreadCount}
                     </span>
                   )}
                 </button>
