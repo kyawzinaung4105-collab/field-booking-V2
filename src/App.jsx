@@ -973,112 +973,108 @@ export default function FieldBookingApp() {
   useEffect(() => {
     const requestId = ++historyRequestRef.current;
     let cancelled = false;
+    let unsubscribeHistory = () => {};
+    const isHistoryPageOpen = currentUser?.role === 'admin'
+      ? activeTab === 'dashboard' && adminTab === 'pending'
+      : currentUser?.role === 'owner'
+        ? activeTab === 'owner_manage' && ownerActiveTab === 'history'
+        : currentUser?.role === 'user'
+          ? activeTab === 'history'
+          : false;
 
-    const loadHistoryPage = async () => {
-      if (!currentUser || !historyDate) {
+    if (!currentUser || !isHistoryPageOpen) {
+      setHistoryBookings([]);
+      setHistoryHasMore(false);
+      setHistoryCursorStack([]);
+      return undefined;
+    }
+
+    const constraints = [];
+    if (currentUser.role === 'user') {
+      if (currentUser.uid && currentUser.uid !== 'admin') {
+        constraints.push(where('userUid', '==', currentUser.uid));
+      } else {
+        constraints.push(where('userEmail', '==', currentUser.email));
+      }
+    } else if (currentUser.role === 'owner') {
+      if (ownerFieldQueryIds.length === 0) {
         setHistoryBookings([]);
         setHistoryHasMore(false);
-        setHistoryCursorStack([]);
-        return;
+        return undefined;
       }
+      constraints.push(where('fieldId', 'in', ownerFieldQueryIds));
+    }
+    if (historyDate) constraints.push(where('date', '==', historyDate));
 
-      const constraints = [];
-      if (currentUser.role === 'user') {
-        if (currentUser.uid && currentUser.uid !== 'admin') {
-          constraints.push(where('userUid', '==', currentUser.uid));
-        } else {
-          constraints.push(where('userEmail', '==', currentUser.email));
-        }
-      } else if (currentUser.role === 'owner') {
-        if (ownerFieldQueryIds.length === 0) {
-          setHistoryBookings([]);
-          setHistoryHasMore(false);
-          return;
-        }
-        constraints.push(where('fieldId', 'in', ownerFieldQueryIds));
+    const cursor = historyPage > 0 ? historyCursorStack[historyPage - 1] : null;
+    const orderedConstraints = [...constraints, orderBy('createdAtTime', 'desc')];
+    if (cursor) orderedConstraints.push(startAfter(cursor));
+    orderedConstraints.push(limit(HISTORY_PAGE_SIZE));
+
+    setHistoryLoading(true);
+    const handleHistorySnapshot = (snapshot, usedLegacyUserFilter = false) => {
+      if (cancelled || requestId !== historyRequestRef.current) return;
+      const records = sortBookingRecords(dedupeBookingRecords(
+        snapshot.docs.map(d => ({ id: d.id, ...d.data() }))
+      ));
+      setHistoryBookings(records);
+      setHistoryHasMore(!usedLegacyUserFilter && snapshot.docs.length === HISTORY_PAGE_SIZE);
+      if (!usedLegacyUserFilter && snapshot.docs.length > 0) {
+        setHistoryCursorStack((previous) => {
+          const next = [...previous];
+          next[historyPage] = snapshot.docs[snapshot.docs.length - 1];
+          return next;
+        });
       }
-      if (historyDate) constraints.push(where('date', '==', historyDate));
-
-      const cursor = historyPage > 0 ? historyCursorStack[historyPage - 1] : null;
-      const orderedConstraints = [...constraints, orderBy('createdAtTime', 'desc')];
-      if (cursor) orderedConstraints.push(startAfter(cursor));
-      orderedConstraints.push(limit(HISTORY_PAGE_SIZE));
-
-      setHistoryLoading(true);
-      try {
-        let snapshot;
-        let usedLegacyUserFilter = false;
-
-        try {
-          snapshot = await getDocs(query(collection(db, 'bookings'), ...orderedConstraints));
-          // Some older bookings were written with userName but without the exact
-          // userEmail value used by the current login record. Keep User History
-          // compatible with those records without changing the Owner query.
-          if (currentUser.role === 'user' && snapshot.empty && currentUser.name) {
-            const legacyUserConstraints = [where('userName', '==', currentUser.name)];
-            if (historyDate) legacyUserConstraints.push(where('date', '==', historyDate));
-            legacyUserConstraints.push(limit(HISTORY_PAGE_SIZE));
-            const legacyUserSnapshot = await getDocs(query(
-              collection(db, 'bookings'),
-              ...legacyUserConstraints
-            ));
-            if (!legacyUserSnapshot.empty) {
-              snapshot = legacyUserSnapshot;
-              usedLegacyUserFilter = true;
-            }
-          }
-        } catch (primaryError) {
-          // A missing composite index or a legacy booking without createdAtTime must not
-          // make the History page look empty. Retry with equality filters only. Keep the
-          // fallback bounded so a large Owner collection cannot create an unbounded read.
-          console.warn('Ordered history query failed; using compatibility fallback.', primaryError);
-          const fallbackConstraints = [...constraints, limit(HISTORY_PAGE_SIZE)];
-          let fallbackSnapshot = await getDocs(query(collection(db, 'bookings'), ...fallbackConstraints));
-          if (fallbackSnapshot.empty && currentUser.role === 'user' && currentUser.name) {
-            const legacyUserConstraints = [where('userName', '==', currentUser.name)];
-            if (historyDate) legacyUserConstraints.push(where('date', '==', historyDate));
-            legacyUserConstraints.push(limit(HISTORY_PAGE_SIZE));
-            fallbackSnapshot = await getDocs(query(
-              collection(db, 'bookings'),
-              ...legacyUserConstraints
-            ));
-          }
-          const fallbackRecords = sortBookingRecords(dedupeBookingRecords(
-            fallbackSnapshot.docs.map(d => ({ id: d.id, ...d.data() }))
-          ));
-          if (cancelled || requestId !== historyRequestRef.current) return;
-          setHistoryBookings(fallbackRecords);
-          setHistoryHasMore(false);
-          setHistoryCursorStack([]);
-          return;
-        }
-
-        if (cancelled || requestId !== historyRequestRef.current) return;
-
-        const records = sortBookingRecords(dedupeBookingRecords(snapshot.docs.map(d => ({ id: d.id, ...d.data() }))));
-        setHistoryBookings(records);
-        setHistoryHasMore(!usedLegacyUserFilter && snapshot.docs.length === HISTORY_PAGE_SIZE);
-        if (!usedLegacyUserFilter && snapshot.docs.length > 0) {
-          setHistoryCursorStack((previous) => {
-            const next = [...previous];
-            next[historyPage] = snapshot.docs[snapshot.docs.length - 1];
-            return next;
-          });
-        }
-      } catch (error) {
-        if (!cancelled && requestId === historyRequestRef.current) {
-          console.error('History query error:', error);
-          setHistoryBookings([]);
-          setHistoryHasMore(false);
-        }
-      } finally {
-        if (!cancelled && requestId === historyRequestRef.current) setHistoryLoading(false);
-      }
+      setHistoryLoading(false);
     };
 
-    loadHistoryPage();
-    return () => { cancelled = true; };
-  }, [currentUser?.role, currentUser?.email, historyDate, historyPage, historyRefreshToken, ownerFieldQueryIds.join('|')]);
+    const historyQuery = query(collection(db, 'bookings'), ...orderedConstraints);
+    unsubscribeHistory = onSnapshot(historyQuery, async (snapshot) => {
+      // This listener exists only while a History page is open. A new Booking
+      // matching the selected role/date is pushed into the page without reload.
+      if (currentUser.role === 'user' && snapshot.empty && currentUser.name) {
+        const legacyUserConstraints = [where('userName', '==', currentUser.name)];
+        if (historyDate) legacyUserConstraints.push(where('date', '==', historyDate));
+        legacyUserConstraints.push(limit(HISTORY_PAGE_SIZE));
+        const legacyUserSnapshot = await getDocs(query(collection(db, 'bookings'), ...legacyUserConstraints));
+        if (!legacyUserSnapshot.empty) {
+          handleHistorySnapshot(legacyUserSnapshot, true);
+          return;
+        }
+      }
+      handleHistorySnapshot(snapshot);
+    }, async (primaryError) => {
+      // Compatibility fallback for projects without the composite index or
+      // legacy records missing createdAtTime. It remains bounded and one-shot.
+      console.warn('Live History listener failed; using compatibility fallback.', primaryError);
+      try {
+        const fallbackConstraints = [...constraints, limit(HISTORY_PAGE_SIZE)];
+        let fallbackSnapshot = await getDocs(query(collection(db, 'bookings'), ...fallbackConstraints));
+        if (fallbackSnapshot.empty && currentUser.role === 'user' && currentUser.name) {
+          const legacyUserConstraints = [where('userName', '==', currentUser.name)];
+          if (historyDate) legacyUserConstraints.push(where('date', '==', historyDate));
+          legacyUserConstraints.push(limit(HISTORY_PAGE_SIZE));
+          fallbackSnapshot = await getDocs(query(collection(db, 'bookings'), ...legacyUserConstraints));
+        }
+        if (!cancelled && requestId === historyRequestRef.current) {
+          handleHistorySnapshot(fallbackSnapshot, true);
+        }
+      } catch (fallbackError) {
+        if (!cancelled && requestId === historyRequestRef.current) {
+          console.error('History fallback query error:', fallbackError);
+          setHistoryBookings([]);
+          setHistoryHasMore(false);
+          setHistoryLoading(false);
+        }
+      }
+    });
+
+    return () => {
+      cancelled = true;
+      unsubscribeHistory();
+    };
+  }, [currentUser?.role, currentUser?.email, currentUser?.uid, currentUser?.name, activeTab, adminTab, ownerActiveTab, historyDate, historyPage, historyRefreshToken, ownerFieldQueryIds.join('|')]);
 
   useEffect(() => {
     const loadReport = async () => {
