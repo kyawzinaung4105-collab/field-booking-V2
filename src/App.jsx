@@ -796,7 +796,7 @@ export default function FieldBookingApp() {
       orderBy('createdAtTime', 'desc'),
       limit(NOTIFICATION_QUERY_LIMIT)
     );
-    getDocs(pageQuery).then((snapshot) => {
+    getDocs(pageQuery).then(async (snapshot) => {
       if (cancelled) return;
       const rawNotis = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
       const seen = new Set();
@@ -807,7 +807,22 @@ export default function FieldBookingApp() {
         return true;
       });
       uniqueNotis.sort((a, b) => Number(b.createdAtTime || 0) - Number(a.createdAtTime || 0));
-      setSmsNotifications(uniqueNotis);
+
+      // Opening Notifications & Filter means the loaded notifications have been
+      // viewed. Mark them together, so the header badge clears without requiring
+      // the bell dropdown to be opened. This remains one bounded batch write.
+      const unreadPageNotis = uniqueNotis.filter((notification) => notification.read === false);
+      if (unreadPageNotis.length > 0) {
+        setSmsNotifications(uniqueNotis.map((notification) => ({ ...notification, read: true })));
+        setNotificationUnreadCount(0);
+        const batch = writeBatch(db);
+        unreadPageNotis.forEach((notification) => {
+          batch.update(doc(db, 'notifications', notification.id), { read: true });
+        });
+        await batch.commit();
+      } else {
+        setSmsNotifications(uniqueNotis);
+      }
       setNotificationPage(0);
     }).catch((error) => console.error('Unable to load notification page:', error));
     return () => { cancelled = true; };
